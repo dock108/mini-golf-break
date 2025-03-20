@@ -1,0 +1,10 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+- Gameplay interactions will use a "drag-to-charge" input mechanic for shots (think pool cue pulling).
+- Clearly separate game logic (shot counting, scoring, turn management) from rendering/physics code.
+- Implement clear, reusable functions for handling input, game state updates, and UI interactions.
+- Structure code clearly for future addition of new obstacles, holes, and gameplay features.
+- Always anticipate simplicity for quick play sessions by busy adults.
