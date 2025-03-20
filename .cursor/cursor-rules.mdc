@@ -1,0 +1,63 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Base Project Details
+
+- Use plain JavaScript (ES6 modules) without frameworks.
+- Prioritize clarity and simplicity. 
+- Keep performance in mind (offline-first, mobile-friendly).
+- Clearly comment and structure code into readable, modular files.
+- The game should run 100% offline with no server-side components.
+
+# AI Cursor Rules
+
+## Task Consistency
+- Follow clear, bounded, and explicit instructions precisely.
+- Only modify the specified scope of the task (e.g., "only modify function X to achieve Y").
+- Break complex tasks into smaller, incremental sub-tasks.
+- Restrict edits to specific code segments rather than entire files to avoid unintended changes.
+
+## Modularity
+- Produce modular and encapsulated code and documentation.
+- Structure your solutions into independent components (functions, classes).
+- Ensure each component has a clear purpose and defined interface.
+- Reuse existing components or design patterns already present in the project whenever possible.
+
+## Documentation Referencing
+- Reference and incorporate provided project documentation, README, and style guides.
+- Update documentation alongside any code changes you make.
+- Follow clear documentation structure (headings, bullet points, examples).
+- Clearly document design rationale, constraints, and previous changes for context.
+
+## Changelog Management
+- Log all your changes clearly and concisely.
+- Adhere to standard changelog conventions (semantic versioning, Keep a Changelog).
+- Provide a brief, human-readable summary of changes for each modification.
+- Include links to related issues or tickets when applicable.
+
+## Verification & User Interaction
+- Proactively ask for clarification using yes/no or short-answer prompts when instructions are ambiguous.
+- Seek explicit user approval before finalizing significant actions or assumptions.
+
+## Testing and Code Coverage
+- Create comprehensive test cases for all the code you write.
+- Aim for 100% test coverage on newly created or modified code.
+- Continuously develop and update tests alongside iterative code changes.
+- Integrate your generated tests into existing automated test suites.
+
+## Logging and Comments
+- Generate detailed, informative logs for all critical operations and decisions.
+- Provide extensive inline commenting in your code to clearly explain logic and decisions.
+- Clearly describe assumptions, edge cases, and potential future enhancements within comments.
+- Structure logs meaningfully to facilitate debugging and monitoring.
+
+## General Best Practices
+- Strictly follow project-specific coding standards (naming, formatting, architecture).
+- Always generate code that is thoroughly reviewable and testable.
+- Clearly explain your reasoning and comment on any non-obvious decisions.
+- Act as a collaborative team member—continuously iterate based on user feedback and communicate clearly.
+
+
+

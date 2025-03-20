@@ -1,0 +1,184 @@
+import * as CANNON from 'cannon-es';
+
+export class PhysicsWorld {
+    constructor() {
+        // Create the Cannon.js world with more iterations for stability
+        this.world = new CANNON.World();
+        this.world.gravity.set(0, -9.81, 0); // Earth gravity
+        
+        // Increase solver iterations for better stability
+        this.world.solver.iterations = 20;
+        this.world.solver.tolerance = 0.001;
+        
+        // Use SAPBroadphase for better performance with many objects
+        this.world.broadphase = new CANNON.SAPBroadphase(this.world);
+        
+        // Allow sleeping bodies for better performance
+        this.world.allowSleep = true;
+        
+        // Set default material properties
+        this.defaultMaterial = new CANNON.Material('default');
+        this.groundMaterial = new CANNON.Material('ground');
+        this.ballMaterial = new CANNON.Material('ball');
+        this.waterMaterial = new CANNON.Material('water');
+        this.sandMaterial = new CANNON.Material('sand');
+        this.bumperMaterial = new CANNON.Material('bumper'); // New material for obstacles
+        
+        // Create contact materials
+        this.createContactMaterials();
+        
+        // Set the timestep (fixed at 60fps)
+        this.fixedTimeStep = 1.0 / 60.0;
+        this.maxSubSteps = 5; // Increase substeps for better accuracy
+        
+        // Last time used for calculating elapsed time
+        this.lastCallTime = performance.now() / 1000;
+        
+        console.log("Physics world initialized");
+    }
+    
+    createContactMaterials() {
+        // Set up contact between ball and ground (normal green)
+        const ballGroundContact = new CANNON.ContactMaterial(
+            this.ballMaterial,
+            this.groundMaterial,
+            {
+                friction: 0.4,          // Slightly reduced for smoother rolling
+                restitution: 0.1,       // Reduced bounce to keep ball on surface
+                contactEquationStiffness: 1e7,
+                contactEquationRelaxation: 3,
+                frictionEquationStiffness: 1e7,
+                frictionEquationRelaxation: 2
+            }
+        );
+        this.world.addContactMaterial(ballGroundContact);
+        
+        // Set up contact between ball and bumpers (obstacles)
+        const ballBumperContact = new CANNON.ContactMaterial(
+            this.ballMaterial,
+            this.bumperMaterial,
+            {
+                friction: 0.1,          // Even lower friction for better sliding along bumpers
+                restitution: 0.8,       // Higher restitution for lively bouncing
+                contactEquationStiffness: 1e8, // Higher stiffness for crisp rebounds
+                contactEquationRelaxation: 3,
+                frictionEquationStiffness: 1e7,
+                frictionEquationRelaxation: 2
+            }
+        );
+        this.world.addContactMaterial(ballBumperContact);
+        
+        // Set up contact between ball and sand - extremely high friction to make it very difficult
+        const ballSandContact = new CANNON.ContactMaterial(
+            this.ballMaterial,
+            this.sandMaterial,
+            {
+                friction: 2.0,           // Dramatically increased friction (double normal)
+                restitution: 0.01,       // Almost no bounce in sand
+                contactEquationStiffness: 1e6,
+                contactEquationRelaxation: 10,
+                frictionEquationStiffness: 1e7,
+                frictionEquationRelaxation: 20   // Increased relaxation for "sinking" feel
+            }
+        );
+        this.world.addContactMaterial(ballSandContact);
+        
+        // Default contact material for everything else
+        this.world.defaultContactMaterial.friction = 0.4;
+        this.world.defaultContactMaterial.restitution = 0.1;
+    }
+    
+    update() {
+        const time = performance.now() / 1000;
+        let dt = time - this.lastCallTime;
+        
+        // Cap the delta time to prevent large jumps
+        if (dt > 0.1) dt = 0.1;
+        
+        this.lastCallTime = time;
+        
+        // Step the physics world
+        this.world.step(this.fixedTimeStep, dt, this.maxSubSteps);
+    }
+    
+    addBody(body) {
+        this.world.addBody(body);
+    }
+    
+    removeBody(body) {
+        this.world.removeBody(body);
+    }
+    
+    // Helper to create a plane body for ground
+    createGroundBody(material = this.groundMaterial) {
+        const groundBody = new CANNON.Body({
+            type: CANNON.Body.STATIC,
+            material: material
+        });
+        
+        // Add a plane shape - this is infinite in size
+        const planeShape = new CANNON.Plane();
+        groundBody.addShape(planeShape);
+        
+        // Rotate to be flat on XZ plane
+        groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+        
+        return groundBody;
+    }
+    
+    // Helper to create a box body
+    createBoxBody(size, position, material = this.defaultMaterial, mass = 0) {
+        const boxBody = new CANNON.Body({
+            mass: mass,
+            material: material,
+            position: new CANNON.Vec3(position.x, position.y, position.z)
+        });
+        
+        // Add a box shape
+        const boxShape = new CANNON.Box(new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2));
+        boxBody.addShape(boxShape);
+        
+        return boxBody;
+    }
+    
+    // Helper to create a sphere body
+    createSphereBody(radius, position, material = this.ballMaterial, mass = 1) {
+        const sphereBody = new CANNON.Body({
+            mass: mass,
+            material: material,
+            position: new CANNON.Vec3(position.x, position.y, position.z),
+            linearDamping: 0.6, // Updated to match Ball.js
+            angularDamping: 0.6, // Updated to match Ball.js
+            allowSleep: true, // Let body sleep when stopped
+            sleepSpeedLimit: 0.03, // Lower threshold to sleep sooner
+            sleepTimeLimit: 0.5 // Sleep more quickly
+        });
+        
+        // Add a sphere shape
+        const sphereShape = new CANNON.Sphere(radius);
+        sphereBody.addShape(sphereShape);
+        
+        // Set initial velocity to zero
+        sphereBody.velocity.set(0, 0, 0);
+        sphereBody.angularVelocity.set(0, 0, 0);
+        
+        // Make sure the body is awake to start with
+        sphereBody.wakeUp();
+        
+        return sphereBody;
+    }
+    
+    // Helper to create a cylinder body (for holes)
+    createCylinderBody(radius, height, position, material = this.defaultMaterial, mass = 0) {
+        // Fix the cylinder orientation to match our hole geometry
+        const cylinderBody = new CANNON.Body({
+            mass: mass,
+            shape: new CANNON.Cylinder(radius, radius, height, 16),
+            material: material,
+            position: new CANNON.Vec3(position.x, position.y, position.z),
+            collisionResponse: false // Doesn't physically interact but can detect collisions
+        });
+        // No rotation needed as the cylinder should be vertical
+        return cylinderBody;
+    }
+} 

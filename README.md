@@ -1,1 +1,90 @@
-# mini-golf-break
+# Mini Golf Break
+
+A fun, casual offline mini-golf experience built for grown-up PS2-era kids looking to unwind without chaos or multiplayer madness.
+
+## Features
+- **Quick Gameplay Sessions**: Designed specifically for short, relaxing rounds lasting just 2-5 minutes—perfect for busy schedules or quick breaks.
+- **Drag-and-Release Controls**: Simple, intuitive controls that mimic pulling back and releasing a pool cue, making gameplay accessible and enjoyable.
+- **Offline First**: Fully playable offline, ensuring you can enjoy a relaxing round of mini-golf anywhere, anytime—no internet required.
+- **Realistic Physics**: Powered by Cannon-es physics engine for realistic ball movement, collisions, and interactions with obstacles.
+- **Minimalist Design**: Clean, distraction-free visuals that focus on gameplay rather than flashy graphics.
+- **Debug Mode**: Press 'd' during gameplay to toggle debug mode, showing physics bodies and additional information.
+
+## Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/mini-golf-break.git
+
+# Navigate to the project directory
+cd mini-golf-break
+
+# Install dependencies
+npm install
+
+# Start the development server
+npm start
+```
+
+## Gameplay Instructions
+
+- **Controls**: Click and drag backwards from the ball to set direction and power, then release to hit.
+- **Power Indicator**: A visual bar shows the strength of your shot based on how far you drag.
+- **Camera**: Use right-click drag to rotate the camera around the ball, scroll to zoom in/out.
+- **Objective**: Get the ball into the hole with as few strokes as possible.
+- **Hazards**: Avoid water (blue areas) which will reset your ball with a penalty stroke.
+- **Scoring**: Your score is tracked in the top-right corner - lower is better!
+
+## Development Status
+
+This project is currently in active development. The current version features:
+
+- A playable course with four holes
+- Physics-based ball movement and collision
+- Drag-and-release controls with power indication
+- Visual aim guides when preparing shots
+- Water hazard detection with penalty system
+- Score tracking
+- Camera that follows the ball during motion
+
+Check the [CHANGELOG.md](./CHANGELOG.md) for detailed development history and the [PROJECT_CHECKLIST.md](./PROJECT_CHECKLIST.md) for current progress and upcoming features.
+
+## Project Structure
+
+```
+mini-golf-break/
+├── src/                      # Source code for the game
+│   ├── controls/             # Input handling
+│   ├── objects/              # Game objects (ball, course)
+│   ├── physics/              # Physics engine integration
+│   ├── scenes/               # Game scene management
+│   └── utils/                # Utility functions
+├── public/                   # Static assets and bundled output
+├── docs/                     # Documentation
+└── assets/                   # Game assets (textures, models)
+```
+
+## Built With
+- [Three.js](https://threejs.org/) - 3D rendering
+- [Cannon-es](https://github.com/pmndrs/cannon-es) - Physics simulation
+- [Webpack](https://webpack.js.org/) - Module bundling
+
+## Roadmap
+- Enhanced visual feedback for successful shots
+- Sound effects for ball interactions
+- Additional course layouts and obstacles
+- Mobile touch controls optimization
+- Game completion flow and statistics
+
+## Contributing
+
+Contributions are welcome! Please check the [PROJECT_CHECKLIST.md](./PROJECT_CHECKLIST.md) for areas that need attention.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+- Three.js community for excellent documentation and examples
+- Cannon-es physics engine contributors
+- All early testers who provided valuable feedback

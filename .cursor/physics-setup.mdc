@@ -1,0 +1,10 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+- Use Cannon-es for all physics simulations.
+- Clearly define physics world settings (gravity, friction, restitution).
+- Ensure physics and rendering update loops are synchronized.
+- Always use simple collision shapes (spheres, boxes, cylinders, heightfields) for maximum performance.
+- Clearly comment and document any physics-based functions (e.g., impulse application, collision responses).
