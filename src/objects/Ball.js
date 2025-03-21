@@ -49,21 +49,21 @@ export class Ball {
     createBody() {
         // Create physics body for the ball
         this.body = new CANNON.Body({
-            mass: 0.5, // 0.5 kg
-            position: new CANNON.Vec3(0, 0.5, 0), // Start slightly above ground
+            mass: 0.45,
+            position: new CANNON.Vec3(0, 0.5, 0),
             shape: new CANNON.Sphere(this.radius),
             material: this.physicsWorld.ballMaterial,
-            sleepSpeedLimit: 0.05, // Ball goes to sleep below this speed
-            sleepTimeLimit: 1     // Time before sleeping
+            sleepSpeedLimit: 0.15, // Increased further for even quicker stopping
+            sleepTimeLimit: 0.2    // Reduced further to sleep sooner
         });
         
         // Set body damping (air resistance and friction)
-        this.body.linearDamping = 0.2;  // Lower value for smoother roll
-        this.body.angularDamping = 0.3; // Spin resistance
+        this.body.linearDamping = 0.6;  // Increased damping for final roll
+        this.body.angularDamping = 0.6; // Matched with linear damping
         
         // Set collision groups for the ball
-        this.body.collisionFilterGroup = 4; // Group 4 for the ball
-        this.body.collisionFilterMask = 1 | 2; // Collide with course (1) and holes (2)
+        this.body.collisionFilterGroup = 4;
+        this.body.collisionFilterMask = 1 | 2;
         
         // Add body to physics world
         this.physicsWorld.addBody(this.body);
@@ -167,9 +167,15 @@ export class Ball {
         const velocity = this.body.velocity;
         const angularVelocity = this.body.angularVelocity;
         
-        // Check both linear and angular velocity
-        const speedThreshold = 0.05; // Lower threshold to detect stopping sooner
-        const rotationThreshold = 0.05;
+        // More aggressive thresholds for the final roll
+        const speedThreshold = 0.15;    // Increased to match sleepSpeedLimit
+        const rotationThreshold = 0.15;  // Increased to match
+        
+        // Add additional check for very slow movement
+        const isVerySlowMovement = (
+            Math.abs(velocity.x) < speedThreshold * 0.5 &&
+            Math.abs(velocity.z) < speedThreshold * 0.5
+        );
         
         const isStopped = (
             Math.abs(velocity.x) < speedThreshold &&
@@ -180,11 +186,18 @@ export class Ball {
             Math.abs(angularVelocity.z) < rotationThreshold
         );
         
-        // If stopped, actively kill any remaining motion
-        if (isStopped) {
+        // If very slow or stopped, actively kill motion
+        if (isStopped || isVerySlowMovement) {
             this.body.velocity.set(0, 0, 0);
             this.body.angularVelocity.set(0, 0, 0);
-            this.body.sleep(); // Put the body to sleep
+            
+            // Apply additional damping for very slow movement
+            if (isVerySlowMovement && !isStopped) {
+                this.body.linearDamping = 0.9; // Temporary high damping
+            } else {
+                this.body.linearDamping = 0.6; // Reset to normal damping
+                this.body.sleep();
+            }
         }
         
         return isStopped;
@@ -193,8 +206,8 @@ export class Ball {
     applyForce(direction, power) {
         if (!this.body) return;
         
-        // Scale power for reasonable force
-        const forceMagnitude = power * 20;
+        // Scale power for reasonable force (reduced multiplier)
+        const forceMagnitude = power * 15; // Reduced from 20 to 15 for better control
         
         // Apply horizontal force only
         const force = new CANNON.Vec3(

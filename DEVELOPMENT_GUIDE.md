@@ -93,14 +93,26 @@ The physics system uses Cannon-es with these key configurations:
    - Group 4: Ball
 
 2. **Material Properties**:
-   - `groundMaterial`: For the course (high friction)
+   - `groundMaterial`: High friction (0.8) for realistic rolling
    - `ballMaterial`: For the player's ball
+   - `bumperMaterial`: Low friction (0.1) with high restitution (0.8)
+   - `sandMaterial`: Very high friction (2.0) with minimal bounce
    - Contact materials control friction and restitution
 
 3. **Ball Physics**:
-   - Mass: 0.5 kg
-   - Damping: Linear (0.2) and Angular (0.3)
-   - Sleep settings to detect when ball has stopped
+   - Mass: 0.45 kg (lighter for better control)
+   - Linear Damping: 0.6 (air resistance and rolling friction)
+   - Angular Damping: 0.6 (spin resistance)
+   - Sleep Speed Limit: 0.15 (stops calculating physics below this speed)
+   - Sleep Time Limit: 0.2 seconds (time before sleeping when slow)
+   - Additional damping (0.9) applied during very slow movement
+
+4. **Physics World Settings**:
+   - Gravity: -9.81 m/s² (Earth gravity)
+   - Solver Iterations: 30 (for stability)
+   - Solver Tolerance: 0.0001 (high precision)
+   - Fixed Timestep: 1/60 second
+   - Max Substeps: 8 (for smooth motion)
 
 ## Extending the Project
 
