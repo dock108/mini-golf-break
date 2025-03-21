@@ -479,8 +479,17 @@ export class Game {
     }
     
     initInput() {
-        // Initialize input controller
+        // Create input controller
         this.inputController = new InputController(this, this.camera, this.renderer, this.ball);
+        
+        // Disable input initially (will be enabled when game starts)
+        this.inputController.disableInput();
+    }
+    
+    enableGameInput() {
+        if (this.inputController) {
+            this.inputController.enableInput();
+        }
     }
     
     hitBall(direction, power) {

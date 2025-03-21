@@ -7,8 +7,8 @@ export class PhysicsWorld {
         this.world.gravity.set(0, -9.81, 0); // Earth gravity
         
         // Increase solver iterations for better stability
-        this.world.solver.iterations = 20;
-        this.world.solver.tolerance = 0.001;
+        this.world.solver.iterations = 30;
+        this.world.solver.tolerance = 0.0001;
         
         // Use SAPBroadphase for better performance with many objects
         this.world.broadphase = new CANNON.SAPBroadphase(this.world);
@@ -29,7 +29,7 @@ export class PhysicsWorld {
         
         // Set the timestep (fixed at 60fps)
         this.fixedTimeStep = 1.0 / 60.0;
-        this.maxSubSteps = 5; // Increase substeps for better accuracy
+        this.maxSubSteps = 8; // Increased from 5 for smoother physics
         
         // Last time used for calculating elapsed time
         this.lastCallTime = performance.now() / 1000;
@@ -43,12 +43,12 @@ export class PhysicsWorld {
             this.ballMaterial,
             this.groundMaterial,
             {
-                friction: 0.4,          // Slightly reduced for smoother rolling
-                restitution: 0.1,       // Reduced bounce to keep ball on surface
+                friction: 0.8,          // Increased friction for faster deceleration
+                restitution: 0.1,       // Keep low bounce
                 contactEquationStiffness: 1e7,
                 contactEquationRelaxation: 3,
                 frictionEquationStiffness: 1e7,
-                frictionEquationRelaxation: 2
+                frictionEquationRelaxation: 1    // Reduced relaxation for better friction response
             }
         );
         this.world.addContactMaterial(ballGroundContact);
@@ -58,9 +58,9 @@ export class PhysicsWorld {
             this.ballMaterial,
             this.bumperMaterial,
             {
-                friction: 0.1,          // Even lower friction for better sliding along bumpers
-                restitution: 0.8,       // Higher restitution for lively bouncing
-                contactEquationStiffness: 1e8, // Higher stiffness for crisp rebounds
+                friction: 0.1,          // Keep low friction for bumpers
+                restitution: 0.8,       // Keep high bounce
+                contactEquationStiffness: 1e8,
                 contactEquationRelaxation: 3,
                 frictionEquationStiffness: 1e7,
                 frictionEquationRelaxation: 2
@@ -73,18 +73,18 @@ export class PhysicsWorld {
             this.ballMaterial,
             this.sandMaterial,
             {
-                friction: 2.0,           // Dramatically increased friction (double normal)
-                restitution: 0.01,       // Almost no bounce in sand
+                friction: 2.0,           // Keep high friction for sand
+                restitution: 0.01,       // Keep very low bounce
                 contactEquationStiffness: 1e6,
                 contactEquationRelaxation: 10,
                 frictionEquationStiffness: 1e7,
-                frictionEquationRelaxation: 20   // Increased relaxation for "sinking" feel
+                frictionEquationRelaxation: 20
             }
         );
         this.world.addContactMaterial(ballSandContact);
         
         // Default contact material for everything else
-        this.world.defaultContactMaterial.friction = 0.4;
+        this.world.defaultContactMaterial.friction = 0.8;     // Increased default friction
         this.world.defaultContactMaterial.restitution = 0.1;
     }
     

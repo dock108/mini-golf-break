@@ -2,6 +2,27 @@
 
 All notable changes to the Mini Golf Break project will be documented in this file.
 
+## [0.2.0] - UI and Physics Refinement
+
+### Menu System
+- Added start menu screen with game instructions
+- Implemented pause functionality with menu overlay
+- Created seamless transition between menu and gameplay
+- Added resume game option during pause
+
+### Physics Refinements
+- Optimized ball physics for more natural movement
+- Increased ground friction from 0.4 to 0.8 for better control
+- Adjusted ball mass to 0.45kg for improved handling
+- Enhanced damping system:
+  - Increased linear and angular damping to 0.6
+  - Added progressive damping (0.9) for final roll
+  - Improved sleep detection for smoother stopping
+- Fine-tuned solver parameters:
+  - Increased iterations to 30 for stability
+  - Enhanced precision with 0.0001 tolerance
+  - Added 8 substeps for smoother motion
+
 ## [0.1.0] - Initial Development Phase
 
 ### Project Setup

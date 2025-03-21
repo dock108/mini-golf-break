@@ -8,9 +8,28 @@
 </head>
 <body>
     <div id="game-container"></div>
+    <div id="menu-screen">
+        <div class="menu-content">
+            <h1>Mini Golf Break</h1>
+            <p>A fun, casual offline mini-golf experience</p>
+            <button id="start-game">Start Game</button>
+            <div class="menu-instructions">
+                <h3>How to Play:</h3>
+                <ul>
+                    <li>Click and drag backwards from the ball to set direction and power</li>
+                    <li>Release to hit the ball</li>
+                    <li>Use right-click drag to rotate the camera</li>
+                    <li>Scroll to zoom in/out</li>
+                    <li>Get the ball into the hole with as few strokes as possible</li>
+                    <li>Press 'd' to toggle debug mode</li>
+                </ul>
+            </div>
+        </div>
+    </div>
     <div id="ui-overlay">
         <div id="score">Score: <span id="score-value">0</span></div>
         <div id="power-indicator"></div>
+        <button id="pause-button">Pause</button>
     </div>
 </body>
 </html> 
