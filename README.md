@@ -8,9 +8,10 @@ A fun, casual offline mini-golf experience built for grown-up PS2-era kids looki
 - **Offline First**: Fully playable offline, ensuring you can enjoy a relaxing round of mini-golf anywhere, anytime—no internet required.
 - **Realistic Physics**: Powered by Cannon-es physics engine with finely-tuned parameters for authentic ball movement and natural rolling behavior.
 - **Minimalist Design**: Clean, distraction-free visuals that focus on gameplay rather than flashy graphics.
-- **Multiple Game Modes**: Practice freely in sandbox mode or challenge yourself on the structured 3-hole course.
+- **Multiple Game Modes**: Practice freely in sandbox mode or challenge yourself on the structured course.
 - **Input Protection**: Prevents accidental shots during transitions with visual "Ready" indicator when input is enabled.
-- **Intelligent Camera**: Camera positions optimally behind the ball looking toward each hole to provide the best aiming perspective.
+- **Intelligent Camera System**: Camera consistently positions behind the ball looking toward the hole for optimal aiming, with smooth transitions during gameplay.
+- **Visible Hole Design**: Enhanced hole visibility with distinct rim and depth for better targeting.
 - **Comprehensive Scoring**: Tracks both per-hole scores and running total score throughout the course.
 - **Game Menu**: Start screen with multiple game modes, instructions and pause functionality for a polished gaming experience.
 - **Debug Mode**: Press 'd' during gameplay to toggle debug mode, showing physics bodies and additional information.
@@ -34,7 +35,7 @@ npm start
 
 ## Gameplay Instructions
 
-- **Starting**: Choose "Start Practice" for freestyle play or "Play Basic Course" to play the 3-hole course.
+- **Starting**: Choose "Start Practice" for freestyle play or "Play Basic Course" to play the course.
 - **Controls**: Click and drag backwards from the ball to set direction and power, then release to hit.
 - **Power Indicator**: A visual bar shows the strength of your shot based on how far you drag.
 - **Camera**: Use right-click drag to rotate the camera around the ball, scroll to zoom in/out.
@@ -43,22 +44,24 @@ npm start
 - **Scoring**: Your score shows both current hole strokes and total score - lower is better!
 - **Ready Indicator**: A "Ready" message appears when you can take your shot.
 - **Pausing**: Click the pause button or press ESC to return to the menu.
-- **Course Mode**: Progress through all 3 holes to complete the course and see your total score.
+- **Course Completion**: Complete each hole to advance and see your final score.
 
 ## Development Status
 
 This project is currently in active development. The current version features:
 
-- A playable 3-hole course with distinct challenges
-- Fully enclosed holes with wooden barriers to prevent ball loss
+- Perfect-focused first hole with appropriate mini-golf scale and dimensions
+- Enhanced hole visibility with dark rim and proper depth visualization
+- Improved ball-hole interaction and success detection
+- Reliable camera positioning system for optimal aiming
+- Fully enclosed hole with wooden barriers to prevent ball loss
 - Finely-tuned physics for realistic ball movement
 - Intuitive drag-and-release controls with power indication
 - Visual aim guides when preparing shots
-- Intelligent camera positioning specific to each hole
+- Intelligent camera positioning and following behavior
 - Water hazard detection with penalty system
 - Comprehensive score tracking system
 - Improved UI layout and ready indicator
-- Smooth camera that follows the ball during motion
 - Start menu with gameplay instructions
 
 Check the [CHANGELOG.md](./CHANGELOG.md) for detailed development history and the [PROJECT_CHECKLIST.md](./PROJECT_CHECKLIST.md) for current progress and upcoming features.

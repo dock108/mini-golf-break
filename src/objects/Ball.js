@@ -29,7 +29,7 @@ export class Ball {
         
         // Create success material
         this.defaultMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0xffffff,
+            color: 0xffffff, // Pure white color
             roughness: 0.2,
             metalness: 0.1
         });

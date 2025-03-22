@@ -189,20 +189,24 @@ export class Game {
             if (startPosition && this.ball) {
                 console.log(`Resetting ball for hole ${holeNumber} at position: (${startPosition.x.toFixed(2)}, ${startPosition.y.toFixed(2)}, ${startPosition.z.toFixed(2)})`);
                 
-                // Position the ball at the start position for the current hole
-                // Move the ball slightly forward from the tee to avoid any potential collision
+                // Position the ball exactly at the tee position to match the visible tee marker
                 this.ball.setPosition(
                     startPosition.x,
                     startPosition.y, 
-                    startPosition.z - 0.5 // Move forward slightly from the tee
+                    startPosition.z
                 );
                 
                 // Update last safe position
                 this.lastSafePosition.copy(new THREE.Vector3(
                     startPosition.x,
                     startPosition.y,
-                    startPosition.z - 0.5
+                    startPosition.z
                 ));
+                
+                // Ensure the ball appears white by explicitly setting the material
+                if (this.ball.mesh && this.ball.defaultMaterial) {
+                    this.ball.mesh.material = this.ball.defaultMaterial;
+                }
                 
                 // Position camera behind the ball looking towards the hole
                 // First reset camera to a clear position to avoid orientation issues

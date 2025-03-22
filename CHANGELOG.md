@@ -2,6 +2,50 @@
 
 All notable changes to the Mini Golf Break project will be documented in this file.
 
+## [0.4.0] - Visual and Layout Improvement
+
+### Hole Visuals and Layout Improvements
+- Simplified hole layout by removing extraneous decorative elements
+- Created a minimal hole enclosure with only essential boundary walls
+- Enhanced tee marker visibility with a clear blue platform and white center dot
+- Ensured the ball is always white and positioned correctly on the tee
+- Improved visual clarity by removing unnecessary brick elements
+- Fixed course loading to ensure only the intended hole structure loads
+
+### Ball Positioning and Appearance
+- Fixed ball placement to align properly with the visible tee marker
+- Ensured consistent white ball color throughout gameplay
+- Added explicit material reset when positioning ball for a new hole
+- Improved ball-to-tee visual coherence
+
+### Code Refactoring
+- Created new `createMinimalHoleEnclosure` method for cleaner hole boundaries
+- Updated `loadHole` method to properly handle hole number selection
+- Enhanced tee marker representation for better visibility
+- Simplified decorative elements to reduce visual clutter
+
+## [0.3.9] - Camera Positioning and First Hole Focus
+
+### Camera System Improvements
+- Fixed critical issue where camera wasn't properly positioned on first course play
+- Implemented reliable camera initialization sequence with proper timing
+- Added explicit camera positioning with delay to ensure everything is loaded
+- Enhanced camera debugging with detailed position and target logging
+- Removed dependency on TextGeometry for tee markers, using simple mesh shapes instead
+
+### Gameplay Focus Enhancements
+- Modified course loading to focus exclusively on perfecting hole 1
+- Improved camera target system to balance between ball and hole visibility
+- Reduced camera height and distance for better visibility during gameplay
+- Enhanced ball-to-hole direction calculation for better aim assistance
+- Fixed camera follow behavior to maintain better orientation toward the hole
+
+### Technical Improvements
+- Added comprehensive camera debugging system with detailed logging
+- Fixed potential NaN issues in camera positioning calculations
+- Implemented multi-stage camera setup process for more reliable positioning
+- Added protective checks for all camera position calculations
+
 ## [0.3.8] - Hole Visibility and Ball Interaction Improvements
 
 ### Enhanced Hole Visibility

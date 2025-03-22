@@ -54,12 +54,6 @@ export class BasicCourse extends Course {
         
         console.log(`Loading hole ${holeNumber}`);
         
-        // For now, only load hole 1 regardless of requested hole number
-        this.currentHole = 1;
-        this.createHole1();
-        
-        /* 
-        // Original code - commented out for now until hole 1 is perfected
         // Check if valid hole
         if (holeNumber < 1 || holeNumber > 3) {
             console.error(`Invalid hole number: ${holeNumber}`);
@@ -69,25 +63,16 @@ export class BasicCourse extends Course {
         // Set current hole number
         this.currentHole = holeNumber;
         
-        switch (holeNumber) {
-            case 1:
-                this.createHole1();
-                break;
-            case 2:
-                this.createHole2();
-                break;
-            case 3:
-                this.createHole3();
-                break;
-        }
-        */
+        // For now, we only fully implement hole 1
+        // Future holes will be added later
+        this.createHole1();
         
         // If using GolfBall implementation, update the ball's target hole position
         if (this.game && this.game.ball) {
-            const holePosition = this.getHolePosition(1); // Always use hole 1
+            const holePosition = this.getHolePosition(holeNumber);
             if (this.game.ball.currentHolePosition !== undefined) {
                 this.game.ball.currentHolePosition = holePosition;
-                this.game.ball.currentHoleIndex = 0; // Always use first hole (0-indexed)
+                this.game.ball.currentHoleIndex = holeNumber - 1; // Convert to 0-indexed
                 console.log(`Set ball target hole position: (${holePosition.x.toFixed(2)}, ${holePosition.y.toFixed(2)}, ${holePosition.z.toFixed(2)})`);
             }
         }
@@ -247,13 +232,76 @@ export class BasicCourse extends Course {
         // Create a hole
         const hole = this.createHoleAt(holePosition.x, holePosition.y, holePosition.z);
         
-        // Create decorative elements around hole 1
-        const walls = this.createDecorativeWalls(holePosition, fairwayWidth, fairwayLength);
-        walls.forEach(wall => this.trackHoleObject(wall));
+        // Create a simple, clean and minimal enclosure around the hole
+        this.createMinimalHoleEnclosure(holePosition, fairwayWidth, fairwayLength);
         
         // Create start marker
         const marker = this.createStartMarker(startPosition);
         this.trackHoleObject(marker);
+    }
+    
+    /**
+     * Create a minimal hole enclosure without unnecessary decorative elements
+     */
+    createMinimalHoleEnclosure(holePosition, width, length) {
+        const wallHeight = 0.6;
+        const wallThickness = 0.4;
+        const wallMaterial = new THREE.MeshStandardMaterial({
+            color: 0x8B4513, // Saddle brown
+            roughness: 0.8,
+            metalness: 0.1
+        });
+        
+        // Calculate positions for walls
+        const halfWidth = width / 2 + wallThickness / 2;
+        const halfLength = length / 2;
+        
+        // Create only the essential boundary walls
+        const walls = [
+            // Left wall
+            { 
+                size: [wallThickness, wallHeight, length], 
+                position: [holePosition.x - halfWidth, wallHeight/2, holePosition.z + halfLength] 
+            },
+            // Right wall
+            { 
+                size: [wallThickness, wallHeight, length], 
+                position: [holePosition.x + halfWidth, wallHeight/2, holePosition.z + halfLength] 
+            },
+            // Back wall - behind the hole
+            { 
+                size: [width + wallThickness*2, wallHeight, wallThickness], 
+                position: [holePosition.x, wallHeight/2, holePosition.z - 0.5] 
+            }
+            // No front wall to keep it clean and allow clear access to the tee area
+        ];
+        
+        // Create each wall
+        walls.forEach(wall => {
+            // Create mesh
+            const geometry = new THREE.BoxGeometry(...wall.size);
+            const mesh = new THREE.Mesh(geometry, wallMaterial);
+            mesh.position.set(...wall.position);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            this.scene.add(mesh);
+            this.obstacles.push(mesh);
+            this.trackHoleObject(mesh);
+            
+            // Create physics body
+            if (this.physicsWorld) {
+                const body = new CANNON.Body({
+                    mass: 0,
+                    position: new CANNON.Vec3(...wall.position),
+                    shape: new CANNON.Box(new CANNON.Vec3(wall.size[0]/2, wall.size[1]/2, wall.size[2]/2)),
+                    material: this.physicsWorld.bumperMaterial
+                });
+                
+                this.physicsWorld.addBody(body);
+                this.obstacleBodies.push(body);
+                this.trackHoleObject(null, body);
+            }
+        });
     }
     
     /**
@@ -677,49 +725,41 @@ export class BasicCourse extends Course {
      */
     createStartMarker(position) {
         // Create a visible tee marker to show where to place the ball
-        const teeGeometry = new THREE.CylinderGeometry(0.6, 0.6, 0.05, 24);
-        const teeMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x0077cc,
-            roughness: 0.5, 
+        const teeBaseGeometry = new THREE.CylinderGeometry(0.6, 0.6, 0.05, 24);
+        const teeBaseMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x0077cc, // Blue color for visibility
+            roughness: 0.5,
             metalness: 0.2
         });
-        const teeMesh = new THREE.Mesh(teeGeometry, teeMaterial);
         
-        // Add a small golf tee icon in the center
-        const teePostGeometry = new THREE.CylinderGeometry(0.1, 0.05, 0.1, 12);
-        const teePostMaterial = new THREE.MeshStandardMaterial({ color: 0xdddddd });
-        const teePost = new THREE.Mesh(teePostGeometry, teePostMaterial);
-        teePost.position.y = 0.05;
-        teeMesh.add(teePost);
+        // Create the base (circular pad)
+        const teeBase = new THREE.Mesh(teeBaseGeometry, teeBaseMaterial);
+        teeBase.position.set(position.x, 0.03, position.z);
+        teeBase.receiveShadow = true;
+        teeBase.userData = { type: 'teeMarker', part: 'base' };
+        this.scene.add(teeBase);
         
-        // Create a simple "T" shape using two boxes instead of text geometry
-        const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        // Create a white circle in the middle to indicate ball placement
+        const teeDotGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.06, 24);
+        const teeDotMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0xffffff, // White for ball placement
+            roughness: 0.4,
+            metalness: 0.3
+        });
         
-        // Vertical part of "T"
-        const verticalBar = new THREE.Mesh(
-            new THREE.BoxGeometry(0.05, 0.02, 0.2),
-            textMaterial
-        );
-        verticalBar.position.y = 0.1;
-        teeMesh.add(verticalBar);
+        const teeDot = new THREE.Mesh(teeDotGeometry, teeDotMaterial);
+        teeDot.position.set(position.x, 0.04, position.z);
+        teeDot.receiveShadow = true;
+        teeDot.userData = { type: 'teeMarker', part: 'dot' };
+        this.scene.add(teeDot);
         
-        // Horizontal part of "T"
-        const horizontalBar = new THREE.Mesh(
-            new THREE.BoxGeometry(0.2, 0.02, 0.05),
-            textMaterial
-        );
-        horizontalBar.position.y = 0.1;
-        horizontalBar.position.z = -0.075;
-        teeMesh.add(horizontalBar);
+        // Create a group to return both objects
+        const teeGroup = new THREE.Group();
+        teeGroup.add(teeBase);
+        teeGroup.add(teeDot);
+        teeGroup.userData = { type: 'teeMarker', part: 'group' };
         
-        // Position the marker
-        teeMesh.position.copy(position);
-        teeMesh.position.y = 0.025; // Place slightly above ground
-        
-        // Add to scene
-        this.scene.add(teeMesh);
-        
-        return teeMesh;
+        return teeGroup;
     }
     
     /**
