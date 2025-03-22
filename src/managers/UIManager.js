@@ -1,3 +1,5 @@
+import { EventTypes } from '../events/EventTypes';
+
 /**
  * UIManager - Handles all UI elements and interactions for the game
  * Extracts UI management from Game.js to improve modularity
@@ -7,285 +9,419 @@ export class UIManager {
         // Reference to the main game
         this.game = game;
         
-        // Track UI elements
-        this.elements = {
-            messageElement: null,
-            scoreDisplay: null,
-            scorecardContainer: null
-        };
-        
-        // Track state
+        // Track state and UI elements
         this.isShowingMessage = false;
         this.messageTimeoutId = null;
+        this.messageTimeout = null;
+        this.messageElement = null;
+        this.scoreElement = null;
+        this.strokesElement = null;
+        this.debugElement = null;
+        this.powerIndicator = null;
+        this.continueButton = null;
+        this.scoreScreen = null;
     }
     
     /**
      * Initialize the UI elements
      */
     init() {
-        // Create base UI container if needed
-        this.createUIContainer();
+        this.createUIElements();
+        this.setupEventListeners();
         return this;
     }
     
     /**
-     * Create the main UI container
+     * Set up event listeners
      */
-    createUIContainer() {
-        // Check if UI container exists
-        let container = document.getElementById('game-ui-container');
-        if (!container) {
-            container = document.createElement('div');
-            container.id = 'game-ui-container';
-            container.style.position = 'absolute';
-            container.style.top = '0';
-            container.style.left = '0';
-            container.style.width = '100%';
-            container.style.height = '100%';
-            container.style.pointerEvents = 'none'; // Don't block interaction with game
-            container.style.zIndex = '100';
-            document.body.appendChild(container);
-        }
+    setupEventListeners() {
+        // Listen for hole completed events
+        this.game.eventManager.subscribe(
+            EventTypes.HOLE_COMPLETED,
+            this.handleHoleCompleted,
+            this
+        );
         
-        return container;
+        // Listen for hole started events
+        this.game.eventManager.subscribe(
+            EventTypes.HOLE_STARTED,
+            this.handleHoleStarted,
+            this
+        );
+        
+        // Listen for game completed events
+        this.game.eventManager.subscribe(
+            EventTypes.GAME_COMPLETED,
+            this.handleGameCompleted,
+            this
+        );
+        
+        // Listen for ball hit events to update strokes
+        this.game.eventManager.subscribe(
+            EventTypes.BALL_HIT,
+            this.handleBallHit,
+            this
+        );
+        
+        // Listen for ball in hole events
+        this.game.eventManager.subscribe(
+            EventTypes.BALL_IN_HOLE,
+            this.handleBallInHole,
+            this
+        );
+        
+        // Listen for hazard events
+        this.game.eventManager.subscribe(
+            EventTypes.HAZARD_DETECTED,
+            this.handleHazardDetected,
+            this
+        );
     }
     
     /**
-     * Add the renderer to the DOM
+     * Create UI elements
+     */
+    createUIElements() {
+        // Create message element
+        this.messageElement = document.getElementById('message-container');
+        if (!this.messageElement) {
+            this.messageElement = document.createElement('div');
+            this.messageElement.id = 'message-container';
+            document.body.appendChild(this.messageElement);
+        }
+        
+        // Create score elements
+        this.scoreElement = document.getElementById('score-container');
+        if (!this.scoreElement) {
+            this.scoreElement = document.createElement('div');
+            this.scoreElement.id = 'score-container';
+            document.body.appendChild(this.scoreElement);
+            
+            this.strokesElement = document.createElement('div');
+            this.strokesElement.id = 'strokes-display';
+            this.scoreElement.appendChild(this.strokesElement);
+        }
+        
+        // Create debug display
+        this.debugElement = document.getElementById('debug-display');
+        if (!this.debugElement && this.game.debugManager.enabled) {
+            this.debugElement = document.createElement('div');
+            this.debugElement.id = 'debug-display';
+            document.body.appendChild(this.debugElement);
+        }
+        
+        // Create power indicator
+        this.powerIndicator = document.getElementById('power-indicator');
+        if (!this.powerIndicator) {
+            this.powerIndicator = document.createElement('div');
+            this.powerIndicator.id = 'power-indicator';
+            this.powerIndicator.innerHTML = '<div id="power-level"></div>';
+            document.body.appendChild(this.powerIndicator);
+        }
+        
+        // Create continue button
+        this.continueButton = document.getElementById('continue-button');
+        if (!this.continueButton) {
+            this.continueButton = document.createElement('button');
+            this.continueButton.id = 'continue-button';
+            this.continueButton.textContent = 'Continue';
+            this.continueButton.style.display = 'none';
+            document.body.appendChild(this.continueButton);
+            
+            // Add event listener
+            this.continueButton.addEventListener('click', () => {
+                // Publish button click event
+                this.game.eventManager.publish(
+                    EventTypes.UI_BUTTON_CLICKED,
+                    { buttonId: 'continue-button' },
+                    this
+                );
+                
+                // Hide the button
+                this.continueButton.style.display = 'none';
+            });
+        }
+        
+        // Create final score screen
+        this.scoreScreen = document.getElementById('score-screen');
+        if (!this.scoreScreen) {
+            this.scoreScreen = document.createElement('div');
+            this.scoreScreen.id = 'score-screen';
+            this.scoreScreen.innerHTML = `
+                <div id="final-score-container">
+                    <h2>Game Complete!</h2>
+                    <div id="final-score"></div>
+                    <button id="restart-button">Play Again</button>
+                </div>
+            `;
+            this.scoreScreen.style.display = 'none';
+            document.body.appendChild(this.scoreScreen);
+            
+            // Add event listener to restart button
+            const restartButton = this.scoreScreen.querySelector('#restart-button');
+            if (restartButton) {
+                restartButton.addEventListener('click', () => {
+                    // Publish button click event
+                    this.game.eventManager.publish(
+                        EventTypes.UI_BUTTON_CLICKED,
+                        { buttonId: 'restart-button' },
+                        this
+                    );
+                    
+                    // Hide the score screen
+                    this.scoreScreen.style.display = 'none';
+                    
+                    // Reload the page to restart
+                    window.location.reload();
+                });
+            }
+        }
+        
+        // Initial UI update
+        this.updateScore();
+        this.updateStrokes();
+    }
+    
+    /**
+     * Handle hole completed event
+     * @param {GameEvent} event - Hole completed event
+     */
+    handleHoleCompleted(event) {
+        const holeNumber = event.get('holeNumber');
+        const holeScore = event.get('holeScore');
+        const totalScore = event.get('totalScore');
+        
+        // Show message
+        const message = `Hole completed in ${holeScore} strokes! Total: ${totalScore}`;
+        this.showMessage(message, 3000);
+        
+        // Update score display
+        this.updateScore();
+    }
+    
+    /**
+     * Handle hole started event
+     * @param {GameEvent} event - Hole started event
+     */
+    handleHoleStarted(event) {
+        const holeNumber = event.get('holeNumber');
+        
+        // Show message
+        this.showMessage(`Hole ${holeNumber}`, 2000);
+        
+        // Update UI
+        this.updateHoleNumber();
+        this.updateScore();
+    }
+    
+    /**
+     * Handle game completed event
+     * @param {GameEvent} event - Game completed event
+     */
+    handleGameCompleted(event) {
+        const totalScore = event.get('totalScore');
+        
+        // Show message
+        const message = `Game completed! Final score: ${totalScore}`;
+        this.showMessage(message, 5000);
+        
+        // Show final score screen
+        this.showFinalScore(totalScore);
+    }
+    
+    /**
+     * Handle ball hit event
+     * @param {GameEvent} event - Ball hit event
+     */
+    handleBallHit(event) {
+        // Update strokes display
+        this.updateStrokes();
+    }
+    
+    /**
+     * Handle ball in hole event
+     * @param {GameEvent} event - Ball in hole event
+     */
+    handleBallInHole(event) {
+        // Show continue button after delay
+        setTimeout(() => {
+            if (this.game.stateManager.isHoleCompleted()) {
+                this.showContinueButton();
+            }
+        }, 1500);
+    }
+    
+    /**
+     * Handle hazard detected event
+     * @param {GameEvent} event - Hazard detected event
+     */
+    handleHazardDetected(event) {
+        const hazardType = event.get('hazardType');
+        
+        // Show appropriate message based on hazard type
+        if (hazardType === EventTypes.HAZARD_WATER) {
+            this.showMessage("Water hazard! +1 stroke penalty.", 2000);
+        } else if (hazardType === EventTypes.HAZARD_OUT_OF_BOUNDS) {
+            this.showMessage("Out of bounds! +1 stroke penalty.", 2000);
+        }
+        
+        // Update strokes
+        this.updateStrokes();
+    }
+    
+    /**
+     * Attach WebGL renderer to DOM
      * @param {THREE.WebGLRenderer} renderer - The Three.js renderer
      */
     attachRenderer(renderer) {
-        if (!renderer || !renderer.domElement) {
-            console.error("Cannot attach renderer: Renderer or domElement is null");
-            return this;
+        if (!renderer) return;
+        
+        const container = document.getElementById('game-container');
+        if (container) {
+            container.appendChild(renderer.domElement);
+        } else {
+            document.body.appendChild(renderer.domElement);
         }
-        
-        const container = document.getElementById('game-container') || document.body;
-        container.appendChild(renderer.domElement);
-        
-        return this;
     }
     
     /**
-     * Show a temporary message to the player
-     * @param {string} text - Message text to display
+     * Show a message to the player
+     * @param {string} message - Message to show
      * @param {number} duration - Duration in milliseconds
-     * @param {Function} onHide - Callback when message is hidden
      */
-    showMessage(text, duration = 2000, onHide = null) {
-        // Find or create message element
-        if (!this.elements.messageElement) {
-            this.elements.messageElement = document.getElementById('game-message');
-            
-            if (!this.elements.messageElement) {
-                this.elements.messageElement = document.createElement('div');
-                this.elements.messageElement.id = 'game-message';
-                this.elements.messageElement.style.position = 'absolute';
-                this.elements.messageElement.style.top = '30%';
-                this.elements.messageElement.style.left = '50%';
-                this.elements.messageElement.style.transform = 'translate(-50%, -50%)';
-                this.elements.messageElement.style.fontSize = '32px';
-                this.elements.messageElement.style.fontWeight = 'bold';
-                this.elements.messageElement.style.color = 'white';
-                this.elements.messageElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.5)';
-                this.elements.messageElement.style.textAlign = 'center';
-                this.elements.messageElement.style.zIndex = '1000';
-                this.elements.messageElement.style.opacity = '0';
-                this.elements.messageElement.style.transition = 'opacity 0.5s ease-in-out';
-                this.createUIContainer().appendChild(this.elements.messageElement);
-            }
+    showMessage(message, duration = 2000) {
+        if (!this.messageElement) return;
+        
+        // Clear existing timeout
+        if (this.messageTimeout) {
+            clearTimeout(this.messageTimeout);
         }
         
-        // Clear any existing timeout
-        if (this.messageTimeoutId) {
-            clearTimeout(this.messageTimeoutId);
-            this.messageTimeoutId = null;
-        }
+        // Set message
+        this.messageElement.textContent = message;
+        this.messageElement.classList.add('visible');
         
-        // Update and show message
-        this.elements.messageElement.textContent = text;
-        this.elements.messageElement.style.opacity = '1';
-        this.isShowingMessage = true;
-        
-        // Disable input during message display if game provides inputController
-        if (this.game && this.game.inputController) {
-            this.game.inputController.disableInput();
-        }
-        
-        // Hide message after duration and reactivate input
-        this.messageTimeoutId = setTimeout(() => {
-            this.elements.messageElement.style.opacity = '0';
-            this.isShowingMessage = false;
-            
-            // Re-enable input if game provides inputController
-            if (this.game && this.game.inputController) {
-                this.game.inputController.enableInput();
-            }
-            
-            // Call onHide callback if provided
-            if (onHide && typeof onHide === 'function') {
-                onHide();
-            }
+        // Set timeout to hide message
+        this.messageTimeout = setTimeout(() => {
+            this.messageElement.classList.remove('visible');
         }, duration);
-        
-        return this;
     }
     
     /**
-     * Display the end of hole scorecard
-     * @param {object} scoreData - Score data to display
-     * @param {Function} onContinue - Callback when player continues
+     * Update score display
      */
-    showScorecard(scoreData, onContinue) {
-        // Create scorecard container
-        const scorecardContainer = document.createElement('div');
-        scorecardContainer.id = 'hole-scorecard';
-        scorecardContainer.style.position = 'absolute';
-        scorecardContainer.style.top = '50%';
-        scorecardContainer.style.left = '50%';
-        scorecardContainer.style.transform = 'translate(-50%, -50%)';
-        scorecardContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-        scorecardContainer.style.color = 'white';
-        scorecardContainer.style.padding = '20px';
-        scorecardContainer.style.borderRadius = '10px';
-        scorecardContainer.style.minWidth = '300px';
-        scorecardContainer.style.boxShadow = '0 0 20px rgba(0, 200, 255, 0.6)';
-        scorecardContainer.style.zIndex = '1000';
+    updateScore() {
+        if (!this.scoreElement) return;
         
-        // Create header
-        const headerDiv = document.createElement('div');
-        headerDiv.style.textAlign = 'center';
-        headerDiv.style.marginBottom = '20px';
+        const holeNumber = this.game.stateManager.getCurrentHoleNumber();
+        const totalScore = this.game.scoringSystem.getTotalScore();
         
-        const title = document.createElement('h2');
-        title.textContent = 'Hole Complete!';
-        title.style.color = '#4CAF50';
-        title.style.margin = '0';
-        title.style.fontSize = '28px';
-        
-        headerDiv.appendChild(title);
-        scorecardContainer.appendChild(headerDiv);
-        
-        // Create content div
-        const contentDiv = document.createElement('div');
-        contentDiv.style.marginBottom = '20px';
-        
-        // Create table for score
-        const table = document.createElement('table');
-        table.style.width = '100%';
-        table.style.borderCollapse = 'collapse';
-        table.style.marginBottom = '15px';
-        
-        // Score row
-        const scoreRow = document.createElement('tr');
-        
-        const scoreLabel = document.createElement('td');
-        scoreLabel.textContent = 'Your Score:';
-        scoreLabel.style.padding = '8px';
-        scoreLabel.style.textAlign = 'left';
-        
-        const scoreValue = document.createElement('td');
-        scoreValue.textContent = `${scoreData.strokes} stroke${scoreData.strokes !== 1 ? 's' : ''}`;
-        scoreValue.style.padding = '8px';
-        scoreValue.style.textAlign = 'right';
-        scoreValue.style.fontWeight = 'bold';
-        scoreValue.style.fontSize = '20px';
-        
-        scoreRow.appendChild(scoreLabel);
-        scoreRow.appendChild(scoreValue);
-        table.appendChild(scoreRow);
-        
-        contentDiv.appendChild(table);
-        scorecardContainer.appendChild(contentDiv);
-        
-        // Continue button
-        const continuePrompt = document.createElement('div');
-        continuePrompt.textContent = 'Click anywhere to continue';
-        continuePrompt.style.textAlign = 'center';
-        continuePrompt.style.cursor = 'pointer';
-        continuePrompt.style.padding = '10px';
-        continuePrompt.style.backgroundColor = 'rgba(76, 175, 80, 0.6)';
-        continuePrompt.style.borderRadius = '5px';
-        
-        scorecardContainer.appendChild(continuePrompt);
-        
-        // Add to document
-        document.body.appendChild(scorecardContainer);
-        this.elements.scorecardContainer = scorecardContainer;
-        
-        // Add click handler to continue
-        const handleClick = () => {
-            // Remove scorecard
-            if (scorecardContainer.parentNode) {
-                scorecardContainer.parentNode.removeChild(scorecardContainer);
-            }
-            
-            // Remove event listener
-            document.removeEventListener('click', handleClick);
-            
-            // Call continue callback
-            if (onContinue && typeof onContinue === 'function') {
-                onContinue();
-            }
-        };
-        
-        // Add listener with slight delay to prevent immediate closing
-        setTimeout(() => {
-            document.addEventListener('click', handleClick);
-        }, 300);
-        
-        return this;
+        this.scoreElement.innerHTML = `<div>Hole: ${holeNumber}</div><div>Total: ${totalScore}</div>`;
     }
     
     /**
-     * Show debug information
-     * @param {object} debugInfo - Debug info to display
+     * Update current hole number display
+     */
+    updateHoleNumber() {
+        if (!this.scoreElement) return;
+        
+        const holeNumber = this.game.stateManager.getCurrentHoleNumber();
+        const holeElement = this.scoreElement.querySelector('div:first-child');
+        
+        if (holeElement) {
+            holeElement.textContent = `Hole: ${holeNumber}`;
+        }
+    }
+    
+    /**
+     * Update strokes display
+     */
+    updateStrokes() {
+        if (!this.strokesElement) return;
+        
+        const strokes = this.game.scoringSystem.getCurrentHoleStrokes();
+        this.strokesElement.textContent = `Strokes: ${strokes}`;
+    }
+    
+    /**
+     * Update debug display
+     * @param {object} debugInfo - Debug information to display
      */
     updateDebugDisplay(debugInfo) {
-        // Find or create debug display element
-        let debugElement = document.getElementById('debug-display');
-        if (!debugElement) {
-            debugElement = document.createElement('div');
-            debugElement.id = 'debug-display';
-            debugElement.style.position = 'absolute';
-            debugElement.style.top = '10px';
-            debugElement.style.left = '10px';
-            debugElement.style.fontSize = '12px';
-            debugElement.style.fontFamily = 'monospace';
-            debugElement.style.color = 'white';
-            debugElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-            debugElement.style.padding = '5px';
-            debugElement.style.zIndex = '1000';
-            debugElement.style.pointerEvents = 'none';
-            document.body.appendChild(debugElement);
-        }
+        if (!this.debugElement || !debugInfo) return;
         
-        // Build debug text
-        let debugText = '';
+        let html = '<div class="debug-title">Debug Info</div>';
+        
         for (const [key, value] of Object.entries(debugInfo)) {
-            debugText += `${key}: ${value}\n`;
+            html += `<div><strong>${key}:</strong> ${value}</div>`;
         }
         
-        // Update debug display
-        debugElement.textContent = debugText;
-        
-        return this;
+        this.debugElement.innerHTML = html;
     }
     
     /**
-     * Clean up UI elements
+     * Show continue button
+     */
+    showContinueButton() {
+        if (!this.continueButton) return;
+        
+        this.continueButton.style.display = 'block';
+    }
+    
+    /**
+     * Show final score screen
+     * @param {number} score - Final score
+     */
+    showFinalScore(score) {
+        if (!this.scoreScreen) return;
+        
+        const finalScoreElement = this.scoreScreen.querySelector('#final-score');
+        if (finalScoreElement) {
+            finalScoreElement.textContent = `Final Score: ${score}`;
+        }
+        
+        this.scoreScreen.style.display = 'flex';
+    }
+    
+    /**
+     * Show scorecard at the end of hole
+     * @param {Object} scoreData - Data with score (strokes, par)
+     * @param {Function} onContinue - Callback when player clicks to continue
+     */
+    showScorecard(scoreData, onContinue) {
+        // Simplified scorecard display as an alternative to the removed component
+        if (!this.scoreScreen) return;
+        
+        const finalScoreElement = this.scoreScreen.querySelector('#final-score');
+        if (finalScoreElement) {
+            finalScoreElement.textContent = `Score: ${scoreData.strokes}`;
+        }
+        
+        this.scoreScreen.style.display = 'flex';
+    }
+    
+    /**
+     * Clean up UI resources
      */
     cleanup() {
-        // Clear any message timeout
+        // Hide and clean up any message
+        if (this.messageElement && this.messageElement.parentNode) {
+            this.messageElement.parentNode.removeChild(this.messageElement);
+        }
+        
+        // Clear any existing message timeout
         if (this.messageTimeoutId) {
             clearTimeout(this.messageTimeoutId);
             this.messageTimeoutId = null;
         }
         
-        // Remove scorecard if showing
-        if (this.elements.scorecardContainer && this.elements.scorecardContainer.parentNode) {
-            this.elements.scorecardContainer.parentNode.removeChild(this.elements.scorecardContainer);
+        // Clean up other UI elements
+        if (this.scoreElement && this.scoreElement.parentNode) {
+            this.scoreElement.parentNode.removeChild(this.scoreElement);
         }
+        
+        // Reset state
+        this.isShowingMessage = false;
         
         return this;
     }

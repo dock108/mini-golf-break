@@ -35,8 +35,14 @@ export class Course {
             this.startPositions.push(options.startPosition.clone());
         }
         
-        // Generate the course
-        this.createCourse();
+        // Store the options
+        this.options = options;
+        
+        // Generate the course automatically unless disabled
+        const autoCreate = options.autoCreate !== false;
+        if (autoCreate) {
+            this.createCourse();
+        }
     }
     
     createCourse() {
@@ -503,6 +509,17 @@ export class Course {
         }
         
         return false;
+    }
+    
+    /**
+     * Get the par value for the current hole
+     * @returns {number} Par value (default: 3)
+     */
+    getCurrentHolePar() {
+        // For this simple implementation, we'll return a default par of 3
+        // In a more advanced implementation, this could return different par values
+        // based on the current hole difficulty
+        return 3;
     }
     
     update() {

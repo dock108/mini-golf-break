@@ -2,6 +2,137 @@
 
 All notable changes to the Mini Golf Break project will be documented in this file.
 
+## [0.8.0] - Performance Monitoring and Optimization
+
+### Performance Monitoring System
+- Implemented dedicated `PerformanceManager` class for comprehensive performance tracking
+- Added real-time metrics for FPS, frame times, and component timing
+- Created visual performance display with color-coded warnings
+- Implemented performance budgets with automated threshold enforcement
+- Added memory usage tracking and object count monitoring
+
+### Performance Instrumentation
+- Added precise timing for physics, rendering, ball updates, effects, and camera operations
+- Integrated performance tracking within the game loop
+- Created circular buffer system for maintaining performance history with minimal overhead
+- Added detection and reporting of performance budget violations
+
+### Performance Visualization
+- Implemented toggleable performance overlay with 'p' key
+- Added color-coded metrics to easily identify performance issues
+- Created comprehensive performance documentation
+
+### Integration with Existing Systems
+- Enhanced `GameLoopManager` to utilize performance timing
+- Updated `DebugManager` to incorporate performance metrics in the debug display
+- Added proper cleanup for performance monitoring resources
+
+## [0.7.1] - Bug Fixes and API Consistency
+
+### Bug Fixes
+- Added missing `getTeePosition()` method to `BasicCourse` class to fix runtime error
+- Fixed missing `ScorecardComponent` references in `UIManager`
+- Added `applyImpulse()` method to `Ball` class as an alias for `applyForce()` for compatibility with `BallManager`
+- Corrected method name reference in `UIManager` from `getTotalStrokes()` to `getTotalScore()`
+
+### Documentation
+- Created comprehensive Ball API documentation in `docs/ball-api.md`
+- Updated Physics Parameters documentation to clarify force application methods
+- Improved inline documentation for the Ball class methods
+
+## [0.7.0] - Event-Driven Architecture Implementation
+
+### Event System Core
+- Designed and implemented a robust event-driven architecture to reduce component coupling
+- Created `EventManager` to serve as a central message bus for component communication
+- Added `EventTypes` enum for standardized event naming across the codebase
+- Implemented `GameEvent` class with type, data, source, and timestamp properties
+- Added thorough event logging for debugging and troubleshooting
+
+### Component Decoupling
+- Refactored key managers to communicate through events instead of direct method calls
+- Updated `BallManager` to publish events for ball creation, movement, and state changes
+- Modified `HazardManager` to listen for ball events and publish hazard detection events
+- Converted `HoleManager` to publish hole completion events rather than directly updating UI
+- Transformed `InputController` to respond to game state events for enabling/disabling input
+- Updated `UIManager` to subscribe to game events for responsive UI updates
+
+### Architectural Improvements
+- Reduced tight coupling between game components for improved scalability
+- Created a event subscription system with context preservation and clean-up helpers
+- Implemented event history tracking for improved debugging and state reconstruction
+- Added the ability to temporarily disable events during sensitive operations
+- Enhanced error handling within event listeners with proper error boundaries
+
+### Developer Experience
+- Added comprehensive event debugging features to trace event flow through the system
+- Improved code maintainability by standardizing component communication patterns
+- Enhanced testability by allowing event interception and simulation
+- Simplified adding new game features by leveraging the event-driven architecture
+- Documented event types and their publishers/subscribers for future development
+
+## [0.6.2] - Error Handling and Reporting Improvements
+
+### Enhanced Error Handling System
+- Enhanced DebugManager with explicit error, warning, and info reporting methods
+- Added centralized error tracking to prevent console spam from repeated errors
+- Implemented critical error UI display for gameplay-affecting issues
+- Added detailed source identification for all error messages
+- Created comprehensive error severity classification system
+
+### Error Handling Implementation
+- Updated Ball.js with comprehensive error handling and context-rich messages
+- Enhanced BallManager hit detection with clear failure reporting
+- Improved PhysicsManager with protected update method and better error context
+- Added detailed error handling to UIManager for renderer attachment
+- Protected cleanup methods with try-catch blocks
+
+### Developer Tools
+- Created new Error Handling Guidelines document with best practices
+- Added error statistics to debug display
+- Implemented auto-suppression of repeated identical errors
+- Enhanced error messages with relevant parameter values
+- Added fallback error handling for when DebugManager is not available
+
+## [0.6.1] - Physics Documentation Harmonization
+
+### Physics Parameter Documentation
+- Created new `physics-parameters.md` document as a comprehensive reference for all physics values
+- Updated `physics-specs.md` to include specific parameter values matching implementation
+- Harmonized ball mass property in code to consistently use 0.45kg throughout
+- Resolved discrepancies between documented values and actual implementation
+- Improved physics documentation with detailed descriptions of all parameters
+- Added explicit references between technical specifications and implementation
+
+## [0.6.0] - Game Loop Optimization and Manager Architecture
+
+### Game Loop Optimization
+- Completely refactored the main game loop for significantly improved modularity and maintainability
+- Created dedicated `GameLoopManager` to orchestrate the update sequence with clear dependencies
+- Eliminated direct handling of multiple concerns in the main Game class
+- Improved update sequencing with explicit ordering of manager calls
+- Enhanced performance by optimizing the update flow
+
+### New Manager Classes
+- Added `BallManager` to centralize all ball-related operations
+- Added `HazardManager` to handle detection and response to water and out-of-bounds situations
+- Added `HoleManager` to encapsulate hole completion logic and advancement
+- Implemented consistent interface across all managers (init, update, cleanup)
+
+### Architecture Improvements
+- Restructured Game.js to act as a coordinator rather than handling direct implementation
+- Implemented cleaner dependency management between systems
+- Improved error handling and graceful fallbacks throughout manager classes
+- Enhanced resource cleanup with systematic manager shutdown sequence
+- Simplified testing with better isolation of components
+
+### Code Quality
+- Improved consistency of method signatures and naming across manager classes
+- Enhanced documentation with clear explanations of manager responsibilities
+- Standardized event flow and state management between components
+- Reduced code duplication by consolidating common functionality
+- Improved debug logging with consistent patterns
+
 ## [0.5.0] - Visual Theme and Enhanced Completion Experience
 
 ### Visual Transformation

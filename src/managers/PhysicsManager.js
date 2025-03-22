@@ -39,6 +39,11 @@ export class PhysicsManager {
      * @returns {PhysicsWorld} The physics world instance
      */
     getWorld() {
+        console.log(`DEBUG PhysicsManager.getWorld: World exists: ${!!this.world}`);
+        if (this.world) {
+            console.log(`DEBUG PhysicsManager.getWorld: World has cannonWorld: ${!!this.world.world}`);
+            console.log(`DEBUG PhysicsManager.getWorld: World has ballMaterial: ${!!this.world.ballMaterial}`);
+        }
         return this.world;
     }
     
@@ -86,10 +91,54 @@ export class PhysicsManager {
      * @param {number} deltaTime - Time since last update in seconds
      */
     update(deltaTime) {
-        if (!this.world) return;
+        // Periodic logging of physics world state
+        const debugRate = 0.001; // Log approximately once every 1000 frames
+        
+        if (this.game && this.game.debugManager && this.game.debugManager.enabled && Math.random() < debugRate) {
+            if (this.world) {
+                let bodyCount = 0;
+                if (this.cannonWorld && this.cannonWorld.bodies) {
+                    bodyCount = this.cannonWorld.bodies.length;
+                }
+                this.game.debugManager.info('PhysicsManager.update', `Physics world has ${bodyCount} bodies`);
+            }
+        }
+        
+        // Error handling for missing physics world
+        if (!this.world) {
+            if (this.game && this.game.debugManager) {
+                // Only log this error once to avoid spamming
+                if (!this._loggedWorldError) {
+                    this.game.debugManager.error(
+                        'PhysicsManager.update', 
+                        'Physics world is null or undefined!', 
+                        null, 
+                        true // Show in UI as this is a critical issue
+                    );
+                    this._loggedWorldError = true;
+                }
+            } else if (!this._loggedWorldError) {
+                console.error("ERROR: PhysicsManager.update: Physics world is null or undefined!");
+                this._loggedWorldError = true;
+            }
+            return this;
+        }
         
         // Update the physics world
-        this.world.update();
+        try {
+            this.world.update();
+        } catch (error) {
+            if (this.game && this.game.debugManager) {
+                this.game.debugManager.error(
+                    'PhysicsManager.update', 
+                    'Error updating physics world',
+                    error,
+                    true // Show in UI
+                );
+            } else {
+                console.error("ERROR: PhysicsManager.update: Error updating physics world", error);
+            }
+        }
         
         // Update debug visualization if enabled
         if (this.debugEnabled) {

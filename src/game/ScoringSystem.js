@@ -48,6 +48,14 @@ export class ScoringSystem {
     }
     
     /**
+     * Get current number of strokes
+     * @returns {number} Current number of strokes for this hole
+     */
+    getCurrentStrokes() {
+        return this.score;
+    }
+    
+    /**
      * Get current hole strokes
      */
     getCurrentHoleStrokes() {

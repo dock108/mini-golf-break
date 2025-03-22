@@ -1,11 +1,11 @@
 import * as THREE from 'three';
+import { EventTypes } from '../events/EventTypes';
 
 export class InputController {
     constructor(game) {
         this.game = game;
         this.camera = game.camera;
         this.renderer = game.renderer;
-        this.ball = game.ball;
         
         // Track input state
         this.isInputEnabled = true;
@@ -37,6 +37,7 @@ export class InputController {
         
         // Initialize event listeners
         this.initEventListeners();
+        this.setupGameEventListeners();
     }
     
     initEventListeners() {
@@ -49,6 +50,58 @@ export class InputController {
         document.addEventListener('touchstart', this.onTouchStart.bind(this), { passive: false });
         document.addEventListener('touchmove', this.onTouchMove.bind(this), { passive: false });
         document.addEventListener('touchend', this.onTouchEnd.bind(this));
+    }
+    
+    /**
+     * Setup game event listeners
+     */
+    setupGameEventListeners() {
+        // Listen for ball stopped events to re-enable input
+        this.game.eventManager.subscribe(
+            EventTypes.BALL_STOPPED,
+            this.handleBallStopped,
+            this
+        );
+        
+        // Listen for ball in hole events to disable input
+        this.game.eventManager.subscribe(
+            EventTypes.BALL_IN_HOLE,
+            this.handleBallInHole,
+            this
+        );
+        
+        // Listen for hole started events to enable input
+        this.game.eventManager.subscribe(
+            EventTypes.HOLE_STARTED,
+            this.handleHoleStarted,
+            this
+        );
+    }
+    
+    /**
+     * Handle ball stopped event
+     */
+    handleBallStopped(event) {
+        // Re-enable input when ball stops (if hole is not completed)
+        if (!this.game.stateManager.isHoleCompleted()) {
+            this.enableInput();
+        }
+    }
+    
+    /**
+     * Handle ball in hole event
+     */
+    handleBallInHole(event) {
+        // Disable input when ball goes in hole
+        this.disableInput();
+    }
+    
+    /**
+     * Handle hole started event
+     */
+    handleHoleStarted(event) {
+        // Enable input when a new hole starts
+        this.enableInput();
     }
     
     isEventInsideCanvas(event) {
@@ -73,6 +126,12 @@ export class InputController {
         // Check if mouse is over the canvas
         if (!this.isEventInsideCanvas(event)) return;
         
+        // First, check if the ball is in motion - if so, we shouldn't allow new shots
+        if (this.game.stateManager && this.game.stateManager.isBallInMotion()) {
+            console.log("Ball is in motion, ignoring input");
+            return;
+        }
+        
         // When starting a drag, store the current orbit controls state and disable them
         if (this.game.cameraController && this.game.cameraController.controls) {
             this.controlsWereEnabled = this.game.cameraController.controls.enabled;
@@ -81,6 +140,7 @@ export class InputController {
         
         // Set pointer down flag
         this.isPointerDown = true;
+        this.isDragging = false; // Reset drag state
         
         // Update mouse position
         this.pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -89,25 +149,53 @@ export class InputController {
         // Cast ray into the scene
         this.raycaster.setFromCamera(this.pointer, this.camera);
         
-        // Create a plane at ball height for consistent dragging
-        const ballPosition = this.ball.mesh.position.clone();
-        const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -ballPosition.y);
+        // Get ball reference from ball manager
+        const ball = this.game.ballManager ? this.game.ballManager.ball : null;
         
-        // Find intersection with the drag plane
-        const intersection = new THREE.Vector3();
-        this.raycaster.ray.intersectPlane(dragPlane, intersection);
+        // Check if we clicked directly on the ball first
+        let clickedOnBall = false;
+        if (ball && ball.mesh) {
+            const intersects = this.raycaster.intersectObject(ball.mesh);
+            clickedOnBall = intersects.length > 0;
+            
+            // If we didn't click directly on the ball, check if we're close enough to the ball position
+            // This makes it easier to click on the ball, especially on mobile
+            if (!clickedOnBall) {
+                // Create a plane at ball height for consistent dragging
+                const ballPosition = ball.mesh.position.clone();
+                const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -ballPosition.y);
+                
+                // Find intersection with the drag plane
+                const intersection = new THREE.Vector3();
+                this.raycaster.ray.intersectPlane(dragPlane, intersection);
+                
+                if (intersection) {
+                    // Check if the intersection point is close enough to the ball (in world units)
+                    const distanceToBall = intersection.distanceTo(ballPosition);
+                    clickedOnBall = distanceToBall < ball.radius * 3; // Using 3x radius for easier clicking
+                    
+                    this.intersectionPoint = intersection.clone();
+                    
+                    // Initially no direction or power
+                    this.hitDirection = new THREE.Vector3(0, 0, 0);
+                    this.hitPower = 0;
+                    
+                    // Show power indicator
+                    if (this.powerIndicator) {
+                        this.powerIndicator.style.display = 'block';
+                        this.updatePowerIndicator(0);
+                    }
+                    
+                    console.log(`Clicked at distance ${distanceToBall.toFixed(2)} from ball, clickedOnBall: ${clickedOnBall}`);
+                }
+            }
+        }
         
-        if (intersection) {
-            this.intersectionPoint = intersection.clone();
-            
-            // Initially no direction or power
-            this.hitDirection = new THREE.Vector3(0, 0, 0);
-            this.hitPower = 0;
-            
-            // Show power indicator
-            if (this.powerIndicator) {
-                this.powerIndicator.style.display = 'block';
-                this.updatePowerIndicator(0);
+        // If we didn't click on or near the ball, restore camera controls and exit
+        if (!clickedOnBall) {
+            this.isPointerDown = false;
+            if (this.game.cameraController && this.game.cameraController.controls) {
+                this.game.cameraController.controls.enabled = this.controlsWereEnabled;
             }
         }
         
@@ -130,7 +218,7 @@ export class InputController {
         this.raycaster.setFromCamera(this.pointer, this.camera);
         
         // Create a plane at ball height for consistent dragging
-        const ballPosition = this.ball.mesh.position.clone();
+        const ballPosition = this.game.ballManager.ball.mesh.position.clone();
         const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -ballPosition.y);
         
         // Find intersection with the drag plane
@@ -151,11 +239,6 @@ export class InputController {
             
             // Update or create the aim line
             this.updateAimLine(ballPosition, this.hitDirection, this.hitPower);
-            
-            // Debugging stats
-            if (this.game && this.game.debugMode) {
-                console.log(`Direction: ${this.hitDirection.x.toFixed(2)}, ${this.hitDirection.z.toFixed(2)}, Power: ${this.hitPower.toFixed(2)}`);
-            }
         }
         
         // Prevent default behavior
@@ -163,31 +246,50 @@ export class InputController {
     }
     
     onMouseUp(event) {
-        // Skip if input is not enabled or if no dragging started
-        if (!this.isInputEnabled || !this.isPointerDown) return;
-        
-        // Restore orbit controls to previous state
-        if (this.game.cameraController && this.game.cameraController.controls) {
-            this.game.cameraController.controls.enabled = this.controlsWereEnabled;
+        // Skip if not in dragging mode
+        if (!this.isPointerDown || !this.isDragging) {
+            this.isPointerDown = false;
+            return;
         }
         
-        // Only process if we were dragging
-        if (this.isDragging && this.hitPower > 0.05) {
-            // Hit the ball with calculated direction and power
-            this.game.hitBall(this.hitDirection, this.hitPower);
+        // Only handle left mouse button
+        if (event.button !== 0) return;
+        
+        // If dragging and input is enabled, attempt to hit the ball
+        if (this.isInputEnabled && this.hitPower > 0.05) {
+            // Hide direction line
+            this.removeDirectionLine();
+            
+            // Hide power indicator
+            if (this.powerIndicator) {
+                this.powerIndicator.style.display = 'none';
+            }
+            
+            // Hit ball using BallManager
+            if (this.game.ballManager) {
+                this.game.ballManager.hitBall(this.hitDirection, this.hitPower);
+                
+                // Disable input until ball stops
+                this.disableInput();
+                
+                // Publish input event
+                this.game.eventManager.publish(
+                    EventTypes.INPUT_DISABLED,
+                    {
+                        reason: 'ball_hit'
+                    },
+                    this
+                );
+            }
         }
         
-        // Reset flags
+        // Reset input state
         this.isPointerDown = false;
         this.isDragging = false;
-        this.intersectionPoint = null;
         
-        // Hide direction line
-        this.removeAimLine();
-        
-        // Hide power indicator
-        if (this.powerIndicator) {
-            this.powerIndicator.style.display = 'none';
+        // Restore camera controls
+        if (this.game.cameraController && this.game.cameraController.controls) {
+            this.game.cameraController.controls.enabled = this.controlsWereEnabled;
         }
         
         // Prevent default behavior
@@ -261,7 +363,7 @@ export class InputController {
                 const direction = this.getWorldDirection();
                 
                 // Apply force to ball
-                this.ball.applyForce(direction, this.dragPower);
+                this.game.ballManager.applyForce(direction, this.dragPower);
                 
                 // Set game state
                 this.game.gameState.ballInMotion = true;
@@ -315,7 +417,7 @@ export class InputController {
     
     getWorldDirection() {
         // Get ball position in world space
-        const ballPosition = this.ball.mesh.position.clone();
+        const ballPosition = this.game.ballManager.ball.mesh.position.clone();
         
         // Create a plane at the ball's height
         const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -ballPosition.y);
@@ -365,10 +467,10 @@ export class InputController {
     }
     
     updateDirectionLine() {
-        if (!this.directionLine || !this.ball.mesh) return;
+        if (!this.directionLine || !this.game.ballManager.ball.mesh) return;
         
         // Get ball position
-        const ballPosition = this.ball.mesh.position.clone();
+        const ballPosition = this.game.ballManager.ball.mesh.position.clone();
         
         // Calculate direction
         const direction = this.getWorldDirection();
@@ -436,37 +538,47 @@ export class InputController {
         }
     }
     
+    /**
+     * Enable user input for hitting the ball
+     */
     enableInput() {
-        this.isInputEnabled = true;
-        
-        // Reset the drag state to ensure we can draw the line again for the next shot
-        this.isDragging = false;
-        this.dragPower = 0;
-        
-        // Make sure the direction line is removed
-        this.removeDirectionLine();
-        
-        // Show the ready indicator
-        const readyIndicator = document.getElementById('ready-indicator');
-        if (readyIndicator) {
-            readyIndicator.classList.add('visible');
-            // Auto-hide after 2 seconds
-            setTimeout(() => {
-                readyIndicator.classList.remove('visible');
-            }, 2000);
+        if (!this.isInputEnabled) {
+            this.isInputEnabled = true;
+            
+            // Publish input enabled event
+            this.game.eventManager.publish(
+                EventTypes.INPUT_ENABLED,
+                {},
+                this
+            );
+            
+            this.game.debugManager.log("Input enabled");
         }
     }
     
+    /**
+     * Disable user input for hitting the ball
+     */
     disableInput() {
-        this.isInputEnabled = false;
-        this.isDragging = false;
-        this.removeDirectionLine();
-        this.resetPowerIndicator();
-        
-        // Hide the ready indicator
-        const readyIndicator = document.getElementById('ready-indicator');
-        if (readyIndicator) {
-            readyIndicator.classList.remove('visible');
+        if (this.isInputEnabled) {
+            this.isInputEnabled = false;
+            this.isPointerDown = false;
+            this.isDragging = false;
+            
+            // Clean up any visual elements
+            this.removeDirectionLine();
+            this.resetPowerIndicator();
+            
+            // Publish input disabled event
+            this.game.eventManager.publish(
+                EventTypes.INPUT_DISABLED,
+                {
+                    reason: 'programmatic'
+                },
+                this
+            );
+            
+            this.game.debugManager.log("Input disabled");
         }
     }
     

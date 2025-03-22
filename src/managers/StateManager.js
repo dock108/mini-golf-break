@@ -14,6 +14,7 @@ export class StateManager {
             
             // Hole state
             holeCompleted: false,
+            currentHoleNumber: 1,
             
             // Game flow
             resetBall: false,
@@ -182,5 +183,33 @@ export class StateManager {
         this.eventCallbacks.onStateChange.forEach(callback => 
             callback(property, newValue, oldValue)
         );
+    }
+    
+    /**
+     * Get the current hole number
+     * @returns {number} Current hole number (1-based index)
+     */
+    getCurrentHoleNumber() {
+        return this.state.currentHoleNumber;
+    }
+    
+    /**
+     * Increment the hole number
+     * @returns {StateManager} this for chaining
+     */
+    incrementHoleNumber() {
+        this.state.currentHoleNumber++;
+        this._notifyStateChange('currentHoleNumber', this.state.currentHoleNumber);
+        return this;
+    }
+    
+    /**
+     * Reset the hole number to 1
+     * @returns {StateManager} this for chaining
+     */
+    resetHoleNumber() {
+        this.state.currentHoleNumber = 1;
+        this._notifyStateChange('currentHoleNumber', this.state.currentHoleNumber);
+        return this;
     }
 } 

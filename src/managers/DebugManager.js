@@ -9,7 +9,23 @@ export const DEBUG_CONFIG = {
     showHelpers: true,      // Show axis and grid helpers
     showLightHelpers: true, // Show light helpers
     logVelocity: true,      // Log ball velocity
-    showPhysicsDebug: false // Show physics debug visualizations
+    showPhysicsDebug: false, // Show physics debug visualizations
+    logCriticalErrors: true, // Always log critical errors, even when debug is disabled
+    errorTracking: {
+        maxErrors: 50,      // Maximum number of errors to track
+        suppressRepeated: true, // Suppress repeated identical errors
+        maxRepeats: 3       // Number of times an identical error is logged before suppression
+    }
+};
+
+/**
+ * Error levels for the logging system
+ */
+export const ERROR_LEVELS = {
+    ERROR: 'ERROR',      // Critical errors that prevent proper functionality
+    WARNING: 'WARNING',  // Non-critical issues that may affect gameplay
+    INFO: 'INFO',        // General information logs
+    DEBUG: 'DEBUG'       // Detailed debug information
 };
 
 /**
@@ -30,6 +46,18 @@ export class DebugManager {
         // Velocity logging data
         this.velocityHistory = [];
         this.maxHistoryLength = 10;
+        
+        // Error tracking
+        this.errorHistory = new Map(); // Maps error messages to count
+        this.errorsByLevel = {
+            [ERROR_LEVELS.ERROR]: 0,
+            [ERROR_LEVELS.WARNING]: 0,
+            [ERROR_LEVELS.INFO]: 0,
+            [ERROR_LEVELS.DEBUG]: 0
+        };
+        
+        // UI elements for displaying errors
+        this.errorOverlay = null;
     }
     
     /**
@@ -47,7 +75,88 @@ export class DebugManager {
             this.setupDebugHelpers();
         }
         
+        // Create error overlay container (hidden initially)
+        this.createErrorOverlay();
+        
         return this;
+    }
+    
+    /**
+     * Create the error overlay for displaying critical errors to the user
+     */
+    createErrorOverlay() {
+        if (document.getElementById('error-overlay')) {
+            this.errorOverlay = document.getElementById('error-overlay');
+            return;
+        }
+        
+        this.errorOverlay = document.createElement('div');
+        this.errorOverlay.id = 'error-overlay';
+        this.errorOverlay.style.position = 'fixed';
+        this.errorOverlay.style.bottom = '10px';
+        this.errorOverlay.style.left = '10px';
+        this.errorOverlay.style.right = '10px';
+        this.errorOverlay.style.backgroundColor = 'rgba(255, 0, 0, 0.8)';
+        this.errorOverlay.style.color = 'white';
+        this.errorOverlay.style.padding = '10px';
+        this.errorOverlay.style.fontFamily = 'monospace';
+        this.errorOverlay.style.fontSize = '14px';
+        this.errorOverlay.style.zIndex = '1000';
+        this.errorOverlay.style.display = 'none';
+        this.errorOverlay.style.borderRadius = '5px';
+        this.errorOverlay.style.maxHeight = '30%';
+        this.errorOverlay.style.overflowY = 'auto';
+        
+        // Add close button
+        const closeButton = document.createElement('button');
+        closeButton.textContent = 'X';
+        closeButton.style.position = 'absolute';
+        closeButton.style.right = '5px';
+        closeButton.style.top = '5px';
+        closeButton.style.background = 'transparent';
+        closeButton.style.border = 'none';
+        closeButton.style.color = 'white';
+        closeButton.style.cursor = 'pointer';
+        closeButton.style.fontSize = '18px';
+        closeButton.addEventListener('click', () => {
+            this.errorOverlay.style.display = 'none';
+        });
+        
+        this.errorOverlay.appendChild(closeButton);
+        document.body.appendChild(this.errorOverlay);
+    }
+    
+    /**
+     * Display a critical error in the UI error overlay
+     * @param {string} message - Error message to display
+     */
+    showErrorInUI(message) {
+        if (!this.errorOverlay) {
+            this.createErrorOverlay();
+        }
+        
+        // Create error message element
+        const errorElement = document.createElement('div');
+        errorElement.textContent = message;
+        errorElement.style.marginBottom = '5px';
+        errorElement.style.borderBottom = '1px solid rgba(255,255,255,0.3)';
+        errorElement.style.paddingBottom = '5px';
+        
+        // Add to overlay
+        this.errorOverlay.appendChild(errorElement);
+        this.errorOverlay.style.display = 'block';
+        
+        // Auto-hide after 10 seconds if not interacted with
+        setTimeout(() => {
+            if (errorElement.parentNode) {
+                errorElement.parentNode.removeChild(errorElement);
+                
+                // Hide overlay if no more errors
+                if (this.errorOverlay.children.length <= 1) { // Only close button remaining
+                    this.errorOverlay.style.display = 'none';
+                }
+            }
+        }, 10000);
     }
     
     /**
@@ -186,20 +295,140 @@ export class DebugManager {
     }
     
     /**
-     * Log debug message if debug mode is enabled
+     * Log a message with a specified error level
+     * @param {string} level - Error level (ERROR, WARNING, INFO, DEBUG)
+     * @param {string} source - Source of the error (class or method name)
+     * @param {string} message - Message to log
+     * @param {any} data - Optional data to log
+     * @param {boolean} showInUI - Whether to show critical errors in the UI
+     * @returns {DebugManager} this for chaining
+     */
+    logWithLevel(level, source, message, data = null, showInUI = false) {
+        // Always log critical errors, otherwise respect debug mode
+        if (level !== ERROR_LEVELS.ERROR && !this.enabled) return this;
+        
+        // Format message with source
+        const formattedMessage = `[${level}] ${source}: ${message}`;
+        
+        // Track error frequency
+        this.trackError(level, formattedMessage);
+        
+        // Check if we should suppress this error (repeated too many times)
+        if (this.shouldSuppressError(formattedMessage)) {
+            return this;
+        }
+        
+        // Log to console with appropriate method
+        switch (level) {
+            case ERROR_LEVELS.ERROR:
+                console.error(formattedMessage, data !== null ? data : '');
+                break;
+            case ERROR_LEVELS.WARNING:
+                console.warn(formattedMessage, data !== null ? data : '');
+                break;
+            case ERROR_LEVELS.INFO:
+            case ERROR_LEVELS.DEBUG:
+            default:
+                console.log(formattedMessage, data !== null ? data : '');
+                break;
+        }
+        
+        // Show in UI if requested and it's a critical error
+        if (showInUI && level === ERROR_LEVELS.ERROR) {
+            this.showErrorInUI(formattedMessage);
+        }
+        
+        return this;
+    }
+    
+    /**
+     * Log a critical error (always logged, even when debug is disabled)
+     * @param {string} source - Source of the error (class or method name)
+     * @param {string} message - Error message
+     * @param {any} data - Optional data related to the error
+     * @param {boolean} showInUI - Whether to show in the UI error overlay
+     * @returns {DebugManager} this for chaining
+     */
+    error(source, message, data = null, showInUI = false) {
+        return this.logWithLevel(ERROR_LEVELS.ERROR, source, message, data, showInUI);
+    }
+    
+    /**
+     * Log a warning (only when debug is enabled)
+     * @param {string} source - Source of the warning
+     * @param {string} message - Warning message
+     * @param {any} data - Optional data to include
+     * @returns {DebugManager} this for chaining
+     */
+    warn(source, message, data = null) {
+        return this.logWithLevel(ERROR_LEVELS.WARNING, source, message, data);
+    }
+    
+    /**
+     * Log an informational message (only when debug is enabled)
+     * @param {string} source - Source of the info
+     * @param {string} message - Info message
+     * @param {any} data - Optional data to include
+     * @returns {DebugManager} this for chaining
+     */
+    info(source, message, data = null) {
+        return this.logWithLevel(ERROR_LEVELS.INFO, source, message, data);
+    }
+    
+    /**
+     * Log debug message if debug mode is enabled (legacy method for compatibility)
      * @param {string} message - Message to log
      * @param {any} data - Optional data to log
      */
     log(message, data = null) {
-        if (!this.enabled) return;
+        return this.logWithLevel(ERROR_LEVELS.DEBUG, 'Debug', message, data);
+    }
+    
+    /**
+     * Track error frequency
+     * @param {string} level - Error level
+     * @param {string} message - Error message to track
+     */
+    trackError(level, message) {
+        // Increment error count for this level
+        this.errorsByLevel[level]++;
         
-        if (data !== null) {
-            console.log(message, data);
-        } else {
-            console.log(message);
+        // Track unique error message frequency
+        const currentCount = this.errorHistory.get(message) || 0;
+        this.errorHistory.set(message, currentCount + 1);
+        
+        // Prevent memory leaks by limiting the size of the error history
+        if (this.errorHistory.size > DEBUG_CONFIG.errorTracking.maxErrors) {
+            // Remove the oldest entries
+            const iterator = this.errorHistory.keys();
+            this.errorHistory.delete(iterator.next().value);
+        }
+    }
+    
+    /**
+     * Check if an error should be suppressed (repeated too many times)
+     * @param {string} message - Error message to check
+     * @returns {boolean} Whether to suppress the error
+     */
+    shouldSuppressError(message) {
+        if (!DEBUG_CONFIG.errorTracking.suppressRepeated) {
+            return false;
         }
         
-        return this;
+        const count = this.errorHistory.get(message) || 0;
+        return count > DEBUG_CONFIG.errorTracking.maxRepeats;
+    }
+    
+    /**
+     * Get error statistics for the UI
+     * @returns {object} Error statistics
+     */
+    getErrorStats() {
+        return {
+            totalErrors: this.errorsByLevel[ERROR_LEVELS.ERROR],
+            totalWarnings: this.errorsByLevel[ERROR_LEVELS.WARNING],
+            uniqueErrors: this.errorHistory.size
+        };
     }
     
     /**
@@ -214,10 +443,18 @@ export class DebugManager {
             'Debug Mode': this.enabled ? 'ON' : 'OFF'
         };
         
+        // Add error statistics
+        const errorStats = this.getErrorStats();
+        if (errorStats.totalErrors > 0 || errorStats.totalWarnings > 0) {
+            info['Errors'] = errorStats.totalErrors;
+            info['Warnings'] = errorStats.totalWarnings;
+        }
+        
         // Add ball info if available
-        if (this.game.ball && this.game.ball.body) {
-            const velocity = this.game.ball.body.velocity;
-            const position = this.game.ball.mesh.position;
+        if (this.game.ballManager && this.game.ballManager.ball && this.game.ballManager.ball.body) {
+            const ball = this.game.ballManager.ball;
+            const velocity = ball.body.velocity;
+            const position = ball.mesh.position;
             
             info['Ball Position'] = `X: ${position.x.toFixed(2)}, Y: ${position.y.toFixed(2)}, Z: ${position.z.toFixed(2)}`;
             info['Ball Velocity'] = `${velocity.length().toFixed(2)} m/s`;
@@ -235,6 +472,11 @@ export class DebugManager {
         
         // Remove debug helpers
         this.removeDebugHelpers();
+        
+        // Remove error overlay
+        if (this.errorOverlay && this.errorOverlay.parentNode) {
+            this.errorOverlay.parentNode.removeChild(this.errorOverlay);
+        }
         
         return this;
     }

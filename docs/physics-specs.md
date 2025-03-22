@@ -2,6 +2,8 @@
 
 This document defines the physics requirements and behaviors for **Mini Golf Break**, ensuring consistent gameplay mechanics and realistic interactions, while maintaining simplicity for performance and accessibility.
 
+> **Note:** For specific implementation values, please refer to the [Physics Parameters Reference](./physics-parameters.md) document, which serves as the single source of truth for exact physics values used in the implementation.
+
 ## 1. General Physics Settings
 
 - **Gravity:** 9.81 m/s² downward (real-world Earth gravity).
@@ -9,15 +11,18 @@ This document defines the physics requirements and behaviors for **Mini Golf Bre
 
 ## 2. Ball Behavior
 
+- **Mass:** 0.45kg (intentionally lighter than standard golf ball for better gameplay feel).
 - **Bounce:** Realistic bounce behavior, with the ball bouncing naturally off surfaces but gradually reducing energy until it stops.
 - **Roll:** Ball should naturally roll to a stop after a realistic distance, ensuring gameplay feels authentic without unnecessarily prolonging gameplay.
+- **Damping:** Linear and angular damping of 0.6 to simulate air resistance and rolling friction.
 
 ## 3. Materials & Surface Interactions
 
 - Clearly distinct physical behaviors for different surfaces:
-  - **Grass:** Standard friction, moderate bounce.
-  - **Sand:** High friction, minimal bounce, significantly slows ball.
+  - **Grass:** Standard friction (0.8), moderate bounce (0.1).
+  - **Sand:** High friction (2.0), minimal bounce (0.01), significantly slows ball.
   - **Water:** Immediate stop with a visual splash effect.
+  - **Obstacles/Bumpers:** Low friction (0.1), high bounce (0.8) for dynamic interactions.
 
 ## 4. Collision Handling
 
@@ -29,6 +34,7 @@ This document defines the physics requirements and behaviors for **Mini Golf Bre
 ## 5. Physics Accuracy
 
 - **Priority:** Simplicity and performance prioritized, maintaining realistic physics without compromising smooth gameplay. The physics should feel believable but avoid overly complex calculations to maintain consistent frame rates.
+- **Solver Settings:** Enhanced stability with 30 iterations and 0.0001 tolerance, with 8 max substeps for smoother physics.
 
 ## 6. Edge Case Handling
 

@@ -83,3 +83,6 @@ Mini Golf Break offers a minimalist mini-golf experience focused on a single, pe
 - Emissive materials for visibility
 - Intelligent camera positioning for optimal experience
 - Mobile-friendly controls (planned for future)
+
+Ball Force Application:
+- Force Multiplier: 15 (applied to power to determine impulse magnitude)

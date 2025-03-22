@@ -16,7 +16,6 @@ export class CameraController {
         this.controls = null;
         
         // Game references
-        this.ball = null;
         this.course = null;
         
         // Debug mode
@@ -73,10 +72,10 @@ export class CameraController {
     }
     
     /**
-     * Set references to game objects
+     * Set reference to game course
+     * @param {Course} course - The course object
      */
-    setReferences(ball, course) {
-        this.ball = ball;
+    setCourse(course) {
         this.course = course;
         return this;
     }
@@ -98,6 +97,9 @@ export class CameraController {
         if (this.controls) {
             this.controls.update();
         }
+        
+        // Update camera to follow the ball if it exists and is moving
+        this.updateCameraFollowBall();
     }
     
     /**
@@ -150,104 +152,95 @@ export class CameraController {
             -direction.x * distance * 0.7  // Offset perpendicular to hole direction
         );
         
-        // Set camera position and look at midpoint
-        const cameraPosition = new THREE.Vector3().addVectors(midpoint, cameraOffset);
-        this.camera.position.copy(cameraPosition);
+        // Set camera position relative to midpoint
+        this.camera.position.copy(midpoint.clone().add(cameraOffset));
         
-        // Set target to midpoint, slightly elevated
+        // Look at midpoint
+        this.camera.lookAt(midpoint);
+        
+        // Update orbit controls target if they exist
         if (this.controls) {
             this.controls.target.copy(midpoint);
             this.controls.update();
-        } else {
-            this.camera.lookAt(midpoint);
         }
         
         return this;
     }
     
     /**
-     * Update camera to follow the ball during movement
+     * Update camera position to follow the ball
      */
-    updateCameraFollow(isMoving = false) {
-        if (!this.ball || !this.ball.mesh) return;
+    updateCameraFollowBall() {
+        // Get the ball reference from the ball manager
+        const ball = this.game.ballManager ? this.game.ballManager.ball : null;
+        if (!ball || !ball.mesh) return;
         
-        const ballPosition = this.ball.mesh.position.clone();
+        // Get the ball's position
+        const ballPosition = ball.mesh.position.clone();
         
-        // Get the hole position so we can always keep it in mind
-        let holePosition;
-        if (this.course && this.course.getHolePosition) {
-            holePosition = this.course.getHolePosition();
-        } else {
-            holePosition = new THREE.Vector3(0, 0, 0);
-        }
-        
-        // Always try to keep the target focused somewhat on the hole direction
-        const targetPosition = new THREE.Vector3()
-            .addVectors(ballPosition, new THREE.Vector3(0, 0.5, 0))
-            .lerp(holePosition, 0.2);
-        
-        // Set orbit controls target to the calculated target
-        if (this.controls) {
-            this.controls.target.copy(targetPosition);
-            this.controls.update();
+        // Only follow the ball if it's moving
+        if (this.game.stateManager && this.game.stateManager.isBallInMotion()) {
+            if (this.controls) {
+                // Update the orbit controls target to follow the ball
+                this.controls.target.lerp(ballPosition, 0.2);
+                this.controls.update();
+            } else {
+                // If no controls, update camera position directly to follow the ball
+                const cameraTargetPosition = ballPosition.clone().add(new THREE.Vector3(10, 10, 10));
+                this.camera.position.lerp(cameraTargetPosition, 0.1);
+                this.camera.lookAt(ballPosition);
+            }
         }
     }
     
     /**
-     * Focus camera on the ball, useful for after ball placement
+     * Position camera behind ball pointing toward hole
      */
-    focusCameraOnBall() {
-        if (!this.ball || !this.ball.mesh) return;
+    positionCameraBehindBall() {
+        // Get the ball reference from the ball manager
+        const ball = this.game.ballManager ? this.game.ballManager.ball : null;
+        if (!ball || !ball.mesh) return;
         
-        const ballPosition = this.ball.mesh.position.clone();
+        // Get the ball's position
+        const ballPosition = ball.mesh.position.clone();
         
-        // Get the hole position
-        let holePosition;
-        if (this.course && this.course.getHolePosition) {
-            holePosition = this.course.getHolePosition();
-        } else {
-            holePosition = new THREE.Vector3(0, 0, 0);
-        }
+        // Get hole position
+        const holePosition = this.course ? this.course.getHolePosition() : null;
+        if (!holePosition) return;
         
         // Calculate direction from ball to hole
-        const direction = new THREE.Vector3()
-            .subVectors(holePosition, ballPosition)
-            .normalize();
+        const direction = new THREE.Vector3().subVectors(holePosition, ballPosition).normalize();
         
-        // Set camera position behind the ball, looking toward the hole
-        const cameraOffset = new THREE.Vector3(
-            direction.x * -5,
-            5, // Height above ball
-            direction.z * -5
-        );
+        // Determine camera position behind the ball
+        const cameraPosition = ballPosition.clone().sub(direction.clone().multiplyScalar(4));
+        cameraPosition.y += 2; // Raise the camera a bit for better view
         
-        const newCameraPosition = new THREE.Vector3().addVectors(ballPosition, cameraOffset);
-        this.camera.position.copy(newCameraPosition);
+        // Set camera position and look at the ball
+        this.camera.position.copy(cameraPosition);
+        this.camera.lookAt(ballPosition);
         
-        // Look at ball position
+        // Update orbit controls if they exist
         if (this.controls) {
             this.controls.target.copy(ballPosition);
             this.controls.update();
-        } else {
-            this.camera.lookAt(ballPosition);
         }
     }
     
     /**
-     * Disable camera controls
+     * Clean up resources
      */
-    disableControls() {
+    cleanup() {
+        // Remove window resize event listener
+        window.removeEventListener('resize', this.onWindowResize);
+        
+        // Dispose of orbit controls if they exist
         if (this.controls) {
-            this.controls.enabled = false;
+            this.controls.dispose();
+            this.controls = null;
         }
-    }
-    
-    /**
-     * Enable camera controls
-     */
-    enableControls() {
-        if (this.controls) {
-            this.controls.enabled = true;
-        }
+        
+        // Clear references
+        this.renderer = null;
+        this.course = null;
     }
 } 

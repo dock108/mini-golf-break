@@ -12,6 +12,19 @@ mini-golf-break/
 │   │   └── PhysicsWorld.js   # Cannon-es physics world encapsulation
 │   ├── controls/             # Input handling and camera control logic
 │   │   └── InputController.js # Manages user interactions and visual feedback
+│   ├── managers/             # System managers for various game subsystems 
+│   │   ├── AudioManager.js   # Manages sound effects and music
+│   │   ├── BallManager.js    # Handles ball creation and movement
+│   │   ├── DebugManager.js   # Debugging tools and visualizations
+│   │   ├── EventManager.js   # Event system for component communication
+│   │   ├── GameLoopManager.js # Central game loop and update sequence
+│   │   ├── HazardManager.js  # Water hazards and boundary detection
+│   │   ├── HoleManager.js    # Hole completion and physics interactions
+│   │   ├── PerformanceManager.js # Performance monitoring and optimization
+│   │   ├── PhysicsManager.js # High-level physics system management
+│   │   ├── StateManager.js   # Game state tracking and transitions
+│   │   ├── UIManager.js      # User interface management
+│   │   └── VisualEffectsManager.js # Particle effects and visual enhancements
 │   ├── scenes/               # Scene setup and management
 │   │   └── Game.js           # Main game controller class
 │   ├── objects/              # Game object classes
@@ -28,10 +41,11 @@ mini-golf-break/
 ├── docs/                     # Detailed documentation
 │   ├── file-structure.md     # This file
 │   ├── game-design.md        # Game design principles
-│   ├── physics-specs.md      # Physics configuration details
+│   ├── physics-parameters.md # Physics configuration details
 │   ├── camera-behavior-specs.md # Camera behavior documentation
 │   ├── control-and-input-specs.md # Input system documentation
 │   ├── graphics-and-style-guide.md # Visual styling guidelines
+│   ├── performance-monitoring.md # Performance metrics and optimization
 │   ├── mvp-scope.md          # Minimum viable product scope
 │   ├── tech-stack-tools.md   # Technology choices
 │   ├── deploy-strategy.md    # Deployment approach
@@ -51,6 +65,14 @@ mini-golf-break/
 ### Game Management
 
 - **src/scenes/Game.js**: The central controller handling game state, physics updates, scene rendering, and coordinating all game elements. Manages game modes, scoring, camera behavior, and event handling.
+
+### Manager System
+
+- **src/managers/PerformanceManager.js**: Tracks and analyzes game performance metrics including FPS, frame times, component timing, and memory usage. Provides visual display and performance budget enforcement.
+- **src/managers/GameLoopManager.js**: Orchestrates the main game loop, ensuring components update in the correct sequence and timing.
+- **src/managers/EventManager.js**: Implements a publisher-subscriber event system for decoupled communication between game components.
+- **src/managers/PhysicsManager.js**: Manages the physics world and provides high-level interfaces for physics operations.
+- **src/managers/DebugManager.js**: Provides debugging tools, logging, and visualization helpers during development.
 
 ### Course System
 

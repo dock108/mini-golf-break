@@ -97,6 +97,24 @@ export class PhysicsWorld {
         
         this.lastCallTime = time;
         
+        // Debug log much less frequently (approximately once every minute)
+        const debugRate = 0.0005; 
+        if (Math.random() < debugRate) {
+            const bodyCount = this.world ? this.world.bodies.length : 0;
+            console.log(`DEBUG PhysicsWorld.update: Physics update dt=${dt.toFixed(4)}, bodyCount=${bodyCount}`);
+            
+            // Check if there's a ball in the physics world
+            const ballBody = this.world.bodies.find(body => 
+                body.shapes && body.shapes[0] && body.shapes[0].type === CANNON.Shape.types.SPHERE);
+                
+            if (ballBody) {
+                console.log(`DEBUG PhysicsWorld.update: Ball found in physics world. ` +
+                            `Position: (${ballBody.position.x.toFixed(2)}, ${ballBody.position.y.toFixed(2)}, ${ballBody.position.z.toFixed(2)}), ` +
+                            `Velocity: (${ballBody.velocity.x.toFixed(2)}, ${ballBody.velocity.y.toFixed(2)}, ${ballBody.velocity.z.toFixed(2)}), ` +
+                            `Sleeping: ${ballBody.sleepState}`);
+            }
+        }
+        
         // Step the physics world
         this.world.step(this.fixedTimeStep, dt, this.maxSubSteps);
     }
