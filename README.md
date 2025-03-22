@@ -1,13 +1,13 @@
-# Space Golf Break
+# Mini Golf Break
 
-A minimalist space-themed mini-golf experience built for quick relaxation breaks. Navigate your ball through a single, perfectly crafted hole floating in the cosmic void.
+A minimalist mini-golf experience built for quick relaxation breaks. Navigate your ball through a perfectly crafted hole with intuitive controls and satisfying physics.
 
 ## Features
-- **Space-Themed Environment**: Play mini-golf in a beautiful, atmospheric space setting with proper lighting and starfield background
+- **Clean Visual Design**: Play mini-golf in a beautiful, atmospheric setting with proper lighting and a minimalist environment
 - **Quick Gameplay Session**: Designed specifically for short, relaxing rounds lasting just 1-2 minutes—perfect for a mental break
 - **Drag-and-Release Controls**: Simple, intuitive controls that mimic pulling back and releasing a pool cue, making gameplay accessible
-- **Intuitive Physics**: Powered by Cannon-es physics engine with finely-tuned parameters for authentic ball movement
-- **Visual Feedback**: Satisfying green glow and particle effects when the ball drops in the hole
+- **Realistic Physics**: Powered by Cannon-es physics engine with finely-tuned parameters for authentic ball movement
+- **Visual Feedback**: Satisfying glow and particle effects when the ball drops in the hole
 - **Animated Scorecard**: Celebratory scorecard appears when you complete the hole, showing your score with a counter animation
 - **Sound Effects**: Audio feedback for hitting the ball and completing the hole enhances the experience
 - **Intelligent Camera**: Camera consistently positions behind the ball looking toward the hole for optimal aiming
@@ -17,10 +17,10 @@ A minimalist space-themed mini-golf experience built for quick relaxation breaks
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/space-golf-break.git
+git clone https://github.com/yourusername/mini-golf-break.git
 
 # Navigate to the project directory
-cd space-golf-break
+cd mini-golf-break
 
 # Install dependencies
 npm install
@@ -40,9 +40,9 @@ npm run dev
 
 ## Development Status
 
-This project is currently a focused single-hole experience, concentrating on perfecting the core gameplay mechanics in a space environment:
+This project is currently a focused single-hole experience, concentrating on perfecting the core gameplay mechanics:
 
-- Space-themed minimalist course with starfield background and atmospheric lighting
+- Clean, minimalist course design with appropriate lighting
 - Enhanced ball-hole interaction with realistic physics
 - Satisfying visual and audio feedback when completing the hole
 - Animated scorecard showing your score
@@ -63,13 +63,13 @@ Check the [CHANGELOG.md](./CHANGELOG.md) for detailed development history and th
 ### Visual Feedback
 - Particle effects and color change when the ball enters the hole
 - Animated scorecard with counting animation for score display
-- Subtle ball glow to maintain visibility in space environment
+- Subtle ball glow to maintain visibility in the environment
 - Camera positioning for optimal view of both ball and hole
 
 ## Project Structure
 
 ```
-space-golf-break/
+mini-golf-break/
 ├── src/                      # Source code for the game
 │   ├── controls/             # Input handling
 │   ├── objects/              # Game objects (ball, course)
@@ -88,7 +88,7 @@ space-golf-break/
 - [Webpack](https://webpack.js.org/) - Module bundling
 
 ## Roadmap
-- Additional visual elements in the space environment
+- Additional visual elements in the environment
 - Expanded sound effects library
 - Mobile touch controls optimization
 - Multiple hole options with different layouts

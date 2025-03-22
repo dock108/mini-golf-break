@@ -1,21 +1,21 @@
-# Changelog for Space Golf Break
+# Changelog for Mini Golf Break
 
-All notable changes to the Space Golf Break project will be documented in this file.
+All notable changes to the Mini Golf Break project will be documented in this file.
 
-## [0.5.0] - Space Theme and Enhanced Completion Experience
+## [0.5.0] - Visual Theme and Enhanced Completion Experience
 
-### Space-Themed Transformation
-- Completely reimagined the game with a space theme featuring a cosmic void environment
-- Added starfield background with thousands of stars for immersive space atmosphere
-- Implemented colored accent lights (blue and purple) to create cosmic atmosphere
-- Changed terrain colors to use emissive materials for visibility in space
+### Visual Transformation
+- Reimagined the game with a clean, atmospheric environment
+- Added subtle background elements for improved visual depth
+- Implemented accent lighting to create atmosphere
+- Changed course colors to use emissive materials for better visibility
 - Added contrasting bright green fairway with darker border for clear visibility
-- Enhanced ball with subtle glow effect to maintain visibility in the space environment
+- Enhanced ball with subtle glow effect to maintain visibility
 
 ### Single-Hole Focus
 - Simplified the game to focus on a single, perfectly crafted hole
 - Removed multi-hole course structure to create a more focused experience
-- Updated course generation to create a clean, minimalist space platform for the hole
+- Updated course generation to create a clean, minimalist platform for the hole
 - Modified all references and UI to support the single-hole gameplay loop
 - Improved hole completion flow with immediate restart option
 
@@ -23,7 +23,7 @@ All notable changes to the Space Golf Break project will be documented in this f
 - Added animated scorecard that appears when completing the hole
 - Implemented score counter animation with sound effects for each increment
 - Created particle burst effect when the ball goes in the hole
-- Added green pulsing glow effect for the ball upon success
+- Added pulsing glow effect for the ball upon success
 - Implemented click-to-restart functionality after hole completion
 - Enhanced visual hierarchy on the scorecard with clear typography and spacing
 

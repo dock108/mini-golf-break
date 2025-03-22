@@ -1,4 +1,4 @@
-# Space Golf Break - Project Checklist
+# Mini Golf Break - Project Checklist
 
 ## Phase 1: Project Setup and Foundation
 
@@ -24,7 +24,7 @@
 - [x] Implement Ball class with mesh creation and physics body
 - [x] Create Course class for generating the terrain
 - [x] Implement hole objects with collision detection
-- [x] Add space-themed environment with starfield
+- [x] Add atmospheric visual elements to environment
 - [x] Create contrasting borders for the fairway
 - [x] Implement particle effects for successful putts
 
@@ -58,16 +58,16 @@
 - [x] Implement last safe position tracking
 - [x] Add messages for hole completion
 - [x] Implement single-hole scoring system
-- [x] Create space-themed course boundaries
+- [x] Create properly bounded course borders
 - [x] Modularize scoring logic into dedicated ScoringSystem class
 
 ## Phase 7: Visual and Audio Enhancement
 
-- [x] Create space-themed course with black background and starfield
-- [x] Add atmospheric lighting with colored accent lights
+- [x] Create atmospheric course with appropriate background
+- [x] Add dynamic lighting with accent colors
 - [x] Create improved hole visibility with contrasting rim
-- [x] Implement emissive materials for space environment
-- [x] Add ball glow effect for better visibility in space
+- [x] Implement emissive materials for better visibility
+- [x] Add ball glow effect for better visibility
 - [x] Create particle system for successful putts
 - [x] Add sound effects for ball hitting and success
 - [x] Implement pulsing effect for ball on success
@@ -131,7 +131,7 @@
 
 - [ ] Add multiple themed holes option
 - [ ] Implement local high score tracking
-- [ ] Create more varied space environments (nebulas, galaxies)
-- [ ] Add optional obstacles with space theme (asteroids, gravity wells)
+- [ ] Create more varied visual environments
+- [ ] Add optional obstacles with varying themes
 - [ ] Explore mobile app conversion options
 - [ ] Implement haptic feedback for mobile devices 

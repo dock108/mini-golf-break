@@ -1,14 +1,14 @@
-# Developer Guide for Space Golf Break
+# Developer Guide for Mini Golf Break
 
-This guide provides an overview of the Space Golf Break codebase for developers who want to understand, modify, or extend the project.
+This guide provides an overview of the Mini Golf Break codebase for developers who want to understand, modify, or extend the project.
 
 ## Architecture Overview
 
-Space Golf Break follows a component-based architecture where different systems interact through well-defined interfaces. The main components are:
+Mini Golf Break follows a component-based architecture where different systems interact through well-defined interfaces. The main components are:
 
 1. **Game**: Central controller that manages game state, scene rendering, and coordinates other components
 2. **PhysicsWorld**: Encapsulates the Cannon-es physics engine and manages simulation
-3. **BasicCourse**: Handles space-themed course generation with a single hole
+3. **BasicCourse**: Handles course generation with a single hole
 4. **Ball**: Represents the player's ball with visual mesh, physics body, and success effects
 5. **InputController**: Manages user interaction for hitting the ball
 6. **CameraController**: Handles camera positioning and movement
@@ -20,7 +20,7 @@ Space Golf Break follows a component-based architecture where different systems 
 
 The Game class is the central coordinator that:
 - Initializes the Three.js scene, camera, and renderer
-- Sets up the space environment with starfield and specialized lighting
+- Sets up the environment with appropriate lighting and background
 - Manages game state (ball in motion, hole completion)
 - Updates all game objects during the animation loop
 - Handles events like hole completion and out-of-bounds
@@ -29,14 +29,14 @@ The Game class is the central coordinator that:
 - Manages restart functionality
 
 Key methods:
-- `init()`: Sets up the game environment and space theme
+- `init()`: Sets up the game environment
 - `update()`: Called each frame to update physics and rendering
 - `hitBall(direction, power)`: Applies force to the ball and triggers sound
 - `handleHoleCompleted()`: Logic when the ball enters a hole
 - `displayScorecard()`: Shows animated completion scorecard
 - `resetAndRestartHole()`: Resets the game for another round
 - `checkBallInHole()`: Detects when the ball goes in the hole
-- `createStarfield()`: Generates thousands of stars for the space background
+- `createBackground()`: Generates the visual background environment
 
 ### PhysicsWorld Class (`src/physics/PhysicsWorld.js`)
 
@@ -48,14 +48,14 @@ This class abstracts the Cannon-es physics engine:
 
 ### BasicCourse Class (`src/objects/BasicCourse.js`)
 
-Responsible for generating the space-themed course:
-- Creates a single, focused hole in space
+Responsible for generating the course:
+- Creates a single, focused hole
 - Defines fairway with contrasting border
 - Implements the hole with proper physics
 - Provides hole position information
 
 Key methods:
-- `createFairway()`: Generates the glowing green fairway with border
+- `createFairway()`: Generates the fairway with contrasting border
 - `createHoleAt()`: Creates the hole with proper physics and visuals
 - `getHolePosition()`: Returns the position of the hole
 - `getHoleStartPosition()`: Returns the starting (tee) position
@@ -171,19 +171,19 @@ Press 'd' during gameplay to toggle debug mode, which:
 
 ## Extending the Project
 
-### Adding Visual Elements to Space Environment
+### Adding Visual Elements to Environment
 
-To enhance the space theme:
-1. Create new space-themed objects in the `createStarfield()` method
+To enhance the visual environment:
+1. Create new background elements in the `createBackground()` method
 2. Add additional lighting effects in the `setupLights()` method
-3. Consider adding nebula effects with particle systems
-4. Implement space-themed obstacles like asteroids
+3. Consider adding atmosphere effects with particle systems
+4. Implement themed obstacles and decorative elements
 
 ### Implementing Multiple Themed Holes
 
 To add different hole designs:
 1. Create new methods like `createHole2()`, `createHole3()` in BasicCourse
-2. Design unique space-themed layouts for each
+2. Design unique themed layouts for each
 3. Update the navigation system to cycle between holes
 4. Consider different physics properties for each theme
 
@@ -193,7 +193,7 @@ To improve audio feedback:
 1. Add more varied sound types in the Ball class's `loadSounds()` method
 2. Create more sophisticated oscillator patterns
 3. Consider loading actual audio files for richer sounds
-4. Add ambient background sounds for the space environment
+4. Add ambient background sounds for atmosphere
 
 ### Adding High Score System
 
@@ -207,7 +207,7 @@ To implement high scores:
 
 When modifying the game, keep these performance aspects in mind:
 - Minimize physics body complexity where possible
-- Use instancing for repeated objects (like stars)
+- Use instancing for repeated objects
 - Dispose of Three.js geometries and materials when removing objects
 - Avoid creating new objects in the update loop
 - Optimize lighting and shadows for performance on lower-end devices 

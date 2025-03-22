@@ -1,23 +1,22 @@
-# Space Golf Break - Game Design
+# Mini Golf Break - Game Design
 
 ## Core Concept
-Space Golf Break offers a minimalist space-themed mini-golf experience focused on a single, perfectly designed hole floating in the cosmic void. The game emphasizes quick, repeatable sessions with satisfying feedback - ideal for short mental breaks.
+Mini Golf Break offers a minimalist mini-golf experience focused on a single, perfectly designed hole. The game emphasizes quick, repeatable sessions with satisfying feedback - ideal for short mental breaks.
 
 ## Target Audience
 - Casual gamers looking for quick sessions
 - Office workers needing a short mental break
 - People who enjoy minimalist gameplay experiences
 - Fans of relaxing, non-competitive games
-- Anyone who appreciates atmospheric space themes
+- Anyone who appreciates clean, focused design
 
 ## Key Design Pillars
 
-### 1. Minimalist Space Aesthetic
-- Black background representing the cosmic void
-- Thousands of stars creating a vibrant starfield
-- Colored accent lighting (blue and purple) for cosmic atmosphere
-- Emissive materials that glow in the space environment
-- High-contrast course elements against the dark background
+### 1. Minimalist Aesthetic
+- Clean, simple background for visual clarity
+- Focused lighting to highlight important elements
+- High-contrast materials for clear visibility
+- Emissive materials that enhance visibility
 - Simple, clean UI with appropriate spacing and typography
 
 ### 2. Focused Gameplay Loop
@@ -30,7 +29,7 @@ Space Golf Break offers a minimalist space-themed mini-golf experience focused o
 
 ### 3. Satisfying Feedback
 - Animated particles when the ball enters the hole
-- Ball turns green and pulses when successful
+- Ball changes color and pulses when successful
 - Sound effects for hitting the ball and completing the hole
 - Animated scorecard showing your final stroke count
 - Counter animation with sound for each stroke on the scorecard
@@ -45,20 +44,20 @@ Space Golf Break offers a minimalist space-themed mini-golf experience focused o
 
 ## Visual Style
 - **Color Palette:**
-  - Background: Dark black (0x000000) representing space
-  - Fairway: Bright lawn green (0x7CFC00) with emissive glow
-  - Fairway Border: Lime green (0x32CD32) for clear boundaries
-  - Ball: White (0xFFFFFF) with subtle glow for visibility
-  - Success: Vibrant green (0x00FF00) with strong emissive glow
-  - Hole Rim: Dark black (0x111111) for contrast
+  - Background: Dark tones for contrast
+  - Fairway: Bright green with clear visibility
+  - Fairway Border: Darker green for clear boundaries
+  - Ball: White with subtle glow for visibility
+  - Success: Vibrant green with glow effect for clear feedback
+  - Hole Rim: Dark color for contrast
   - UI Elements: White text on semi-transparent dark backgrounds
   - Scorecard: Dark background with green accents
 
 - **Lighting:**
   - Ambient light at 40% intensity for base illumination
-  - Directional light simulating distant "sun"
-  - Blue accent light (0x4444FF) for cosmic glow effect
-  - Purple accent light (0xCC44FF) for complementary color
+  - Directional light for main illumination
+  - Accent lighting for atmosphere and depth
+  - Shadows for visual grounding and realism
 
 ## Audio Design
 - **Ball Hit:** Low-pitched impact sound, volume varies with shot power
@@ -67,12 +66,12 @@ Space Golf Break offers a minimalist space-themed mini-golf experience focused o
 - **Score Counter:** Soft tick sound for each increment
 
 ## Gameplay Flow
-1. **Start:** Player sees the ball positioned at the tee on a space platform
+1. **Start:** Player sees the ball positioned at the tee
 2. **Input:** Player clicks and drags to aim, with power and direction indicator
 3. **Action:** Ball is hit and travels across the course following physics rules
 4. **Outcome:** Ball either enters hole (success) or stops elsewhere (try again)
 5. **Success:** 
-   - Ball turns green and emits particles
+   - Ball changes color and emits particles
    - Animated scorecard appears showing stroke count
    - Player clicks anywhere to replay
 6. **Replay:** Course resets with ball back at the tee
@@ -81,6 +80,6 @@ Space Golf Break offers a minimalist space-themed mini-golf experience focused o
 - Physics tuned for satisfying, slightly forgiving gameplay
 - Ball mass of 0.45kg for ideal control
 - Enhanced damping (0.6) for natural movement
-- Emissive materials for visibility in space environment
+- Emissive materials for visibility
 - Intelligent camera positioning for optimal experience
 - Mobile-friendly controls (planned for future)

@@ -1,14 +1,14 @@
-# Space Golf Break - Future Roadmap
+# Mini Golf Break - Future Roadmap
 
-This document outlines the future development plans for Space Golf Break, categorized by priority and complexity.
+This document outlines the future development plans for Mini Golf Break, categorized by priority and complexity.
 
 ## Near-Term Enhancements (1-2 Months)
 
 ### Visual Enhancements
-- **Expanded Space Environment**
-  - Add nebula backgrounds with colored gas clouds
-  - Implement distant planets visible in the background
-  - Create subtle particle effects for cosmic dust
+- **Expanded Environment**
+  - Add atmospheric background elements for more visual interest
+  - Implement subtle environmental details visible in the background
+  - Create particle effects for enhanced atmosphere
   - Add glowing borders to the course boundaries
 
 - **Enhanced Lighting Effects**
@@ -24,12 +24,12 @@ This document outlines the future development plans for Space Golf Break, catego
 ### Audio Improvements
 - **Expanded Sound Library**
   - Replace basic oscillator sounds with recorded sound effects
-  - Add ambient space background sounds (low hum, distant sounds)
+  - Add ambient background sounds for environmental immersion
   - Implement more varied hit sounds based on shot strength
   - Create a wider variety of success sounds
 
 - **Music Integration**
-  - Add optional background music with space/ambient theme
+  - Add optional background music with relaxing theme
   - Implement dynamic music that changes based on gameplay state
   - Create subtle audio cues for different events
 
@@ -49,12 +49,12 @@ This document outlines the future development plans for Space Golf Break, catego
 
 ### Multiple Hole Experience
 - **Themed Holes Collection**
-  - Create 3-5 uniquely themed space holes with different challenges:
-    - Asteroid Field: Navigate through floating obstacles
-    - Black Hole: Deal with gravity wells that affect ball trajectory
-    - Space Station: Technical hole with narrow paths and precise angles
-    - Lunar Surface: Low gravity environment with modified physics
-    - Nebula Cloud: Colorful environment with fog effects
+  - Create 3-5 uniquely themed holes with different challenges:
+    - Obstacle Course: Navigate through various obstacles
+    - Gravity Challenge: Deal with varying gravity effects
+    - Technical Course: Narrow paths and precise angles
+    - Terrain Variation: Slopes and elevation changes
+    - Visual Theme: Unique visual environment with special effects
 
 - **Course Navigation**
   - Implement a hole selection interface
@@ -104,15 +104,16 @@ This document outlines the future development plans for Space Golf Break, catego
   - Implement streak tracking for consecutive days
 
 ### Advanced Visual Features
-- **Day/Night Cycle**
-  - Create visual variants of each hole based on lighting conditions
+- **Visual Theme Variations**
+  - Create visual variants of each hole based on different themes
   - Implement dynamic lighting changes during gameplay
-  - Add special visual effects for night play (glowing elements)
+  - Add special visual effects for themed environments
+  - Create day/night cycle options
 
-- **Weather Effects**
-  - Add cosmic storm effects with particle systems
-  - Implement solar flare events with temporary lighting changes
-  - Create meteor shower backgrounds during special events
+- **Environmental Effects**
+  - Add weather and atmosphere effects with particle systems
+  - Implement special events with temporary lighting changes
+  - Create background animations for added visual interest
 
 ### Community Features
 - **User-Generated Content**
