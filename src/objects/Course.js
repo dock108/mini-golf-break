@@ -476,14 +476,19 @@ export class Course {
             }
         }
         
-        // Also check if the ball fell off the course
+        // Also check if the ball fell off the course but use the current ground size
+        // rather than the courseDimensions, which might be outdated
+        // Use a smaller boundary to avoid false positives on legitimate tee positions
+        const boundarySize = 24; // Half the 50x50 ground size, minus 1 unit buffer
+        
         if (
-            position.x < -this.courseDimensions.width / 2 ||
-            position.x > this.courseDimensions.width / 2 ||
-            position.z < -this.courseDimensions.length / 2 ||
-            position.z > this.courseDimensions.length / 2 ||
-            position.y < -10 // Ball fell far below the course
+            position.x < -boundarySize ||
+            position.x > boundarySize ||
+            position.z < -boundarySize ||
+            position.z > boundarySize ||
+            position.y < -2 // Ball fell below the course (less extreme threshold)
         ) {
+            console.log(`Ball out of bounds at: ${position.x.toFixed(2)}, ${position.y.toFixed(2)}, ${position.z.toFixed(2)}`);
             return true;
         }
         

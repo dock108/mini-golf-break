@@ -19,6 +19,28 @@ export class Ball {
         this.mesh = null;
         this.isBallActive = true;
         
+        // Store current hole information
+        this.currentHolePosition = null;
+        this.currentHoleIndex = null;
+        this.shotCount = 0;
+        this.scoreForCurrentHole = 0;
+        this.isMoving = false;
+        this.hasBeenHit = false;
+        
+        // Create success material
+        this.defaultMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0xffffff,
+            roughness: 0.2,
+            metalness: 0.1
+        });
+        
+        this.successMaterial = new THREE.MeshStandardMaterial({
+            color: 0x00ff00, // Green for success
+            roughness: 0.2,
+            metalness: 0.1,
+            emissive: 0x003300 // Slight glow effect
+        });
+        
         // Create the visual mesh
         this.createMesh();
         
@@ -30,13 +52,9 @@ export class Ball {
     
     createMesh() {
         const geometry = new THREE.SphereGeometry(this.radius, this.segments, this.segments);
-        const material = new THREE.MeshStandardMaterial({ 
-            color: 0xffffff,
-            roughness: 0.2,
-            metalness: 0.1
-        });
         
-        this.mesh = new THREE.Mesh(geometry, material);
+        // Use the defaultMaterial we defined in the constructor
+        this.mesh = new THREE.Mesh(geometry, this.defaultMaterial);
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = false;
         
@@ -247,6 +265,49 @@ export class Ball {
         
         if (this.body && this.physicsWorld) {
             this.physicsWorld.removeBody(this.body);
+        }
+    }
+    
+    /**
+     * Check if the ball is in a hole
+     */
+    isInHole() {
+        // Check distance to hole position
+        if (!this.currentHolePosition) return false;
+        
+        const ballPosition = new THREE.Vector3();
+        this.mesh.getWorldPosition(ballPosition);
+        
+        const distanceToHole = ballPosition.distanceTo(this.currentHolePosition);
+        const isNearHole = distanceToHole < 0.25; // Slightly smaller than hole radius for better detection
+        
+        // Also check if ball is at rest or nearly at rest
+        const isAtRest = this.isStopped();
+        
+        return isNearHole && isAtRest;
+    }
+    
+    /**
+     * Handle when ball goes in hole
+     */
+    handleHoleSuccess() {
+        // Play success sound or animation
+        console.log('Ball in hole!');
+        
+        // Change ball material to show success
+        if (this.mesh) {
+            this.mesh.material = this.successMaterial;
+        }
+        
+        // Emit event for game logic to handle
+        if (this.onHoleComplete) {
+            this.onHoleComplete(this.currentHoleIndex, this.shotCount);
+        }
+        
+        // Freeze the ball in place
+        if (this.body) {
+            this.body.velocity.set(0, 0, 0);
+            this.body.angularVelocity.set(0, 0, 0);
         }
     }
 } 

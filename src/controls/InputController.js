@@ -445,6 +445,16 @@ export class InputController {
         
         // Make sure the direction line is removed
         this.removeDirectionLine();
+        
+        // Show the ready indicator
+        const readyIndicator = document.getElementById('ready-indicator');
+        if (readyIndicator) {
+            readyIndicator.classList.add('visible');
+            // Auto-hide after 2 seconds
+            setTimeout(() => {
+                readyIndicator.classList.remove('visible');
+            }, 2000);
+        }
     }
     
     disableInput() {
@@ -452,6 +462,12 @@ export class InputController {
         this.isDragging = false;
         this.removeDirectionLine();
         this.resetPowerIndicator();
+        
+        // Hide the ready indicator
+        const readyIndicator = document.getElementById('ready-indicator');
+        if (readyIndicator) {
+            readyIndicator.classList.remove('visible');
+        }
     }
     
     updateAimLine(ballPosition, direction, power) {

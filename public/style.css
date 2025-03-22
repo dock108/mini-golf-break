@@ -58,7 +58,8 @@ body {
     margin-bottom: 5px;
 }
 
-#start-game {
+/* Menu buttons styles */
+#start-practice, #play-course {
     background: #ffcc00;
     color: #000;
     border: none;
@@ -66,27 +67,70 @@ body {
     font-size: 1.2em;
     border-radius: 5px;
     cursor: pointer;
-    margin: 20px 0;
+    margin: 10px 0;
     transition: background 0.3s, transform 0.2s;
+    display: block;
+    width: 80%;
+    max-width: 250px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
-#start-game:hover {
+#start-practice:hover, #play-course:hover {
     background: #ffd700;
+    transform: scale(1.05);
+}
+
+/* Play course button specific styling */
+#play-course {
+    background: #4CAF50; /* Green color for distinction */
+    color: white;
+}
+
+#play-course:hover {
+    background: #45a049;
     transform: scale(1.05);
 }
 
 #ui-overlay {
     position: absolute;
-    top: 20px;
-    left: 20px;
-    color: white;
-    z-index: 10;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Allow clicks to pass through, except for specific UI elements */
+}
+
+#ui-overlay > * {
+    pointer-events: auto; /* Enable clicks on UI elements */
 }
 
 #score {
-    padding: 10px;
-    background: rgba(0, 0, 0, 0.5);
-    border-radius: 4px;
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+#pause-button {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 8px 15px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+#pause-button:hover {
+    background-color: rgba(0, 0, 0, 0.7);
 }
 
 #power-indicator {
@@ -114,20 +158,22 @@ body {
     transition: width 0.05s ease;
 }
 
-#pause-button {
+/* Ready indicator */
+#ready-indicator {
     position: absolute;
-    top: 20px;
-    right: 20px;
-    background: rgba(0, 0, 0, 0.5);
-    color: white;
-    border: none;
-    padding: 8px 16px;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.6);
+    color: #4CAF50;
+    padding: 6px 12px;
     border-radius: 4px;
-    cursor: pointer;
-    transition: background 0.3s;
     font-weight: bold;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 100;
 }
 
-#pause-button:hover {
-    background: rgba(0, 0, 0, 0.7);
+#ready-indicator.visible {
+    opacity: 1;
 } 

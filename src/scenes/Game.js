@@ -4,6 +4,7 @@ import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { InputController } from '../controls/InputController';
 import { Ball } from '../objects/Ball';
 import { Course } from '../objects/Course';
+import { BasicCourse } from '../objects/BasicCourse';
 
 export class Game {
     constructor() {
@@ -19,6 +20,11 @@ export class Game {
         
         this.scoreElement = document.getElementById('score-value');
         this.score = 0;
+        this.currentHole = 0;
+        this.holeScores = [];
+        
+        // Game mode
+        this.gameMode = 'practice'; // 'practice' or 'course'
         
         // Lighting
         this.ambientLight = null;
@@ -37,6 +43,7 @@ export class Game {
         // Debug helpers
         this.debugMode = false;
         this.debugObjects = [];
+        this.cameraDebug = true; // Enable camera debugging information
         
         // Listen for debug key (press 'd' to toggle)
         window.addEventListener('keydown', (e) => {
@@ -46,7 +53,10 @@ export class Game {
         });
     }
 
-    init() {
+    init(mode = 'practice') {
+        // Set game mode
+        this.gameMode = mode;
+        
         // Setup renderer
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.shadowMap.enabled = true;
@@ -73,11 +83,33 @@ export class Game {
         // Initialize physics first
         this.physicsWorld = new PhysicsWorld();
         
-        // Initialize course (this adds physics bodies to the world)
-        this.course = new Course(this.scene, this.physicsWorld);
+        // Initialize appropriate course based on mode
+        if (this.gameMode === 'course') {
+            // Create basic 3-hole course
+            this.course = new BasicCourse(this.scene, this.physicsWorld);
+            this.currentHole = 1; // Start at hole 1
+            this.holeScores = [0, 0, 0]; // Initialize scores for 3 holes
+            this.updateHoleDisplay(1); // Show current hole
+            
+            // Load only the first hole
+            this.course.loadHole(1);
+        } else {
+            // Create practice course (sandbox)
+            this.course = new Course(this.scene, this.physicsWorld);
+        }
         
         // Create ball last (so it appears on top of the course)
         this.createBall();
+        
+        // IMPORTANT: Explicitly position camera correctly for the initial hole
+        // This fixes the issue where the camera starts in wrong position on first run
+        if (this.gameMode === 'course') {
+            // Force camera setup with proper delay to ensure all objects are loaded
+            setTimeout(() => {
+                this.positionCameraForHole(1);
+                console.log("Initial camera position explicitly set");
+            }, 100);
+        }
         
         // Initialize input controller after all game objects are created
         this.initInput();
@@ -90,7 +122,196 @@ export class Game {
         // Handle window resize
         window.addEventListener('resize', () => this.onWindowResize());
         
-        console.log("Game initialized successfully!");
+        // Reset score display
+        this.score = 0;
+        this.updateScoreDisplay();
+        
+        // Show appropriate starting message based on mode
+        if (this.gameMode === 'course') {
+            this.showMessage("Welcome to Hole 1!", 3000);
+        } else {
+            this.showMessage("Practice Mode", 2000);
+        }
+        
+        console.log(`Game initialized in ${this.gameMode} mode successfully!`);
+    }
+    
+    setCourseMode(courseType) {
+        // Clean up existing course
+        if (this.course) {
+            this.course.dispose();
+            this.scene.remove(this.course);
+        }
+        
+        // Disable input during course setup
+        if (this.inputController) {
+            this.inputController.disableInput();
+        }
+        
+        // Set game mode
+        this.gameMode = 'course';
+        
+        // Create new course based on type
+        if (courseType === 'basic') {
+            this.course = new BasicCourse(this.scene, this.physicsWorld);
+            this.currentHole = 1; // Start at hole 1
+            this.holeScores = [0, 0, 0]; // Initialize scores for 3 holes
+            this.updateHoleDisplay(1); // Show current hole
+            
+            // Load only the first hole
+            this.course.loadHole(1);
+            
+            // Add an extra camera positioning with delay to ensure everything is loaded
+            setTimeout(() => {
+                this.resetBallForHole(this.currentHole);
+                
+                // Force another camera positioning for reliability
+                setTimeout(() => {
+                    this.positionCameraForHole(1);
+                    console.log("Course mode camera position explicitly set");
+                }, 100);
+                
+                this.showMessage("Welcome to Hole 1!", 3000);
+            }, 100);
+        }
+        
+        // Reset score
+        this.score = 0;
+        this.updateScoreDisplay();
+        
+        // Note: We don't need to explicitly enable input here because showMessage 
+        // will handle re-enabling input after its duration expires
+    }
+    
+    resetBallForHole(holeNumber) {
+        if (this.course && this.course.getHoleStartPosition) {
+            const startPosition = this.course.getHoleStartPosition(holeNumber);
+            if (startPosition && this.ball) {
+                console.log(`Resetting ball for hole ${holeNumber} at position: (${startPosition.x.toFixed(2)}, ${startPosition.y.toFixed(2)}, ${startPosition.z.toFixed(2)})`);
+                
+                // Position the ball at the start position for the current hole
+                // Move the ball slightly forward from the tee to avoid any potential collision
+                this.ball.setPosition(
+                    startPosition.x,
+                    startPosition.y, 
+                    startPosition.z - 0.5 // Move forward slightly from the tee
+                );
+                
+                // Update last safe position
+                this.lastSafePosition.copy(new THREE.Vector3(
+                    startPosition.x,
+                    startPosition.y,
+                    startPosition.z - 0.5
+                ));
+                
+                // Position camera behind the ball looking towards the hole
+                // First reset camera to a clear position to avoid orientation issues
+                this.camera.position.set(
+                    startPosition.x,
+                    startPosition.y + 8, // Higher up for a clearer view
+                    startPosition.z + 5  // Behind the ball
+                );
+                this.controls.update();
+                
+                // Then position it properly
+                this.positionCameraForHole(holeNumber);
+            }
+        }
+    }
+    
+    /**
+     * Position the camera optimally behind the ball looking towards the hole
+     */
+    positionCameraForHole(holeNumber) {
+        if (!this.ball || !this.ball.mesh) {
+            if (this.cameraDebug) console.log("Cannot position camera - ball not available");
+            return;
+        }
+        
+        // Get the current ball position
+        const ballPosition = this.ball.mesh.position.clone();
+        if (this.cameraDebug) console.log(`Ball position: (${ballPosition.x.toFixed(2)}, ${ballPosition.y.toFixed(2)}, ${ballPosition.z.toFixed(2)})`);
+        
+        // Get the hole position based on hole number
+        let holePosition;
+        
+        // Get hole target position from course if available
+        if (this.course && this.course.getHolePosition) {
+            holePosition = this.course.getHolePosition(holeNumber);
+            if (this.cameraDebug) console.log(`Got hole position from course: (${holePosition.x.toFixed(2)}, ${holePosition.y.toFixed(2)}, ${holePosition.z.toFixed(2)})`);
+        } else {
+            // Fallback positions if course doesn't provide hole positions
+            holePosition = new THREE.Vector3(0, 0, 0); // All holes are now at origin
+            if (this.cameraDebug) console.log("Using fallback hole position at origin");
+        }
+        
+        if (this.cameraDebug) console.log(`Positioning camera for hole ${holeNumber}, hole at: (${holePosition.x.toFixed(2)}, ${holePosition.y.toFixed(2)}, ${holePosition.z.toFixed(2)})`);
+        
+        // Calculate direction from ball to hole (not hole to ball)
+        const directionToHole = new THREE.Vector3()
+            .subVectors(holePosition, ballPosition)
+            .normalize();
+        
+        if (this.cameraDebug) console.log(`Direction to hole: (${directionToHole.x.toFixed(2)}, ${directionToHole.y.toFixed(2)}, ${directionToHole.z.toFixed(2)})`);
+        
+        // Disable controls temporarily during transition
+        const controlsEnabled = this.controls.enabled;
+        this.controls.enabled = false;
+        
+        // Set target to look at the hole or slightly in front of it
+        this.controls.target.copy(holePosition);
+        
+        // Calculate optimal camera position
+        const cameraDistance = 5; // Distance behind ball (reduced for better visibility)
+        const cameraHeight = 3;   // Height above ground (reduced for better angle)
+        
+        // Position camera behind the ball in the direction opposite to the hole
+        // We want camera -> ball -> hole to be the line of sight
+        const cameraPosX = ballPosition.x - directionToHole.x * cameraDistance;
+        const cameraPosZ = ballPosition.z - directionToHole.z * cameraDistance;
+        
+        if (this.cameraDebug) console.log(`Calculated camera position: (${cameraPosX.toFixed(2)}, ${(ballPosition.y + cameraHeight).toFixed(2)}, ${cameraPosZ.toFixed(2)})`);
+        
+        // Set camera position
+        this.camera.position.set(
+            cameraPosX,
+            ballPosition.y + cameraHeight,
+            cameraPosZ
+        );
+        
+        if (this.cameraDebug) {
+            console.log(`Final camera position: (${this.camera.position.x.toFixed(2)}, ${this.camera.position.y.toFixed(2)}, ${this.camera.position.z.toFixed(2)})`);
+            console.log(`Camera is looking at: (${this.controls.target.x.toFixed(2)}, ${this.controls.target.y.toFixed(2)}, ${this.controls.target.z.toFixed(2)})`);
+        }
+        
+        // Update controls
+        this.controls.update();
+        
+        // Re-enable controls
+        this.controls.enabled = controlsEnabled;
+        
+        if (this.cameraDebug) console.log("Camera positioning complete");
+    }
+    
+    updateHoleDisplay(holeNumber) {
+        // Update the score display to show the current hole and total score
+        const scoreElement = document.getElementById('score');
+        if (scoreElement) {
+            // Current hole score is this.score
+            
+            // Calculate total score (sum of all completed holes plus current hole)
+            let totalScore = this.score; // Current hole score
+            
+            // Add scores from completed holes
+            for (let i = 0; i < this.holeScores.length; i++) {
+                // Don't count the current hole twice if it's in the array
+                if (i !== holeNumber - 1) {
+                    totalScore += this.holeScores[i] || 0;
+                }
+            }
+            
+            scoreElement.innerHTML = `Hole: ${holeNumber}/${this.course.length} | Current: ${this.score} | Total: ${totalScore}`;
+        }
     }
     
     setupLights() {
@@ -213,9 +434,13 @@ export class Game {
             
             // Check if ball is in a hole
             if (!this.gameState.holeCompleted && this.course && this.ball) {
-                // Check using the ball's position and pass the ball object for physics checks
-                if (this.course.isInHole(this.ball.mesh.position, this.ball)) {
+                // Check if ball is in hole using more reliable method
+                if (this.ball.isInHole && this.ball.isInHole()) {
                     console.log("Ball is in hole!");
+                    this.handleHoleCompleted();
+                } else if (this.course.isInHole && this.course.isInHole(this.ball.mesh.position, this.ball)) {
+                    // Fallback to course method for backward compatibility
+                    console.log("Ball is in hole (detected by course)!");
                     this.handleHoleCompleted();
                 }
             }
@@ -259,8 +484,28 @@ export class Game {
         
         const ballPosition = this.ball.mesh.position.clone();
         
-        // Always update the target to look at the ball
-        this.controls.target.lerp(ballPosition, 0.2);
+        // Get the hole position so we can always keep it in mind
+        let holePosition;
+        if (this.course && this.course.getHolePosition) {
+            holePosition = this.course.getHolePosition(this.currentHole);
+        } else {
+            holePosition = new THREE.Vector3(0, 0, 0);
+        }
+        
+        // Always try to keep the target focused somewhat on the hole direction
+        // instead of just the ball, for better gameplay orientation
+        if (isMoving) {
+            // When moving, we update the target to follow the ball more closely
+            this.controls.target.lerp(ballPosition, 0.2);
+        } else {
+            // When still, try to keep hole in frame by balancing ball and hole
+            const targetPoint = new THREE.Vector3()
+                .addVectors(
+                    ballPosition.clone().multiplyScalar(0.7),
+                    holePosition.clone().multiplyScalar(0.3)
+                );
+            this.controls.target.lerp(targetPoint, 0.1);
+        }
         
         // Only move the camera position if the ball is in motion or parameter is true
         if (isMoving) {
@@ -281,7 +526,7 @@ export class Game {
                 const currentHeight = this.camera.position.y - this.controls.target.y;
                 
                 // Desired distance from ball
-                const cameraDistance = 7;
+                const cameraDistance = 5; // Reduced from 7 to match our other settings
                 
                 // Calculate new camera position
                 const newCameraPosition = ballPosition.clone()
@@ -306,31 +551,39 @@ export class Game {
         
         const ballPosition = this.ball.mesh.position.clone();
         
-        // Position camera in a better angle for viewing and hitting the ball
-        const cameraDistance = 7; // Distance from ball
-        const cameraHeight = 5;   // Height above ground
-        const cameraAngle = Math.PI / 4; // 45 degrees behind ball
+        // Get the hole position
+        let holePosition;
+        if (this.course && this.course.getHolePosition) {
+            holePosition = this.course.getHolePosition(this.currentHole);
+        } else {
+            holePosition = new THREE.Vector3(0, 0, 0);
+        }
+        
+        // Calculate direction from ball to hole
+        const directionToHole = new THREE.Vector3()
+            .subVectors(holePosition, ballPosition)
+            .normalize();
+        
+        // Position camera behind the ball looking towards the hole
+        const cameraDistance = 5; // Distance behind ball
+        const cameraHeight = 3;   // Height above ground
         
         // Disable controls temporarily during transition
         const controlsEnabled = this.controls.enabled;
         this.controls.enabled = false;
         
-        // Set target to ball position
-        this.controls.target.copy(ballPosition);
+        // Set target to hole position for better aiming
+        this.controls.target.copy(holePosition);
         
-        // Calculate camera position with safety checks to avoid NaN
-        let cameraX = ballPosition.x - Math.cos(cameraAngle) * cameraDistance;
-        let cameraZ = ballPosition.z - Math.sin(cameraAngle) * cameraDistance;
+        // Calculate camera position behind the ball in direction opposite to hole
+        const cameraPosX = ballPosition.x - directionToHole.x * cameraDistance;
+        const cameraPosZ = ballPosition.z - directionToHole.z * cameraDistance;
         
-        // Verify values are valid numbers
-        if (isNaN(cameraX) || !isFinite(cameraX)) cameraX = ballPosition.x - cameraDistance;
-        if (isNaN(cameraZ) || !isFinite(cameraZ)) cameraZ = ballPosition.z - cameraDistance;
-        
-        // Set camera position
+        // Set camera position with safety checks
         this.camera.position.set(
-            cameraX,
+            isFinite(cameraPosX) ? cameraPosX : ballPosition.x - cameraDistance,
             ballPosition.y + cameraHeight,
-            cameraZ
+            isFinite(cameraPosZ) ? cameraPosZ : ballPosition.z - cameraDistance
         );
         
         // Update controls
@@ -339,29 +592,81 @@ export class Game {
         // Re-enable controls
         this.controls.enabled = controlsEnabled;
         
-        console.log(`Camera positioned at (${this.camera.position.x.toFixed(2)}, ${this.camera.position.y.toFixed(2)}, ${this.camera.position.z.toFixed(2)})`);
+        console.log(`Camera positioned at (${this.camera.position.x.toFixed(2)}, ${this.camera.position.y.toFixed(2)}, ${this.camera.position.z.toFixed(2)}), looking at hole`);
     }
     
     handleHoleCompleted() {
-        if (!this.gameState.holeCompleted) {
-            this.score++;
-            this.updateScoreDisplay();
-            this.gameState.holeCompleted = true;
-            this.gameState.resetBall = true;
+        // If we're already handling a completion, don't do it again
+        if (this.gameState.holeCompleted) return;
+        
+        this.gameState.holeCompleted = true;
+        console.log("Hole completed!");
+        
+        // Stop the ball
+        if (this.ball && this.ball.body) {
+            this.ball.body.velocity.set(0, 0, 0);
+            this.ball.body.angularVelocity.set(0, 0, 0);
+        }
+        
+        // Handle ball success animation if available
+        if (this.ball && this.ball.handleHoleSuccess) {
+            this.ball.handleHoleSuccess();
+        }
+        
+        // Disable input during the transition
+        if (this.inputController) {
+            this.inputController.disableInput();
+        }
+        
+        // Show completion message
+        this.showMessage("Hole Complete!", 2000);
+        
+        // Handle different behavior based on game mode
+        if (this.gameMode === 'course') {
+            // Store score for the current hole
+            this.holeScores[this.currentHole - 1] = this.score;
             
-            // Show success message with appropriate text based on strokes
-            let message = 'Hole in One!';
-            if (this.score > 1) {
-                message = `Hole completed in ${this.score} strokes!`;
+            // Check if we have completed all holes
+            if (this.currentHole < 3) {
+                // Move to the next hole
+                setTimeout(() => {
+                    this.currentHole++;
+                    this.updateHoleDisplay(this.currentHole);
+                    
+                    // Clear current hole and load the next one
+                    if (this.course && this.course.loadHole) {
+                        this.course.loadHole(this.currentHole);
+                    }
+                    
+                    this.resetBallForHole(this.currentHole);
+                    this.score = 0; // Reset score for the new hole
+                    this.updateScoreDisplay();
+                    
+                    // Show new hole message - showMessage handles input enabling/disabling
+                    this.showMessage(`Hole ${this.currentHole}`, 2000);
+                    
+                    // Reset hole completed flag, but don't enable input yet
+                    // (showMessage will handle input enabling after its duration)
+                    this.gameState.holeCompleted = false;
+                }, 2500);
+            } else {
+                // All holes completed - show final score
+                const totalScore = this.holeScores.reduce((a, b) => a + b, 0);
+                setTimeout(() => {
+                    this.showMessage(`Course Complete! Total Score: ${totalScore}`, 5000);
+                    // Reset to practice mode
+                    setTimeout(() => {
+                        this.gameMode = 'practice';
+                        this.init('practice');
+                    }, 5500);
+                }, 2500);
             }
-            this.showMessage(message, 2000);
-            
-            // Disable input until ball is reset
-            if (this.inputController) {
-                this.inputController.disableInput();
-            }
-            
-            console.log('Hole completed! Score: ' + this.score);
+        } else {
+            // In practice mode, just reset the ball to a random position
+            setTimeout(() => {
+                this.gameState.resetBall = true;
+                // Input will be re-enabled in the update loop after ball is reset
+            }, 2000);
         }
     }
     
@@ -386,13 +691,35 @@ export class Game {
             document.body.appendChild(messageElement);
         }
         
+        // Disable input while message is showing
+        if (this.inputController) {
+            this.inputController.disableInput();
+        }
+        
         // Set message and show
         messageElement.innerText = text;
         messageElement.style.display = 'block';
         
-        // Hide after duration
+        // Determine if this is a "welcome" message (for hole announcements)
+        const isWelcomeMessage = text.includes("Hole") && !text.includes("Complete");
+        
+        // Use longer delay for welcome messages to ensure camera is fully positioned
+        const additionalDelay = isWelcomeMessage ? 800 : 300;
+        
+        // Hide after duration and re-enable input if appropriate
         setTimeout(() => {
             messageElement.style.display = 'none';
+            
+            // Only re-enable input if the game is in a state where input should be allowed
+            // Don't re-enable if ball is in motion or in other states where input should be disabled
+            if (this.inputController && !this.gameState.ballInMotion && !this.gameState.resetBall 
+                && !this.gameState.holeCompleted) {
+                // Add a delay to ensure camera is fully positioned
+                setTimeout(() => {
+                    this.inputController.enableInput();
+                    console.log("Input enabled after message disappeared");
+                }, additionalDelay);
+            }
         }, duration);
     }
     
@@ -497,6 +824,10 @@ export class Game {
             // Apply force to ball
             this.ball.applyForce(direction, power);
             
+            // Increment the score (count this stroke)
+            this.score++;
+            this.updateScoreDisplay();
+            
             // Set game state
             this.gameState.ballInMotion = true;
             
@@ -510,6 +841,11 @@ export class Game {
     updateScoreDisplay() {
         if (this.scoreElement) {
             this.scoreElement.textContent = this.score.toString();
+        }
+        
+        // If we're in course mode, also update the hole display
+        if (this.gameMode === 'course') {
+            this.updateHoleDisplay(this.currentHole);
         }
     }
 

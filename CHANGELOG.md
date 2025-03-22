@@ -2,6 +2,136 @@
 
 All notable changes to the Mini Golf Break project will be documented in this file.
 
+## [0.3.8] - Hole Visibility and Ball Interaction Improvements
+
+### Enhanced Hole Visibility
+- Added visible rim around each hole with distinct darker color (0x222222)
+- Implemented proper 3D hole representation with cylindrical geometry
+- Added dark circular area inside hole for better visual depth perception
+- Improved hole collision detection for more accurate gameplay
+
+### Ball and Hole Interaction
+- Created better ball-hole detection system with distance-based checking
+- Implemented ball success state with green glow effect when in hole
+- Added proper ball position validation against hole coordinates
+- Fixed interaction between ball physics and hole geometry
+
+### Course Layout Refinements
+- Reduced fairway width and length for more realistic mini-golf feel
+- Updated hole design parameters for proper scale (3.5-4m width instead of 5-6m)
+- Made obstacles smaller and more appropriately sized for the course
+- Enhanced tee marker with 3D tee post and improved visibility
+
+### Gameplay Improvements
+- Fixed issue where the hole and ball weren't properly aligned
+- Improved ball reset logic to prevent collision with walls
+- Enhanced shot detection with more reliable validation
+- Added proper ball state tracking for current hole
+
+## [0.3.7] - Course Rendering Alignment Fix
+
+### Course Layout Fixes
+- Fixed critical issue where hole and ball were rendering in separate areas
+- Standardized hole coordinates to place all holes at origin (0,0,0)
+- Updated all start positions to use consistent coordinates relative to current hole
+- Ensured proper alignment between ball starting position, fairway, and hole
+- Made all holes render in the same playable area for consistent gameplay
+
+## [0.3.6] - Hole Layout and Ball Positioning Fixes
+
+### Course Layout Improvements
+- Fixed issue where ball was incorrectly starting in a position detected as water
+- Reduced overall ground plane size to better match actual playable area
+- Modified water hazard detection boundaries to prevent false positives
+- Added opening in the front wall of each hole to allow proper tee access
+- Updated ball starting positions to avoid wall collisions
+- Improved console logging for out-of-bounds situations
+
+## [0.3.5] - BasicCourse Loading Optimization
+
+### Course Loading Improvements
+- Fixed issue where BasicCourse was loading all three holes simultaneously
+- Implemented dynamic hole loading system that only loads the current active hole
+- Added tracking system for hole-specific objects and physics bodies for proper cleanup
+- Significantly improved performance by reducing the number of objects in the scene
+- Enhanced modularity to allow for more diverse hole designs without spatial constraints
+
+## [0.3.4] - Camera and Input Timing Fixes
+
+### Camera Improvements
+- Fixed camera positioning to properly show the hole from the starting position
+- Added intelligent hole position detection for different course layouts
+- Implemented better target point selection between ball and hole
+
+### Input Protection Enhancements
+- Improved timing of input enabling after "Welcome to Hole" messages
+- Added longer delay for hole transition messages to ensure proper setup
+- Significantly improved user experience by ensuring input is only available when truly ready
+
+## [0.3.3] - UI and Scoring Improvements
+
+### User Interface Fixes
+- Fixed overlap between pause button and score display
+- Improved layout of UI elements with proper positioning
+- Enhanced pointer event handling for UI overlay
+
+### Scoring System Enhancements
+- Added stroke counting for each shot
+- Implemented proper score tracking that increments on each hit
+- Enhanced score display to show both current hole score and running total score
+- Fixed score reset when progressing to new holes while maintaining total score
+
+## [0.3.2] - Input Handling Improvements
+
+### Input Protection
+- Added protection against accidental shots during hole transitions
+- Disabled input while hole start messages are displayed
+- Added a cooldown period after camera positioning to ensure full setup before allowing shots
+
+### UI Improvements
+- Added a "Ready" indicator that appears when input is enabled
+- Visual feedback helps players know when they can start their shot
+- Improved coordination between message display and input state
+
+## [0.3.1] - Course and Camera Improvements
+
+### Course Enhancements
+- Fully enclosed each hole with wooden barriers to prevent the ball from falling off the course
+- Added front boundary walls to complete the hole enclosures
+
+### Camera System Improvements
+- Implemented intelligent camera positioning that places the camera behind the ball looking towards the hole
+- Customized camera angles for each specific hole design
+- Enhanced aiming view to provide better orientation for players
+
+## [0.3.0] - Menu Updates and 3-Hole Course Implementation
+
+### Menu System Updates
+- Updated Start Menu UI to include:
+  - Renamed "Start Game" to "Start Practice" for sandbox play mode
+  - Added "Play Basic Course" button to launch the 3-hole test course
+  - Applied consistent UI styling following the Graphics & Visual Style Guide
+  - Implemented proper button action and UI state management
+
+### Basic Course Implementation
+- Created a structured 3-hole test course:
+  - Hole 1: Simple straight path to validate basic putting mechanics
+  - Hole 2: Added obstacles including sand traps and barriers
+  - Hole 3: Implemented elevation changes with a sloped section
+- Added hole progression system with:
+  - Per-hole scoring
+  - Automatic advancement between holes
+  - Course completion screen with total score
+- Implemented fairway paths with visual distinction from rough areas
+- Added tee markers at each hole's starting position
+- Enhanced hole boundaries with decorative walls
+
+### Code Architecture Updates
+- Created new `BasicCourse` class extending the `Course` class
+- Added game mode support to switch between practice and course play
+- Implemented multi-hole navigation with proper ball positioning
+- Added camera positioning specific to each hole
+
 ## [0.2.0] - UI and Physics Refinement
 
 ### Menu System

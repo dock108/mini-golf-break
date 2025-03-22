@@ -10,10 +10,16 @@ class App {
     }
 
     setupEventListeners() {
-        // Add click event for the start game button
-        const startButton = document.getElementById('start-game');
-        if (startButton) {
-            startButton.addEventListener('click', () => this.startGame());
+        // Add click event for the start practice button
+        const startPracticeButton = document.getElementById('start-practice');
+        if (startPracticeButton) {
+            startPracticeButton.addEventListener('click', () => this.startPractice());
+        }
+        
+        // Add click event for the play course button
+        const playCourseButton = document.getElementById('play-course');
+        if (playCourseButton) {
+            playCourseButton.addEventListener('click', () => this.startCourse());
         }
         
         // Add click event for the pause button
@@ -23,7 +29,7 @@ class App {
         }
     }
 
-    startGame() {
+    startPractice() {
         // Hide the menu screen
         if (this.menuScreen) {
             this.menuScreen.style.display = 'none';
@@ -35,16 +41,35 @@ class App {
             }
             
             // Restore original button text
-            const startButton = document.getElementById('start-game');
-            if (startButton && startButton.textContent === 'Resume Game') {
-                startButton.textContent = 'Start Game';
+            const startPracticeButton = document.getElementById('start-practice');
+            if (startPracticeButton && startPracticeButton.textContent === 'Resume Game') {
+                startPracticeButton.textContent = 'Start Practice';
             }
         }
         
         // Initialize the game if not already initialized
         if (!this.isGameRunning) {
-            this.init();
+            this.init('practice');
             this.isGameRunning = true;
+        }
+        
+        // Enable game input
+        this.game.enableGameInput();
+    }
+    
+    startCourse() {
+        // Hide the menu screen
+        if (this.menuScreen) {
+            this.menuScreen.style.display = 'none';
+        }
+        
+        // Initialize the game with course mode if not already initialized
+        if (!this.isGameRunning) {
+            this.init('course');
+            this.isGameRunning = true;
+        } else {
+            // If game is already running, switch to course mode
+            this.game.setCourseMode('basic');
         }
         
         // Enable game input
@@ -63,9 +88,9 @@ class App {
             }
             
             // Change button text to "Resume Game"
-            const startButton = document.getElementById('start-game');
-            if (startButton) {
-                startButton.textContent = 'Resume Game';
+            const startPracticeButton = document.getElementById('start-practice');
+            if (startPracticeButton) {
+                startPracticeButton.textContent = 'Resume Game';
             }
         }
         
@@ -75,9 +100,9 @@ class App {
         }
     }
 
-    init() {
-        // Initialize the game
-        this.game.init();
+    init(mode = 'practice') {
+        // Initialize the game with the specified mode
+        this.game.init(mode);
         
         // Start the game loop
         this.animate();

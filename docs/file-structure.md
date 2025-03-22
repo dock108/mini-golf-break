@@ -1,71 +1,88 @@
 # File Structure Documentation for Mini Golf Break
 
-This document describes the recommended file structure for the **Mini Golf Break** project, following industry best practices for JavaScript-based game development using Three.js and Cannon-es.
+This document describes the file structure for the **Mini Golf Break** project, following modern JavaScript game development practices with Three.js and Cannon-es.
 
 ## Project Root
 
 ```
 mini-golf-break/
 ├── src/                      # Source code for the game
-│   ├── main.js               # Main entry point initializing the app
+│   ├── index.js              # Main entry point initializing the app
 │   ├── physics/              # Physics engine setup and logic
-│   │   └── physicsEngine.js
+│   │   └── PhysicsWorld.js   # Cannon-es physics world encapsulation
 │   ├── controls/             # Input handling and camera control logic
-│   │   └── inputControls.js
+│   │   └── InputController.js # Manages user interactions and visual feedback
 │   ├── scenes/               # Scene setup and management
-│   │   └── initialScene.js
-│   ├── objects/              # Game object classes (combining meshes and physics bodies)
+│   │   └── Game.js           # Main game controller class
+│   ├── objects/              # Game object classes
+│   │   ├── Ball.js           # Golf ball with physics and visuals
+│   │   ├── Course.js         # Base course class (used for practice mode)  
+│   │   └── BasicCourse.js    # Structured 3-hole course implementation
 │   └── utils/                # Utility functions and helpers
-├── assets/                   # Non-code assets
-│   ├── models/               # 3D models
-│   ├── textures/             # Textures and images
-│   └── audio/                # Sound effects
-├── public/                   # Static files for serving (HTML, CSS, bundled JS)
+├── public/                   # Static files for serving
 │   ├── index.html            # HTML entry point
-│   └── style.css             # Global styles
-├── test/                     # Automated tests (unit and integration)
-│   └── physics.test.js       # Example test file
-├── sandbox/                  # Experimental and AI-generated content
-├── docs/                     # Additional detailed documentation
-│   └── architecture.md       # System architecture documentation
-├── .github/                  # GitHub configurations (Actions, templates)
-│   └── workflows/            # CI/CD workflows (if needed)
+│   ├── style.css             # Global styles
+│   └── assets/               # Game assets (textures, models)
+│       ├── textures/         # Textures and images
+│       └── models/           # 3D models (if added later)
+├── docs/                     # Detailed documentation
+│   ├── file-structure.md     # This file
+│   ├── game-design.md        # Game design principles
+│   ├── physics-specs.md      # Physics configuration details
+│   ├── camera-behavior-specs.md # Camera behavior documentation
+│   ├── control-and-input-specs.md # Input system documentation
+│   ├── graphics-and-style-guide.md # Visual styling guidelines
+│   ├── mvp-scope.md          # Minimum viable product scope
+│   ├── tech-stack-tools.md   # Technology choices
+│   ├── deploy-strategy.md    # Deployment approach
+│   └── future-roadmap.md     # Future development plans
 ├── package.json              # Project metadata and dependencies
-├── README.md                 # Main project documentation (overview, setup)
-├── LICENSE                   # License file (if applicable)
-├── .gitignore                # Ignore file for node_modules, build files, etc.
+├── README.md                 # Main project documentation
+├── CHANGELOG.md              # Detailed version history
+├── DEVELOPMENT_GUIDE.md      # Guide for developers
+├── PROJECT_CHECKLIST.md      # Project progress tracking
+├── LICENSE                   # MIT License
+├── .gitignore                # Git ignore file
 └── webpack.config.js         # Webpack configuration
 ```
 
-## Folder Descriptions
+## Key Files and Their Purpose
 
-### `/src`
-Contains all game-related JavaScript code, organized by functionality.
+### Game Management
 
-### `/assets`
-Stores all non-code resources required for gameplay, such as models, textures, and audio files.
+- **src/scenes/Game.js**: The central controller handling game state, physics updates, scene rendering, and coordinating all game elements. Manages game modes, scoring, camera behavior, and event handling.
 
-### `/public`
-Holds static files like HTML, CSS, and bundled JS files, which are used during development and production deployment.
+### Course System
 
-### `/test`
-Dedicated to automated tests, ensuring code reliability and ease of future development.
+- **src/objects/Course.js**: The base course class used primarily for practice mode. Provides core functionality for terrain, holes, water hazards, and collision detection.
+- **src/objects/BasicCourse.js**: Extends Course to create a structured 3-hole course with specific layouts and progression. Implements hole-specific geometry and start positions. Designed to load only one hole at a time, improving performance and allowing for more complex hole designs without spatial constraints.
 
-### `/sandbox`
-Used for experimenting and testing new ideas or AI-generated content without affecting main project code.
+### Physics Implementation
 
-### `/docs`
-Additional detailed documentation about project architecture, system design, and implementation details.
+- **src/physics/PhysicsWorld.js**: Encapsulates the Cannon-es physics engine, managing materials, collision groups, and providing utilities for creating physics bodies. Handles the physics simulation step.
 
-### `/.github`
-Configuration for GitHub actions, workflows, and issue/pull request templates.
+### User Interaction
 
-## Best Practices
+- **src/controls/InputController.js**: Manages all user input for aiming and hitting the ball. Creates visual feedback including the aim line and power indicator. Handles mouse and touch events.
 
-- **Keep modular:** Group related code logically (physics, controls, etc.) for easy maintenance.
-- **Centralize environment configuration:** Use Webpack to handle dev vs. production builds.
-- **Testing as you go:** Maintain a robust test suite in the `/test` folder to catch regressions early.
-- **Sandbox new ideas:** Keep experimental features separate in `/sandbox`.
-- **Document consistently:** Regularly update `README.md` and maintain additional documentation in `/docs`.
+### Game Objects
 
-This file structure is designed for clarity, scalability, and ease of collaboration throughout development.
+- **src/objects/Ball.js**: Implements the golf ball with both visual mesh and physics body. Handles collision, movement, and provides methods for hitting and positioning.
+
+### HTML/CSS
+
+- **public/index.html**: Contains the game container, UI overlay elements, and menu system.
+- **public/style.css**: Provides styling for UI elements, menu screens, and visual indicators.
+
+## Recent Updates
+
+The file structure now reflects the following recent improvements:
+
+1. Enhanced course system with separation between base Course and BasicCourse implementations
+2. Improved UI organization with better positioning of score display and controls
+3. Added input protection system with ready indicators
+4. Updated scoring system with per-hole and running total tracking
+5. Implemented camera positioning specific to each hole
+6. Optimized BasicCourse to load only the current hole, clearing previous hole objects and physics bodies during transitions
+
+This structure is designed for modularity and maintainability as the project continues to evolve.
