@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 
 export class Course {
-    constructor(scene, physicsWorld) {
+    constructor(scene, physicsWorld, options = {}) {
         this.scene = scene;
         this.physicsWorld = physicsWorld;
         
@@ -29,6 +29,11 @@ export class Course {
         this.waterHazardBodies = [];
         
         this.startPositions = [];
+        
+        // Initialize with options if provided
+        if (options.startPosition) {
+            this.startPositions.push(options.startPosition.clone());
+        }
         
         // Generate the course
         this.createCourse();
@@ -358,6 +363,11 @@ export class Course {
     }
     
     createStartPositions() {
+        // If we already have start positions defined (e.g. from options), don't overwrite them
+        if (this.startPositions.length > 0) {
+            return;
+        }
+        
         // Create several possible starting positions for the ball
         this.startPositions = [
             new THREE.Vector3(-15, 0.2, 0),

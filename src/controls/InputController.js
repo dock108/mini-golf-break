@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 
 export class InputController {
-    constructor(game, camera, renderer, ball) {
+    constructor(game) {
         this.game = game;
-        this.camera = camera;
-        this.renderer = renderer;
-        this.ball = ball;
+        this.camera = game.camera;
+        this.renderer = game.renderer;
+        this.ball = game.ball;
         
         // Track input state
         this.isInputEnabled = true;

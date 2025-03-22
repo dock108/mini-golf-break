@@ -1,34 +1,28 @@
 /**
- * ScoringSystem class
- * Handles score tracking, calculation, and display for Mini Golf Break
+ * ScoringSystem - Manages score for the mini-golf game
  */
 export class ScoringSystem {
-    constructor() {
-        this.score = 0;              // Current hole score
-        this.holeScores = [];        // Scores for each hole
-        this.currentHole = 1;        // Current hole number
-        this.totalHoles = 1;         // Total number of holes (now only 1)
+    constructor(game) {
+        this.game = game;
+        this.score = 0;
+        this.currentHole = 1; // Always 1 for single-hole game
+        this.scoreDisplayElement = null;
         
-        // UI Elements
-        this.scoreElement = document.getElementById('score-value');
-        this.scoreDisplayElement = document.getElementById('score');
-        
-        // Game mode is always course
-        this.gameMode = 'course';
+        // Create score display
+        this.createScoreDisplay();
     }
     
     /**
-     * Initialize the scoring system
+     * Create the score display element
      */
-    init(gameMode = 'course', totalHoles = 1) {
-        this.gameMode = 'course'; // Always use course mode
-        this.totalHoles = totalHoles;
-        this.score = 0;
-        
-        // Initialize hole scores array
-        this.holeScores = new Array(totalHoles).fill(0);
-        this.currentHole = 1;
-        this.updateHoleDisplay(1);
+    createScoreDisplay() {
+        this.scoreDisplayElement = document.getElementById('score-display');
+        if (!this.scoreDisplayElement) {
+            this.scoreDisplayElement = document.createElement('div');
+            this.scoreDisplayElement.id = 'score-display';
+            this.scoreDisplayElement.className = 'game-ui score-display';
+            document.body.appendChild(this.scoreDisplayElement);
+        }
         
         this.updateScoreDisplay();
         
@@ -36,51 +30,32 @@ export class ScoringSystem {
     }
     
     /**
-     * Set current hole number
+     * Set current hole - kept for compatibility but always sets to hole 1
      */
-    setCurrentHole(holeNumber) {
-        this.currentHole = holeNumber;
-        this.updateHoleDisplay(holeNumber);
+    setCurrentHole() {
+        this.currentHole = 1;
+        this.updateHoleDisplay();
         return this;
     }
     
     /**
-     * Set total number of holes
-     */
-    setTotalHoles(totalHoles) {
-        this.totalHoles = totalHoles;
-        
-        // Update hole scores array if needed
-        if (this.holeScores.length !== totalHoles) {
-            // Preserve existing scores
-            const newHoleScores = new Array(totalHoles).fill(0);
-            for (let i = 0; i < Math.min(this.holeScores.length, totalHoles); i++) {
-                newHoleScores[i] = this.holeScores[i];
-            }
-            this.holeScores = newHoleScores;
-        }
-        
-        return this;
-    }
-    
-    /**
-     * Add a stroke to the current hole score
+     * Add a stroke to the current score
      */
     addStroke() {
         this.score++;
         this.updateScoreDisplay();
-        return this.score;
+        return this;
     }
     
     /**
-     * Get the current score for this hole
+     * Get current hole strokes
      */
     getCurrentHoleStrokes() {
         return this.score;
     }
     
     /**
-     * Reset the score for the current hole
+     * Reset hole score
      */
     resetHoleScore() {
         this.score = 0;
@@ -89,106 +64,55 @@ export class ScoringSystem {
     }
     
     /**
-     * Get the current total score (sum of all hole scores)
+     * Get total score - same as current score in single-hole game
      */
     getTotalScore() {
-        // Calculate total score (sum of all completed holes plus current hole)
-        let totalScore = 0;
-        
-        // Add scores from completed holes
-        for (let i = 0; i < this.holeScores.length; i++) {
-            totalScore += this.holeScores[i] || 0;
-        }
-        
-        // Add current hole score if not yet completed
-        if (this.currentHole <= this.totalHoles && this.holeScores[this.currentHole - 1] === 0) {
-            totalScore += this.score;
-        }
-        
-        return totalScore;
+        return this.score;
     }
     
     /**
-     * Complete the current hole with given stroke count
+     * Complete the current hole
+     * @param {number} strokeCount - Optional explicit stroke count, uses current score if not provided
      */
     completeHole(strokeCount = null) {
-        // If strokes provided, use that value, otherwise use current score
-        const finalScore = strokeCount !== null ? strokeCount : this.score;
-        
-        // Store the current hole score
-        this.holeScores[this.currentHole - 1] = finalScore;
-        
-        // Return true if this was the final hole
-        return this.currentHole >= this.totalHoles;
-    }
-    
-    /**
-     * Advance to the next hole
-     */
-    advanceToNextHole() {
-        // Check if we can advance
-        if (this.currentHole < this.totalHoles) {
-            this.currentHole++;
-            this.score = 0;
-            this.updateHoleDisplay(this.currentHole);
+        // Use provided stroke count if available, otherwise use current score
+        if (strokeCount !== null) {
+            this.score = strokeCount;
             this.updateScoreDisplay();
-            return true;
         }
         
-        return false;
+        return this;
     }
     
     /**
-     * Load a specific hole
-     */
-    loadHole(holeNumber) {
-        if (holeNumber <= this.totalHoles) {
-            this.currentHole = holeNumber;
-            this.score = 0; // Reset score for the new hole
-            this.updateHoleDisplay(holeNumber);
-            this.updateScoreDisplay();
-            return true;
-        }
-        return false;
-    }
-    
-    /**
-     * Reset the current hole score (used for restarting the single hole)
+     * Reset current hole score
      */
     resetCurrentHoleScore() {
         this.score = 0;
-        this.holeScores[this.currentHole - 1] = 0;
         this.updateScoreDisplay();
         return this;
     }
     
     /**
-     * Update the hole display with current hole and total score
+     * Update hole display
      */
-    updateHoleDisplay(holeNumber) {
-        if (!this.scoreDisplayElement) return;
-        
-        // Update the score display to show the current hole and total score
-        const totalScore = this.getTotalScore();
-        
-        // For single hole course, simplify the display
-        if (this.totalHoles === 1) {
-            this.scoreDisplayElement.innerHTML = `Score: ${this.score}`;
-        } else {
-            this.scoreDisplayElement.innerHTML = `Hole: ${holeNumber}/${this.totalHoles} | Current: ${this.score} | Total: ${totalScore}`;
+    updateHoleDisplay() {
+        // Update hole display if needed
+        if (this.scoreDisplayElement) {
+            this.scoreDisplayElement.textContent = `Hole 1: `;
         }
+        
+        return this;
     }
     
     /**
-     * Update the score display with current score
+     * Update score display
      */
     updateScoreDisplay() {
-        // Update simple score element if available
-        if (this.scoreElement) {
-            this.scoreElement.textContent = this.score.toString();
+        if (this.scoreDisplayElement) {
+            this.scoreDisplayElement.textContent = `Hole 1: ${this.score} strokes`;
         }
         
-        // Update the hole display
-        this.updateHoleDisplay(this.currentHole);
+        return this;
     }
 } 

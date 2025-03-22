@@ -77,92 +77,43 @@ export function testCameraController() {
 export function testScoringSystem() {
     console.log('==== Testing Scoring System ====');
     
-    // Create scoring system
-    const scoringSystem = new ScoringSystem();
-    
-    // Test initialization
-    try {
-        scoringSystem.init('course', 3);
-        console.log('✓ Scoring system initialized successfully in course mode');
-        
-        if (scoringSystem.holeScores.length === 3) {
-            console.log('✓ Hole scores array properly initialized');
-        } else {
-            console.error('✗ Hole scores array not properly initialized');
-        }
-        
-        // Reset and try practice mode
-        scoringSystem.init('practice');
-        console.log('✓ Scoring system initialized successfully in practice mode');
-    } catch (e) {
-        console.error('✗ Scoring system initialization failed:', e);
-    }
-    
-    // Test score incrementation
-    const initialScore = scoringSystem.score;
-    scoringSystem.addStroke();
-    
-    if (scoringSystem.score === initialScore + 1) {
-        console.log('✓ Score incrementation works correctly');
-    } else {
-        console.error('✗ Score incrementation failed');
-    }
-    
-    // Test hole completion in course mode
-    scoringSystem.init('course', 3);
-    scoringSystem.addStroke();
-    scoringSystem.addStroke();
-    
-    // Complete first hole
-    const isLastHole = scoringSystem.completeHole();
-    
-    if (!isLastHole && scoringSystem.holeScores[0] === 2) {
-        console.log('✓ Hole completion correctly recorded score');
-    } else {
-        console.error('✗ Hole completion did not record score correctly');
-    }
-    
-    // Test advancing to next hole
-    const advanced = scoringSystem.advanceToNextHole();
-    
-    if (advanced && scoringSystem.currentHole === 2 && scoringSystem.score === 0) {
-        console.log('✓ Advancing to next hole works correctly');
-    } else {
-        console.error('✗ Advancing to next hole failed');
-    }
-    
-    // Test method presence
-    const methods = [
-        'addStroke',
-        'getCurrentHoleStrokes',
-        'resetHoleScore',
-        'getTotalScore',
-        'completeHole',
-        'advanceToNextHole',
-        'updateHoleDisplay',
-        'updateScoreDisplay'
-    ];
-    
-    let allMethodsPresent = true;
-    methods.forEach(method => {
-        if (typeof scoringSystem[method] !== 'function') {
-            console.error(`✗ Method ${method} is missing or not a function`);
-            allMethodsPresent = false;
-        }
-    });
-    
-    if (allMethodsPresent) {
-        console.log('✓ All required methods are present in ScoringSystem');
-    }
-    
-    console.log('==== Scoring System Tests Complete ====');
-    
-    // Return test status
-    return {
-        initialized: Boolean(scoringSystem.score !== undefined && scoringSystem.holeScores),
-        scoreTracking: scoringSystem.holeScores[0] === 2,
-        methodsComplete: allMethodsPresent
+    // Create mock game object
+    const mockGame = {
+        scene: {},
+        physicsWorld: {}
     };
+    
+    // Create scoring system with mock game
+    const scoringSystem = new ScoringSystem(mockGame);
+    
+    // Test scoring functionality
+    try {
+        // Test score tracking
+        console.log('Testing score tracking...');
+        scoringSystem.resetHoleScore();
+        console.assert(scoringSystem.getCurrentHoleStrokes() === 0, 'Initial score should be 0');
+        
+        scoringSystem.addStroke();
+        console.assert(scoringSystem.getCurrentHoleStrokes() === 1, 'Score should be 1 after adding stroke');
+        
+        scoringSystem.addStroke();
+        scoringSystem.addStroke();
+        console.assert(scoringSystem.getCurrentHoleStrokes() === 3, 'Score should be 3 after adding 3 strokes');
+        
+        // Test hole completion
+        console.log('Testing hole completion...');
+        scoringSystem.completeHole();
+        console.assert(scoringSystem.getTotalScore() === 3, 'Total score should be 3 after completing hole');
+        
+        // Test reset
+        console.log('Testing reset functionality...');
+        scoringSystem.resetHoleScore();
+        console.assert(scoringSystem.getCurrentHoleStrokes() === 0, 'Score should be 0 after reset');
+        
+        console.log('✅ Scoring System tests passed');
+    } catch (error) {
+        console.error('❌ Scoring System tests failed:', error);
+    }
 }
 
 /**

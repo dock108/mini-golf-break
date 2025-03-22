@@ -6,9 +6,10 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
  * Handles camera initialization, positioning, and behavior for Mini Golf Break
  */
 export class CameraController {
-    constructor(scene, renderer) {
-        this.scene = scene;
-        this.renderer = renderer;
+    constructor(game) {
+        this.game = game;
+        this.scene = game.scene;
+        this.renderer = null;
         
         // Setup camera and controls
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -17,28 +18,53 @@ export class CameraController {
         // Game references
         this.ball = null;
         this.course = null;
-        this.currentHole = 1;
         
         // Debug mode
         this.debugMode = false;
     }
     
     /**
+     * Set the renderer after it's initialized
+     * @param {THREE.WebGLRenderer} renderer - The renderer
+     */
+    setRenderer(renderer) {
+        this.renderer = renderer;
+        return this;
+    }
+    
+    /**
      * Initialize camera and controls
      */
     init() {
+        // Ensure we have a renderer
+        if (!this.renderer) {
+            console.warn("CameraController initialized without renderer, orbit controls will be disabled");
+        }
+        
         // Setup camera initial position - higher up for better space view
         this.camera.position.set(0, 15, 15);
         this.camera.lookAt(0, 0, 0);
         
-        // Setup controls - allow for more dramatic viewing angles
-        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-        this.controls.enableDamping = true;
-        this.controls.dampingFactor = 0.1;
-        this.controls.screenSpacePanning = false;
-        this.controls.minDistance = 5;
-        this.controls.maxDistance = 40; // Increased to allow viewing from further out
-        this.controls.maxPolarAngle = Math.PI / 1.8; // Allow slightly more overhead view
+        // Initialize orbit controls if we have a renderer
+        if (this.renderer) {
+            this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+            
+            // Configure controls
+            this.controls.enableDamping = true;
+            this.controls.dampingFactor = 0.1;
+            this.controls.rotateSpeed = 0.7;
+            this.controls.zoomSpeed = 1.2;
+            this.controls.minDistance = 2;
+            this.controls.maxDistance = 30;
+            this.controls.maxPolarAngle = Math.PI / 2; // Limit vertical rotation
+            
+            // Enable target movement with middle mouse
+            this.controls.enablePan = true;
+            this.controls.panSpeed = 0.8;
+            this.controls.screenSpacePanning = true;
+        } else {
+            console.warn("Orbit controls disabled - no renderer available");
+        }
         
         // Setup resize listener
         window.addEventListener('resize', () => this.onWindowResize());
@@ -56,14 +82,6 @@ export class CameraController {
     }
     
     /**
-     * Set current hole number
-     */
-    setCurrentHole(holeNumber) {
-        this.currentHole = holeNumber;
-        return this;
-    }
-    
-    /**
      * Set debug mode
      */
     setDebugMode(enabled) {
@@ -72,9 +90,11 @@ export class CameraController {
     }
     
     /**
-     * Update method to be called in the animation loop
+     * Update camera position and controls
+     * @param {number} deltaTime - Time since last update in seconds
      */
-    update() {
+    update(deltaTime) {
+        // Update controls if they exist
         if (this.controls) {
             this.controls.update();
         }
@@ -87,81 +107,62 @@ export class CameraController {
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
+        
+        return this;
     }
     
     /**
-     * Position the camera optimally behind the ball looking towards the hole
+     * Position camera to view the current hole
      */
-    positionCameraForHole(holeNumber) {
-        if (!this.ball || !this.ball.mesh) {
-            if (this.debugMode) console.log("Cannot position camera - ball not available");
-            return;
+    positionCameraForHole() {
+        if (!this.course) {
+            console.warn("Cannot position camera: Course not available");
+            return this;
         }
         
-        // Get the current ball position
-        const ballPosition = this.ball.mesh.position.clone();
-        if (this.debugMode) console.log(`Ball position: (${ballPosition.x.toFixed(2)}, ${ballPosition.y.toFixed(2)}, ${ballPosition.z.toFixed(2)})`);
-        
-        // Get the hole position based on hole number
-        let holePosition;
-        
-        // Get hole target position from course if available
-        if (this.course && this.course.getHolePosition) {
-            holePosition = this.course.getHolePosition(holeNumber);
-            if (this.debugMode) console.log(`Got hole position from course: (${holePosition.x.toFixed(2)}, ${holePosition.y.toFixed(2)}, ${holePosition.z.toFixed(2)})`);
-        } else {
-            // Fallback positions if course doesn't provide hole positions
-            holePosition = new THREE.Vector3(0, 0, -8); // Hole position at negative Z (updated)
-            if (this.debugMode) console.log(`Using fallback hole position at (0, 0, -8)`);
+        // Get the hole position
+        const holePosition = this.course.getHolePosition();
+        if (!holePosition) {
+            console.warn("Cannot position camera: Hole position not available");
+            return this;
         }
         
-        if (this.debugMode) console.log(`Positioning camera for hole ${holeNumber}, hole at: (${holePosition.x.toFixed(2)}, ${holePosition.y.toFixed(2)}, ${holePosition.z.toFixed(2)})`);
+        // Get the start position
+        const startPosition = this.course.getHoleStartPosition();
+        if (!startPosition) {
+            console.warn("Cannot position camera: Start position not available");
+            return this;
+        }
         
-        // Calculate direction from ball to hole (not hole to ball)
-        const directionToHole = new THREE.Vector3()
-            .subVectors(holePosition, ballPosition)
-            .normalize();
+        console.log(`Positioning camera for hole at ${holePosition.x.toFixed(2)}, ${holePosition.y.toFixed(2)}, ${holePosition.z.toFixed(2)}`);
         
-        if (this.debugMode) console.log(`Direction to hole: (${directionToHole.x.toFixed(2)}, ${directionToHole.y.toFixed(2)}, ${directionToHole.z.toFixed(2)})`);
+        // Calculate midpoint between tee and hole
+        const midpoint = new THREE.Vector3().addVectors(startPosition, holePosition).multiplyScalar(0.5);
         
-        // Disable controls temporarily during transition
-        const controlsEnabled = this.controls.enabled;
-        this.controls.enabled = false;
+        // Calculate direction from tee to hole
+        const direction = new THREE.Vector3().subVectors(holePosition, startPosition).normalize();
         
-        // Set target to look at the midpoint between the ball and hole
-        const targetPoint = new THREE.Vector3().addVectors(ballPosition, holePosition).multiplyScalar(0.5);
-        this.controls.target.copy(targetPoint);
-        
-        // Calculate optimal camera position - with higher y for more dramatic space view
-        const cameraDistance = 6; // Slightly farther horizontally
-        const cameraHeight = 10;  // Higher for more dramatic view looking down at the course
-        
-        // Position camera behind the ball in the direction opposite to the hole
-        // We want camera -> ball -> hole to be the line of sight
-        const cameraPosX = ballPosition.x - directionToHole.x * cameraDistance;
-        const cameraPosZ = ballPosition.z - directionToHole.z * cameraDistance;
-        
-        if (this.debugMode) console.log(`Calculated camera position: (${cameraPosX.toFixed(2)}, ${(ballPosition.y + cameraHeight).toFixed(2)}, ${cameraPosZ.toFixed(2)})`);
-        
-        // Set camera position
-        this.camera.position.set(
-            cameraPosX,
-            ballPosition.y + cameraHeight,
-            cameraPosZ
+        // Position camera at an angle to see both tee and hole
+        const distance = startPosition.distanceTo(holePosition);
+        const cameraOffset = new THREE.Vector3(
+            direction.z * distance * 0.7, // Offset perpendicular to hole direction
+            distance * 0.8,               // Height based on distance
+            -direction.x * distance * 0.7  // Offset perpendicular to hole direction
         );
         
-        if (this.debugMode) {
-            console.log(`Final camera position: (${this.camera.position.x.toFixed(2)}, ${this.camera.position.y.toFixed(2)}, ${this.camera.position.z.toFixed(2)})`);
-            console.log(`Camera is looking at: (${this.controls.target.x.toFixed(2)}, ${this.controls.target.y.toFixed(2)}, ${this.controls.target.z.toFixed(2)})`);
+        // Set camera position and look at midpoint
+        const cameraPosition = new THREE.Vector3().addVectors(midpoint, cameraOffset);
+        this.camera.position.copy(cameraPosition);
+        
+        // Set target to midpoint, slightly elevated
+        if (this.controls) {
+            this.controls.target.copy(midpoint);
+            this.controls.update();
+        } else {
+            this.camera.lookAt(midpoint);
         }
         
-        // Update controls
-        this.controls.update();
-        
-        // Re-enable controls
-        this.controls.enabled = controlsEnabled;
-        
-        if (this.debugMode) console.log("Camera positioning complete");
+        return this;
     }
     
     /**
@@ -175,63 +176,21 @@ export class CameraController {
         // Get the hole position so we can always keep it in mind
         let holePosition;
         if (this.course && this.course.getHolePosition) {
-            holePosition = this.course.getHolePosition(this.currentHole);
+            holePosition = this.course.getHolePosition();
         } else {
             holePosition = new THREE.Vector3(0, 0, 0);
         }
         
         // Always try to keep the target focused somewhat on the hole direction
-        // instead of just the ball, for better gameplay orientation
-        if (isMoving) {
-            // When moving, we update the target to follow the ball more closely
-            this.controls.target.lerp(ballPosition, 0.2);
-        } else {
-            // When still, try to keep hole in frame by balancing ball and hole
-            const targetPoint = new THREE.Vector3()
-                .addVectors(
-                    ballPosition.clone().multiplyScalar(0.7),
-                    holePosition.clone().multiplyScalar(0.3)
-                );
-            this.controls.target.lerp(targetPoint, 0.1);
-        }
+        const targetPosition = new THREE.Vector3()
+            .addVectors(ballPosition, new THREE.Vector3(0, 0.5, 0))
+            .lerp(holePosition, 0.2);
         
-        // Only move the camera position if the ball is in motion or parameter is true
-        if (isMoving) {
-            // Get ball velocity to determine movement direction
-            const ballVelocity = this.ball.body.velocity;
-            
-            // Only update if the ball is moving with enough speed
-            if (ballVelocity.length() > 0.5) {
-                // Calculate the camera position based on ball's movement direction
-                // Position camera BEHIND the ball relative to its motion
-                const movementDirection = new THREE.Vector3(
-                    ballVelocity.x,
-                    0, // Keep y component zero for horizontal direction
-                    ballVelocity.z
-                ).normalize().multiplyScalar(-1); // Negative to position behind ball
-                
-                // Current camera height relative to target
-                const currentHeight = this.camera.position.y - this.controls.target.y;
-                
-                // Desired distance from ball
-                const cameraDistance = 5; // Reduced from 7 to match our other settings
-                
-                // Calculate new camera position
-                const newCameraPosition = ballPosition.clone()
-                    .add(movementDirection.multiplyScalar(cameraDistance))
-                    .add(new THREE.Vector3(0, currentHeight, 0));
-                
-                // Smooth transition to new position
-                this.camera.position.lerp(newCameraPosition, 0.05);
-                
-                if (this.debugMode) {
-                    console.log(`Camera following ball, velocity: (${ballVelocity.x.toFixed(2)}, ${ballVelocity.z.toFixed(2)})`);
-                }
-            }
+        // Set orbit controls target to the calculated target
+        if (this.controls) {
+            this.controls.target.copy(targetPosition);
+            this.controls.update();
         }
-        
-        // Update the controls
-        this.controls.update();
     }
     
     /**
@@ -245,43 +204,33 @@ export class CameraController {
         // Get the hole position
         let holePosition;
         if (this.course && this.course.getHolePosition) {
-            holePosition = this.course.getHolePosition(this.currentHole);
+            holePosition = this.course.getHolePosition();
         } else {
             holePosition = new THREE.Vector3(0, 0, 0);
         }
         
         // Calculate direction from ball to hole
-        const directionToHole = new THREE.Vector3()
+        const direction = new THREE.Vector3()
             .subVectors(holePosition, ballPosition)
             .normalize();
         
-        // Position camera behind the ball looking towards the hole
-        const cameraDistance = 5; // Distance behind ball
-        const cameraHeight = 3;   // Height above ground
-        
-        // Disable controls temporarily during transition
-        const controlsEnabled = this.controls.enabled;
-        this.controls.enabled = false;
-        
-        // Set target to hole position for better aiming
-        this.controls.target.copy(holePosition);
-        
-        // Calculate camera position behind the ball in direction opposite to hole
-        const cameraPosX = ballPosition.x - directionToHole.x * cameraDistance;
-        const cameraPosZ = ballPosition.z - directionToHole.z * cameraDistance;
-        
-        // Set camera position
-        this.camera.position.set(
-            cameraPosX,
-            ballPosition.y + cameraHeight,
-            cameraPosZ
+        // Set camera position behind the ball, looking toward the hole
+        const cameraOffset = new THREE.Vector3(
+            direction.x * -5,
+            5, // Height above ball
+            direction.z * -5
         );
         
-        // Update controls
-        this.controls.update();
+        const newCameraPosition = new THREE.Vector3().addVectors(ballPosition, cameraOffset);
+        this.camera.position.copy(newCameraPosition);
         
-        // Re-enable controls
-        this.controls.enabled = controlsEnabled;
+        // Look at ball position
+        if (this.controls) {
+            this.controls.target.copy(ballPosition);
+            this.controls.update();
+        } else {
+            this.camera.lookAt(ballPosition);
+        }
     }
     
     /**

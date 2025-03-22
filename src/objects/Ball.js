@@ -19,11 +19,9 @@ export class Ball {
         this.mesh = null;
         this.isBallActive = true;
         
-        // Store current hole information
+        // Store hole information
         this.currentHolePosition = null;
-        this.currentHoleIndex = null;
         this.shotCount = 0;
-        this.scoreForCurrentHole = 0;
         this.isMoving = false;
         this.hasBeenHit = false;
         
@@ -50,16 +48,6 @@ export class Ball {
         this.successParticles = null;
         this.particleVelocities = [];
         this.particleLife = [];
-        
-        // Sound effects
-        this.sounds = {
-            hit: null,
-            roll: null,
-            success: null
-        };
-        
-        // Load sound effects
-        this.loadSounds();
         
         // Create the visual mesh with dimples
         this.createMesh();
@@ -397,40 +385,26 @@ export class Ball {
      * Handle when ball goes in hole
      */
     handleHoleSuccess() {
+        if (this.isSuccessAnimationActive) return;
+        
         // Play success sound
-        this.playSound('success');
+        if (this.game && this.game.audioManager) {
+            this.game.audioManager.playSound('success');
+        }
         
-        console.log('Ball in hole!');
-        
-        // Change ball material to show success
+        // Change appearance to success material
         if (this.mesh) {
             this.mesh.material = this.successMaterial;
-            
-            // Create a pulsing effect for the ball
-            this.successAnimationStartTime = Date.now();
-            this.isSuccessAnimationActive = true;
-            
-            // Create particle burst effect
-            this.createSuccessParticles();
-            
-            // Make ball light green to match success
-            if (this.ballLight) {
-                this.ballLight.color.set(0x00FF00);
-                this.ballLight.intensity = 1.2;
-                this.ballLight.distance = 6;
-            }
         }
         
-        // Emit event for game logic to handle
-        if (this.onHoleComplete) {
-            this.onHoleComplete(this.currentHoleIndex, this.shotCount);
-        }
+        // Create success particle effect
+        this.createSuccessParticles();
         
-        // Freeze the ball in place
-        if (this.body) {
-            this.body.velocity.set(0, 0, 0);
-            this.body.angularVelocity.set(0, 0, 0);
-        }
+        // Mark animation as active
+        this.isSuccessAnimationActive = true;
+        this.successAnimationStartTime = Date.now();
+        
+        console.log("Ball in hole!");
     }
     
     /**
@@ -584,167 +558,26 @@ export class Ball {
         }
     }
     
-    /**
-     * Load sound effects
-     */
-    loadSounds() {
-        // Create audio listener if it doesn't exist
-        if (!this.scene.audioListener) {
-            this.scene.audioListener = new THREE.AudioListener();
-            // Add listener to camera if available
-            if (this.game && this.game.camera) {
-                this.game.camera.add(this.scene.audioListener);
-            }
+    cleanup() {
+        // Remove ball from scene
+        if (this.scene && this.mesh) {
+            this.scene.remove(this.mesh);
         }
         
-        // Create hit sound
-        this.sounds.hit = new THREE.Audio(this.scene.audioListener);
-        this.sounds.hit.setVolume(0.5);
-        
-        // Create roll sound
-        this.sounds.roll = new THREE.Audio(this.scene.audioListener);
-        this.sounds.roll.setVolume(0.3);
-        
-        // Create success sound
-        this.sounds.success = new THREE.Audio(this.scene.audioListener);
-        this.sounds.success.setVolume(0.7);
-        
-        // Load sound files
-        const audioLoader = new THREE.AudioLoader();
-        
-        // Use simple tones since we don't have actual audio files loaded
-        this.createHitSound();
-        this.createSuccessSound();
-    }
-    
-    /**
-     * Create a simple hit sound using oscillator
-     */
-    createHitSound() {
-        if (!this.sounds.hit || !this.sounds.hit.context) return;
-        
-        // Create oscillator for hit sound
-        const oscillator = this.sounds.hit.context.createOscillator();
-        const gain = this.sounds.hit.context.createGain();
-        
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(220, this.sounds.hit.context.currentTime);
-        
-        gain.gain.setValueAtTime(0, this.sounds.hit.context.currentTime);
-        gain.gain.linearRampToValueAtTime(0.3, this.sounds.hit.context.currentTime + 0.01);
-        gain.gain.linearRampToValueAtTime(0, this.sounds.hit.context.currentTime + 0.3);
-        
-        oscillator.connect(gain);
-        
-        // Store oscillator and gain for hit sound
-        this.sounds.hit.oscillator = oscillator;
-        this.sounds.hit.gain = gain;
-    }
-    
-    /**
-     * Create a simple success sound using oscillator
-     */
-    createSuccessSound() {
-        if (!this.sounds.success || !this.sounds.success.context) return;
-        
-        // Create oscillator for success sound
-        const oscillator = this.sounds.success.context.createOscillator();
-        const gain = this.sounds.success.context.createGain();
-        
-        oscillator.type = 'sine';
-        
-        // Rising tone for success
-        oscillator.frequency.setValueAtTime(440, this.sounds.success.context.currentTime);
-        oscillator.frequency.linearRampToValueAtTime(880, this.sounds.success.context.currentTime + 0.3);
-        
-        gain.gain.setValueAtTime(0, this.sounds.success.context.currentTime);
-        gain.gain.linearRampToValueAtTime(0.4, this.sounds.success.context.currentTime + 0.1);
-        gain.gain.linearRampToValueAtTime(0, this.sounds.success.context.currentTime + 0.5);
-        
-        oscillator.connect(gain);
-        
-        // Store oscillator and gain for success sound
-        this.sounds.success.oscillator = oscillator;
-        this.sounds.success.gain = gain;
-    }
-    
-    /**
-     * Play a sound effect
-     * @param {string} soundName - Name of the sound to play ('hit', 'roll', 'success')
-     * @param {number} volume - Optional volume (0.0 to 1.0)
-     */
-    playSound(soundName, volume = 1.0) {
-        if (!this.sounds || !this.sounds[soundName]) {
-            console.warn(`Sound '${soundName}' not found`);
-            return;
+        // Remove ball light from scene
+        if (this.scene && this.ballLight) {
+            this.scene.remove(this.ballLight);
         }
         
-        const sound = this.sounds[soundName];
-        
-        // Handle different sound types
-        switch (soundName) {
-            case 'hit':
-                this.playHitSound(volume);
-                break;
-                
-            case 'success':
-                this.playSuccessSound(volume);
-                break;
-                
-            default:
-                // Just log a warning for unimplemented sounds
-                console.warn(`Sound type '${soundName}' not implemented`);
+        // Remove physics body
+        if (this.physicsWorld && this.body) {
+            this.physicsWorld.remove(this.body);
         }
-    }
-    
-    /**
-     * Play the hit sound
-     */
-    playHitSound(volume = 1.0) {
-        if (!this.sounds.hit || !this.sounds.hit.context) return;
         
-        // Create new oscillator each time for hit sound
-        const oscillator = this.sounds.hit.context.createOscillator();
-        const gain = this.sounds.hit.context.createGain();
-        
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(220, this.sounds.hit.context.currentTime);
-        
-        gain.gain.setValueAtTime(0, this.sounds.hit.context.currentTime);
-        gain.gain.linearRampToValueAtTime(0.3 * volume, this.sounds.hit.context.currentTime + 0.01);
-        gain.gain.linearRampToValueAtTime(0, this.sounds.hit.context.currentTime + 0.3);
-        
-        oscillator.connect(gain);
-        gain.connect(this.sounds.hit.context.destination);
-        
-        oscillator.start();
-        oscillator.stop(this.sounds.hit.context.currentTime + 0.3);
-    }
-    
-    /**
-     * Play the success sound
-     */
-    playSuccessSound(volume = 1.0) {
-        if (!this.sounds.success || !this.sounds.success.context) return;
-        
-        // Create new oscillator each time for success sound
-        const oscillator = this.sounds.success.context.createOscillator();
-        const gain = this.sounds.success.context.createGain();
-        
-        oscillator.type = 'sine';
-        
-        // Rising tone for success
-        oscillator.frequency.setValueAtTime(440, this.sounds.success.context.currentTime);
-        oscillator.frequency.linearRampToValueAtTime(880, this.sounds.success.context.currentTime + 0.3);
-        
-        gain.gain.setValueAtTime(0, this.sounds.success.context.currentTime);
-        gain.gain.linearRampToValueAtTime(0.4 * volume, this.sounds.success.context.currentTime + 0.1);
-        gain.gain.linearRampToValueAtTime(0, this.sounds.success.context.currentTime + 0.5);
-        
-        oscillator.connect(gain);
-        gain.connect(this.sounds.success.context.destination);
-        
-        oscillator.start();
-        oscillator.stop(this.sounds.success.context.currentTime + 0.5);
+        // Clean up success particles
+        if (this.scene && this.successParticles) {
+            this.scene.remove(this.successParticles);
+            this.particleData = null;
+        }
     }
 } 

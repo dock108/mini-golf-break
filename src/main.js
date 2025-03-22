@@ -37,11 +37,8 @@ class App {
         
         // Initialize the game if not already initialized
         if (!this.isGameRunning) {
-            this.init('course');
+            this.init();
             this.isGameRunning = true;
-        } else {
-            // If game is already running, resume it
-            this.game.setCourseMode('course');
         }
         
         // Enable game input
@@ -66,17 +63,11 @@ class App {
         }
     }
 
-    init(mode = 'course') {
-        // Initialize the game with the specified mode
-        this.game.init(mode);
+    init() {
+        // Initialize the game
+        this.game.init();
         
-        // Start the game loop
-        this.animate();
-    }
-
-    animate() {
-        requestAnimationFrame(() => this.animate());
-        this.game.update();
+        // Game handles its own animation loop, so we don't need to start one here
     }
 }
 
