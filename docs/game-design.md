@@ -1,58 +1,86 @@
-Game Design Document (GDD)
+# Space Golf Break - Game Design
 
-1. Game Concept
+## Core Concept
+Space Golf Break offers a minimalist space-themed mini-golf experience focused on a single, perfectly designed hole floating in the cosmic void. The game emphasizes quick, repeatable sessions with satisfying feedback - ideal for short mental breaks.
 
-Title: [To Be Determined]
+## Target Audience
+- Casual gamers looking for quick sessions
+- Office workers needing a short mental break
+- People who enjoy minimalist gameplay experiences
+- Fans of relaxing, non-competitive games
+- Anyone who appreciates atmospheric space themes
 
-Genre: Casual Sports (Mini-Golf) ￼
+## Key Design Pillars
 
-Platform: Web-based (Desktop Browsers)
+### 1. Minimalist Space Aesthetic
+- Black background representing the cosmic void
+- Thousands of stars creating a vibrant starfield
+- Colored accent lighting (blue and purple) for cosmic atmosphere
+- Emissive materials that glow in the space environment
+- High-contrast course elements against the dark background
+- Simple, clean UI with appropriate spacing and typography
 
-Overview: A minimalist, environment-focused mini-golf game emphasizing intuitive controls and realistic physics. Players engage in short sessions, navigating through a blend of realistic and quirky courses, aiming for the best score.
+### 2. Focused Gameplay Loop
+- Single, perfectly crafted hole with optimized dimensions
+- Quick gameplay session (1-2 minutes per play)
+- Simple drag-and-release controls that anyone can learn
+- Satisfying ball physics with appropriate gravity and friction
+- Clear visual and audio feedback for all actions
+- Immediate restart option to encourage replay
 
-2. Gameplay Mechanics
-	•	Core Gameplay: Players putt mini-golf balls across various courses, aiming to complete each hole in as few strokes as possible.
-	•	Controls: Drag-and-release mechanism to set shot direction and power. The length of the drag indicates shot power, with a visual direction line aiding aim. ￼
-	•	Scoring System: Standard golf scoring: Pars, Birdies (-1), Bogeys (+1), etc.
-	•	Session Length: Designed for 10-15 minute play sessions.
+### 3. Satisfying Feedback
+- Animated particles when the ball enters the hole
+- Ball turns green and pulses when successful
+- Sound effects for hitting the ball and completing the hole
+- Animated scorecard showing your final stroke count
+- Counter animation with sound for each stroke on the scorecard
+- Click-anywhere-to-continue simplicity for quick replay
 
-3. Player Experience
-	•	Difficulty: Single, relaxed setting suitable for casual play. ￼
-	•	Customization: Minimal; players use a basic putter with no character representation to maintain a clean UI. ￼
+### 4. Intelligent Camera System
+- Camera positions behind the ball looking toward the hole
+- Smooth transitions during ball movement
+- Camera follows ball during motion for clarity
+- Appropriate distance and height constraints
+- Optional orbit controls for players who want to look around
 
-4. Levels and Environment
-	•	Design Aesthetic: A mix of realistic mini-golf courses with standard quirks, providing both familiarity and novelty.
-	•	Obstacles: Incorporation of hazards such as sand traps, water features, and hills to challenge players.
-	•	Dynamic Elements: Initial focus on stationary obstacles to fine-tune physics; potential for dynamic obstacles in future updates.
+## Visual Style
+- **Color Palette:**
+  - Background: Dark black (0x000000) representing space
+  - Fairway: Bright lawn green (0x7CFC00) with emissive glow
+  - Fairway Border: Lime green (0x32CD32) for clear boundaries
+  - Ball: White (0xFFFFFF) with subtle glow for visibility
+  - Success: Vibrant green (0x00FF00) with strong emissive glow
+  - Hole Rim: Dark black (0x111111) for contrast
+  - UI Elements: White text on semi-transparent dark backgrounds
+  - Scorecard: Dark background with green accents
 
-5. User Interface (UI)
-	•	Design Philosophy: Sleek and non-intrusive, emphasizing the environment.
-	•	Elements:
-	•	Power Indicator: Visual direction line that grows with drag length to indicate shot power.
-	•	Score Display: Minimalistic scoreboard, subtly integrated into the UI.
+- **Lighting:**
+  - Ambient light at 40% intensity for base illumination
+  - Directional light simulating distant "sun"
+  - Blue accent light (0x4444FF) for cosmic glow effect
+  - Purple accent light (0xCC44FF) for complementary color
 
-6. Audio and Visuals
-	•	Audio:
-	•	Music: None in the initial MVP. ￼
-	•	Sound Effects: Realistic sounds for ball interactions, such as rolling and collisions.
-	•	Visual Style: A balanced aesthetic between cartoonish and realistic graphics, ensuring broad appeal. ￼
+## Audio Design
+- **Ball Hit:** Low-pitched impact sound, volume varies with shot power
+- **Success Sound:** Rising pitch from 440Hz to 880Hz with smooth fadeout
+- **UI Sounds:** Subtle clicks for interactions
+- **Score Counter:** Soft tick sound for each increment
 
-7. Technical Specifications
-	•	Technology Stack:
-	•	Rendering Engine: Three.js
-	•	Physics Engine: Cannon-es ￼
-	•	Deployment: Web-based, optimized for desktop browsers.
-	•	Accessibility: Standard features; no special accessibility options in the initial MVP.
-	•	Settings: Simplified settings with potential debug options as needed.
+## Gameplay Flow
+1. **Start:** Player sees the ball positioned at the tee on a space platform
+2. **Input:** Player clicks and drags to aim, with power and direction indicator
+3. **Action:** Ball is hit and travels across the course following physics rules
+4. **Outcome:** Ball either enters hole (success) or stops elsewhere (try again)
+5. **Success:** 
+   - Ball turns green and emits particles
+   - Animated scorecard appears showing stroke count
+   - Player clicks anywhere to replay
+6. **Replay:** Course resets with ball back at the tee
 
-8. Future Considerations
-	•	Expansion: Potential to scale up to a full golf game with full swing mechanics.
-	•	Dynamic Obstacles: Introduction of moving or interactive obstacles in future updates.
-
-⸻
-
-References and Inspirations:
-	•	Game Design Document Template and Examples - Nuclino ￼
-	•	Game UX Case Study: Golf Hero Game Design ￼
-	•	Designing Efficient User Interfaces For Games ￼
-	•	5 Best Practices for Game UI Design - Procreator Blog ￼
+## Technical Considerations
+- Physics tuned for satisfying, slightly forgiving gameplay
+- Ball mass of 0.45kg for ideal control
+- Enhanced damping (0.6) for natural movement
+- Emissive materials for visibility in space environment
+- Intelligent camera positioning for optimal experience
+- Mobile-friendly controls (planned for future)

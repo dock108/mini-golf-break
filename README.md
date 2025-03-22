@@ -1,68 +1,53 @@
-# Mini Golf Break
+# Space Golf Break
 
-A fun, casual offline mini-golf experience built for grown-up PS2-era kids looking to unwind without chaos or multiplayer madness.
+A minimalist space-themed mini-golf experience built for quick relaxation breaks. Navigate your ball through a single, perfectly crafted hole floating in the cosmic void.
 
 ## Features
-- **Quick Gameplay Sessions**: Designed specifically for short, relaxing rounds lasting just 2-5 minutes—perfect for busy schedules or quick breaks.
-- **Drag-and-Release Controls**: Simple, intuitive controls that mimic pulling back and releasing a pool cue, making gameplay accessible and enjoyable.
-- **Offline First**: Fully playable offline, ensuring you can enjoy a relaxing round of mini-golf anywhere, anytime—no internet required.
-- **Realistic Physics**: Powered by Cannon-es physics engine with finely-tuned parameters for authentic ball movement and natural rolling behavior.
-- **Minimalist Design**: Clean, distraction-free visuals that focus on gameplay rather than flashy graphics.
-- **Multiple Game Modes**: Practice freely in sandbox mode or challenge yourself on the structured course.
-- **Input Protection**: Prevents accidental shots during transitions with visual "Ready" indicator when input is enabled.
-- **Intelligent Camera System**: Camera consistently positions behind the ball looking toward the hole for optimal aiming, with smooth transitions during gameplay.
-- **Visible Hole Design**: Enhanced hole visibility with distinct rim and depth for better targeting.
-- **Comprehensive Scoring**: Tracks both per-hole scores and running total score throughout the course.
-- **Game Menu**: Start screen with multiple game modes, instructions and pause functionality for a polished gaming experience.
-- **Debug Mode**: Press 'd' during gameplay to toggle debug mode, showing physics bodies and additional information.
-- **Dynamic Hole Loading**: Optimized to load only the current active hole, improving performance and allowing for more diverse hole designs.
+- **Space-Themed Environment**: Play mini-golf in a beautiful, atmospheric space setting with proper lighting and starfield background
+- **Quick Gameplay Session**: Designed specifically for short, relaxing rounds lasting just 1-2 minutes—perfect for a mental break
+- **Drag-and-Release Controls**: Simple, intuitive controls that mimic pulling back and releasing a pool cue, making gameplay accessible
+- **Intuitive Physics**: Powered by Cannon-es physics engine with finely-tuned parameters for authentic ball movement
+- **Visual Feedback**: Satisfying green glow and particle effects when the ball drops in the hole
+- **Animated Scorecard**: Celebratory scorecard appears when you complete the hole, showing your score with a counter animation
+- **Sound Effects**: Audio feedback for hitting the ball and completing the hole enhances the experience
+- **Intelligent Camera**: Camera consistently positions behind the ball looking toward the hole for optimal aiming
+- **Replayable Experience**: After completing the hole, easily replay with a single click for another quick round
 
 ## Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/mini-golf-break.git
+git clone https://github.com/yourusername/space-golf-break.git
 
 # Navigate to the project directory
-cd mini-golf-break
+cd space-golf-break
 
 # Install dependencies
 npm install
 
 # Start the development server
-npm start
+npm run dev
 ```
 
 ## Gameplay Instructions
 
-- **Starting**: Choose "Start Practice" for freestyle play or "Play Basic Course" to play the course.
-- **Controls**: Click and drag backwards from the ball to set direction and power, then release to hit.
-- **Power Indicator**: A visual bar shows the strength of your shot based on how far you drag.
-- **Camera**: Use right-click drag to rotate the camera around the ball, scroll to zoom in/out.
-- **Objective**: Get the ball into the hole with as few strokes as possible.
-- **Hazards**: Avoid water (blue areas) which will reset your ball with a penalty stroke.
-- **Scoring**: Your score shows both current hole strokes and total score - lower is better!
-- **Ready Indicator**: A "Ready" message appears when you can take your shot.
-- **Pausing**: Click the pause button or press ESC to return to the menu.
-- **Course Completion**: Complete each hole to advance and see your final score.
+- **Controls**: Click and drag backwards from the ball to set direction and power, then release to hit
+- **Power Indicator**: A visual bar shows the strength of your shot based on how far you drag
+- **Camera**: Use right-click drag to rotate the camera around the ball, scroll to zoom in/out
+- **Objective**: Get the ball into the hole with as few strokes as possible
+- **Scoring**: A beautiful animated scorecard appears when you complete the hole
+- **Replaying**: After completing the hole, click anywhere to play again
 
 ## Development Status
 
-This project is currently in active development. The current version features:
+This project is currently a focused single-hole experience, concentrating on perfecting the core gameplay mechanics in a space environment:
 
-- Perfect-focused first hole with appropriate mini-golf scale and dimensions
-- Enhanced hole visibility with dark rim and proper depth visualization
-- Improved ball-hole interaction and success detection
-- Reliable camera positioning system for optimal aiming
-- Fully enclosed hole with wooden barriers to prevent ball loss
-- Finely-tuned physics for realistic ball movement
-- Intuitive drag-and-release controls with power indication
-- Visual aim guides when preparing shots
-- Intelligent camera positioning and following behavior
-- Water hazard detection with penalty system
-- Comprehensive score tracking system
-- Improved UI layout and ready indicator
-- Start menu with gameplay instructions
+- Space-themed minimalist course with starfield background and atmospheric lighting
+- Enhanced ball-hole interaction with realistic physics
+- Satisfying visual and audio feedback when completing the hole
+- Animated scorecard showing your score
+- Smooth restart flow to encourage multiple plays
+- Refined ball physics for satisfying movement
 
 Check the [CHANGELOG.md](./CHANGELOG.md) for detailed development history and the [PROJECT_CHECKLIST.md](./PROJECT_CHECKLIST.md) for current progress and upcoming features.
 
@@ -75,21 +60,22 @@ Check the [CHANGELOG.md](./CHANGELOG.md) for detailed development history and th
 - High-precision solver with 30 iterations and 8 substeps
 - Carefully tuned material properties for different surfaces
 
-### Input Protection
-- Prevents accidental shots during hole transitions
-- Disables input during message displays and camera positioning
-- Visual "Ready" indicator appears when the game is ready for input
-- Ensures reliable gameplay experience across all devices
+### Visual Feedback
+- Particle effects and color change when the ball enters the hole
+- Animated scorecard with counting animation for score display
+- Subtle ball glow to maintain visibility in space environment
+- Camera positioning for optimal view of both ball and hole
 
 ## Project Structure
 
 ```
-mini-golf-break/
+space-golf-break/
 ├── src/                      # Source code for the game
 │   ├── controls/             # Input handling
 │   ├── objects/              # Game objects (ball, course)
 │   ├── physics/              # Physics engine integration
 │   ├── scenes/               # Game scene management
+│   ├── game/                 # Game logic and scoring
 │   └── utils/                # Utility functions
 ├── public/                   # Static assets and bundled output
 ├── docs/                     # Documentation
@@ -102,15 +88,11 @@ mini-golf-break/
 - [Webpack](https://webpack.js.org/) - Module bundling
 
 ## Roadmap
-- Enhanced visual feedback for successful shots
-- Sound effects for ball interactions
-- Additional course layouts and obstacles
+- Additional visual elements in the space environment
+- Expanded sound effects library
 - Mobile touch controls optimization
-- Game completion flow and statistics
-
-## Contributing
-
-Contributions are welcome! Please check the [PROJECT_CHECKLIST.md](./PROJECT_CHECKLIST.md) for areas that need attention.
+- Multiple hole options with different layouts
+- Local high scores tracking
 
 ## License
 

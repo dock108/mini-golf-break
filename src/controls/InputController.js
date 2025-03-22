@@ -74,9 +74,9 @@ export class InputController {
         if (!this.isEventInsideCanvas(event)) return;
         
         // When starting a drag, store the current orbit controls state and disable them
-        if (this.game.controls) {
-            this.controlsWereEnabled = this.game.controls.enabled;
-            this.game.controls.enabled = false;
+        if (this.game.cameraController && this.game.cameraController.controls) {
+            this.controlsWereEnabled = this.game.cameraController.controls.enabled;
+            this.game.cameraController.controls.enabled = false;
         }
         
         // Set pointer down flag
@@ -167,8 +167,8 @@ export class InputController {
         if (!this.isInputEnabled || !this.isPointerDown) return;
         
         // Restore orbit controls to previous state
-        if (this.game.controls) {
-            this.game.controls.enabled = this.controlsWereEnabled;
+        if (this.game.cameraController && this.game.cameraController.controls) {
+            this.game.cameraController.controls.enabled = this.controlsWereEnabled;
         }
         
         // Only process if we were dragging
@@ -217,9 +217,9 @@ export class InputController {
             this.dragCurrent.copy(this.dragStart);
             
             // Disable orbit controls during drag
-            if (this.game.controls) {
-                this.controlsWereEnabled = this.game.controls.enabled;
-                this.game.controls.enabled = false;
+            if (this.game.cameraController && this.game.cameraController.controls) {
+                this.controlsWereEnabled = this.game.cameraController.controls.enabled;
+                this.game.cameraController.controls.enabled = false;
             }
             
             // Create direction line
@@ -281,14 +281,14 @@ export class InputController {
             this.clickedOnBall = false;
             
             // Restore orbit controls
-            if (this.game.controls && this.controlsWereEnabled) {
-                this.game.controls.enabled = this.controlsWereEnabled;
+            if (this.game.cameraController && this.game.cameraController.controls && this.controlsWereEnabled) {
+                this.game.cameraController.controls.enabled = this.controlsWereEnabled;
+            } else if (this.game.cameraController && this.game.cameraController.controls) {
+                // Restore orbit controls if we're not dragging
+                this.game.cameraController.controls.enabled = true;
             }
             
             event.preventDefault();
-        } else if (this.game.controls) {
-            // Restore orbit controls if we're not dragging
-            this.game.controls.enabled = true;
         }
     }
     

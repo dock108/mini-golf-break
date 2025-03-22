@@ -1,16 +1,18 @@
-# Developer Guide for Mini Golf Break
+# Developer Guide for Space Golf Break
 
-This guide provides an overview of the Mini Golf Break codebase for developers who want to understand, modify, or extend the project.
+This guide provides an overview of the Space Golf Break codebase for developers who want to understand, modify, or extend the project.
 
 ## Architecture Overview
 
-Mini Golf Break follows a component-based architecture where different systems interact through well-defined interfaces. The main components are:
+Space Golf Break follows a component-based architecture where different systems interact through well-defined interfaces. The main components are:
 
 1. **Game**: Central controller that manages game state, scene rendering, and coordinates other components
 2. **PhysicsWorld**: Encapsulates the Cannon-es physics engine and manages simulation
-3. **Course/BasicCourse**: Handles course generation, obstacles, and hole placement
-4. **Ball**: Represents the player's ball with both visual mesh and physics body
+3. **BasicCourse**: Handles space-themed course generation with a single hole
+4. **Ball**: Represents the player's ball with visual mesh, physics body, and success effects
 5. **InputController**: Manages user interaction for hitting the ball
+6. **CameraController**: Handles camera positioning and movement
+7. **ScoringSystem**: Manages scoring and display
 
 ## Key Classes and Responsibilities
 
@@ -18,22 +20,23 @@ Mini Golf Break follows a component-based architecture where different systems i
 
 The Game class is the central coordinator that:
 - Initializes the Three.js scene, camera, and renderer
-- Sets up lighting and controls
-- Manages game state (ball in motion, score, etc.)
+- Sets up the space environment with starfield and specialized lighting
+- Manages game state (ball in motion, hole completion)
 - Updates all game objects during the animation loop
-- Handles events like hole completion and water hazards
-- Tracks the ball's safe positions for respawning
-- Manages intelligent camera positioning for each hole
-- Coordinates input protection during transitions
+- Handles events like hole completion and out-of-bounds
+- Tracks the ball's safe position for respawning
+- Displays the animated scorecard when the hole is completed
+- Manages restart functionality
 
 Key methods:
-- `init()`: Sets up the game environment
+- `init()`: Sets up the game environment and space theme
 - `update()`: Called each frame to update physics and rendering
-- `hitBall(direction, power)`: Applies force to the ball and increments score
+- `hitBall(direction, power)`: Applies force to the ball and triggers sound
 - `handleHoleCompleted()`: Logic when the ball enters a hole
-- `updateCameraFollow(isMoving)`: Controls camera behavior during ball motion
-- `positionCameraForHole(holeNumber)`: Sets optimal camera position for each hole
-- `showMessage(text, duration)`: Displays messages and manages input state
+- `displayScorecard()`: Shows animated completion scorecard
+- `resetAndRestartHole()`: Resets the game for another round
+- `checkBallInHole()`: Detects when the ball goes in the hole
+- `createStarfield()`: Generates thousands of stars for the space background
 
 ### PhysicsWorld Class (`src/physics/PhysicsWorld.js`)
 
@@ -43,46 +46,37 @@ This class abstracts the Cannon-es physics engine:
 - Provides utility methods for creating physics bodies
 - Manages the physics simulation step
 
-### Course Class (`src/objects/Course.js`)
-
-Responsible for generating the practice environment:
-- Creates the terrain mesh and corresponding physics body
-- Places holes, water hazards, and obstacles
-- Provides collision detection for holes and hazards
-- Manages course visuals and updates
-
-Key methods:
-- `createTerrain()`: Generates the main playing surface
-- `createHoles()`: Places holes with proper collision detection
-- `createWaterHazards()`: Creates water areas
-- `isInHole(position, ball)`: Detects if the ball is in a hole
-- `isInWater(position)`: Detects if the ball is in water
-
 ### BasicCourse Class (`src/objects/BasicCourse.js`)
 
-Extends the Course class to create a structured multi-hole experience:
-- Creates a 3-hole course with specific layouts and challenges 
-- Defines specific hole positions and starting points
-- Implements walls and boundaries to contain the ball
-- Provides methods for hole navigation
+Responsible for generating the space-themed course:
+- Creates a single, focused hole in space
+- Defines fairway with contrasting border
+- Implements the hole with proper physics
+- Provides hole position information
 
 Key methods:
-- `createHole1()`, `createHole2()`, `createHole3()`: Create specific hole layouts
-- `getHoleStartPosition(holeNumber)`: Returns starting position for each hole
+- `createFairway()`: Generates the glowing green fairway with border
+- `createHoleAt()`: Creates the hole with proper physics and visuals
+- `getHolePosition()`: Returns the position of the hole
+- `getHoleStartPosition()`: Returns the starting (tee) position
+- `createHole1()`: Sets up the single hole design
 
 ### Ball Class (`src/objects/Ball.js`)
 
 Represents the player's ball with:
-- Visual representation using Three.js
+- Visual representation using Three.js with subtle glow
 - Physics body using Cannon-es
-- Collision handling and physics properties
+- Success effects (color change, particles, pulsing)
+- Sound effects system
 
 Key methods:
-- `createMesh()`: Creates the visual ball
+- `createMesh()`: Creates the visual ball with dimples
 - `createBody()`: Creates the physics body
 - `applyForce(direction, power)`: Applies force when hit
-- `isStopped()`: Determines if the ball has stopped moving
-- `update()`: Updates visual position based on physics
+- `handleHoleSuccess()`: Triggers success effects when the ball is in hole
+- `playSound(soundName, volume)`: Plays various sound effects
+- `createSuccessParticles()`: Generates the particle effect when in hole
+- `updateSuccessEffects()`: Animates particles and pulsing effect
 
 ### InputController Class (`src/controls/InputController.js`)
 
@@ -91,16 +85,21 @@ Handles user interaction:
 - Calculates direction and power from drag distance
 - Manages visual feedback (direction line, power indicator)
 - Toggles orbit controls during drag operations
-- Provides input protection through enable/disable methods
-- Shows ready indicator when input is enabled
 
-Key methods:
-- `onMouseDown/onTouchStart`: Initiates the drag operation
-- `onMouseMove/onTouchMove`: Updates direction and power
-- `onMouseUp/onTouchEnd`: Triggers the ball hit
-- `updateAimLine()`: Shows directional guide
-- `updatePowerIndicator()`: Updates power UI
-- `enableInput()`, `disableInput()`: Controls input state
+### CameraController Class (`src/controls/CameraController.js`)
+
+Manages the camera system:
+- Positions camera behind the ball looking toward the hole
+- Follows the ball during motion
+- Handles smooth transitions between states
+- Provides optimal viewing angles
+
+### ScoringSystem Class (`src/game/ScoringSystem.js`)
+
+Handles scoring and display:
+- Tracks strokes for the single hole
+- Updates score display
+- Provides methods for resetting score
 
 ## Physics Implementation
 
@@ -115,8 +114,6 @@ The physics system uses Cannon-es with these key configurations:
    - `groundMaterial`: High friction (0.8) for realistic rolling
    - `ballMaterial`: For the player's ball
    - `bumperMaterial`: Low friction (0.1) with high restitution (0.8)
-   - `sandMaterial`: Very high friction (2.0) with minimal bounce
-   - Contact materials control friction and restitution
 
 3. **Ball Physics**:
    - Mass: 0.45 kg (lighter for better control)
@@ -133,91 +130,84 @@ The physics system uses Cannon-es with these key configurations:
    - Fixed Timestep: 1/60 second
    - Max Substeps: 8 (for smooth motion)
 
-## Game Modes
+## Animated Scorecard Implementation
 
-### Practice Mode
-- Default sandbox mode with a generic course layout
-- Ball can be hit freely with no progression
-- Score is tracked but not saved between sessions
+The animated scorecard is implemented in the `displayScorecard()` method:
 
-### Course Mode
-- Structured 3-hole course with specific challenges
-- Tracks score per hole and total score
-- Provides progression between holes
-- Shows completion screen with final score
+1. **Creation**: A DOM-based overlay is created with styled elements
+2. **Animation In**: CSS transitions animate the scorecard scaling and fading in
+3. **Score Counter**: A counter progressively increments with sound effects
+4. **Continue Prompt**: After the animation, a click-anywhere prompt appears
+5. **Event Handling**: Document-wide click listener waits for user action
+6. **Animation Out**: Scorecard fades out with scale animation
+7. **Cleanup**: After animation out, the scorecard is removed and game restarted
 
-## Input Protection System
+## Sound System Implementation
 
-To prevent accidental shots, the game implements input protection:
+The sound system uses the Web Audio API through Three.js Audio:
 
-1. **Automatic Disabling**:
-   - During hole transitions
-   - While messages are displayed
-   - When the ball is being reset
-   - During camera positioning
-   
-2. **Ready Indication**:
-   - Visual "Ready" indicator appears when input is enabled
-   - Provides clear feedback to the player
-   - Automatically fades out after 2 seconds
+1. **Sound Types**:
+   - Hit sound: Plays when the ball is struck
+   - Success sound: Plays when the ball goes in the hole
+   - UI sounds: For interactions and scorecard
 
-3. **Cooldown Period**:
-   - 300ms delay after messages disappear
-   - Ensures camera has completed positioning
+2. **Implementation**:
+   - Creates audio context through Three.js AudioListener
+   - Generates sounds programmatically using oscillators
+   - Controls volume levels for different sound types
+   - Implements sound playback with appropriate attack/decay
 
-## Extending the Project
-
-### Adding New Course Elements
-
-To add new obstacles or course features:
-1. Create mesh generation in the Course class
-2. Add corresponding physics bodies
-3. Set up proper collision detection
-4. Update course creation logic
-
-### Implementing New Game Mechanics
-
-To add new gameplay features:
-1. Extend the Game class with new state variables
-2. Add handler methods for new mechanics
-3. Modify the update loop to check for new conditions
-4. Update UI to reflect new features
-
-### Visual Enhancements
-
-To improve visuals:
-1. Modify material properties in object creation methods
-2. Add post-processing effects to the renderer
-3. Enhance lighting in the Game class
-4. Add particle effects for events like successful putts
-
-### Adding New Holes
-
-To add new holes to the BasicCourse:
-1. Create a new `createHoleX()` method in BasicCourse
-2. Update the `constructor` to call this method
-3. Add hole position to `getHoleStartPosition()`
-4. Update the hole count in Game.js (currentHole check)
-5. Add a new position to the holeScores array
+3. **Usage**:
+   - `ball.playSound('hit', power)`: Plays hit sound with volume based on power
+   - `ball.playSound('success')`: Plays success sound when the ball goes in the hole
+   - Scorecard uses hit sound with low volume for counter animation
 
 ## Debug Mode
 
 Press 'd' during gameplay to toggle debug mode, which:
 - Shows axes helpers and grid
 - Displays additional console logs
-- Can be extended with visualization for physics bodies
+- Shows a wireframe view of the scene
+
+## Extending the Project
+
+### Adding Visual Elements to Space Environment
+
+To enhance the space theme:
+1. Create new space-themed objects in the `createStarfield()` method
+2. Add additional lighting effects in the `setupLights()` method
+3. Consider adding nebula effects with particle systems
+4. Implement space-themed obstacles like asteroids
+
+### Implementing Multiple Themed Holes
+
+To add different hole designs:
+1. Create new methods like `createHole2()`, `createHole3()` in BasicCourse
+2. Design unique space-themed layouts for each
+3. Update the navigation system to cycle between holes
+4. Consider different physics properties for each theme
+
+### Enhancing Audio
+
+To improve audio feedback:
+1. Add more varied sound types in the Ball class's `loadSounds()` method
+2. Create more sophisticated oscillator patterns
+3. Consider loading actual audio files for richer sounds
+4. Add ambient background sounds for the space environment
+
+### Adding High Score System
+
+To implement high scores:
+1. Create a new `HighScoreSystem` class
+2. Use localStorage to persist scores between sessions
+3. Add a high score display to the scorecard
+4. Implement animations for new high scores
 
 ## Performance Considerations
 
 When modifying the game, keep these performance aspects in mind:
 - Minimize physics body complexity where possible
-- Use instancing for repeated objects
+- Use instancing for repeated objects (like stars)
 - Dispose of Three.js geometries and materials when removing objects
 - Avoid creating new objects in the update loop
-
-## Common Issues and Solutions
-
-1. **Z-fighting in visuals**: Ensure slight offsets between overlapping objects
-2. **Physics tunneling**: Adjust substeps or body sizes
-3. **Camera clipping**: Check near/far plane settings
-4. **Input inconsistency**: Verify event propagation and coordinate transforms 
+- Optimize lighting and shadows for performance on lower-end devices 

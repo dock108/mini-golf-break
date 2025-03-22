@@ -1,6 +1,61 @@
-# Changelog for Mini Golf Break
+# Changelog for Space Golf Break
 
-All notable changes to the Mini Golf Break project will be documented in this file.
+All notable changes to the Space Golf Break project will be documented in this file.
+
+## [0.5.0] - Space Theme and Enhanced Completion Experience
+
+### Space-Themed Transformation
+- Completely reimagined the game with a space theme featuring a cosmic void environment
+- Added starfield background with thousands of stars for immersive space atmosphere
+- Implemented colored accent lights (blue and purple) to create cosmic atmosphere
+- Changed terrain colors to use emissive materials for visibility in space
+- Added contrasting bright green fairway with darker border for clear visibility
+- Enhanced ball with subtle glow effect to maintain visibility in the space environment
+
+### Single-Hole Focus
+- Simplified the game to focus on a single, perfectly crafted hole
+- Removed multi-hole course structure to create a more focused experience
+- Updated course generation to create a clean, minimalist space platform for the hole
+- Modified all references and UI to support the single-hole gameplay loop
+- Improved hole completion flow with immediate restart option
+
+### Enhanced Completion Experience
+- Added animated scorecard that appears when completing the hole
+- Implemented score counter animation with sound effects for each increment
+- Created particle burst effect when the ball goes in the hole
+- Added green pulsing glow effect for the ball upon success
+- Implemented click-to-restart functionality after hole completion
+- Enhanced visual hierarchy on the scorecard with clear typography and spacing
+
+### Audio Implementation
+- Added sound system with Web Audio API integration
+- Implemented hit sound with volume variation based on shot power
+- Created success sound effect with rising pitch for hole completion
+- Added subtle audio feedback for UI interactions
+- Implemented sound functions with volume control for all game events
+
+### Optimizations
+- Removed unnecessary course elements for cleaner visual design
+- Streamlined game flow for quicker restart after completion
+- Enhanced ball-hole physics interaction for more reliable detection
+- Improved lighting performance with optimized shadow settings
+- Simplified scoring system for single-hole experience
+
+## [0.4.1] - Code Modularization and Refactoring
+
+### Architecture Improvements
+- Modularized camera and scoring logic for better maintainability
+- Created dedicated `CameraController` class to encapsulate all camera-related functionality
+- Created dedicated `ScoringSystem` class to handle score tracking and display
+- Improved code organization with clear separation of concerns
+- Reduced complexity of Game.js by moving specialized functionality to dedicated modules
+- Added comprehensive test suite to validate modularization
+
+### Technical Debt Reduction
+- Removed redundant GolfBall.js file that contained duplicate functionality already present in Ball.js
+- Streamlined codebase for better readability and maintainability
+- Enhanced documentation with clearer method documentation
+- Improved class interfaces with fluent method chaining
 
 ## [0.4.0] - Visual and Layout Improvement
 
@@ -23,6 +78,7 @@ All notable changes to the Mini Golf Break project will be documented in this fi
 - Updated `loadHole` method to properly handle hole number selection
 - Enhanced tee marker representation for better visibility
 - Simplified decorative elements to reduce visual clutter
+- Removed redundant GolfBall.js file that contained duplicate functionality already present in Ball.js
 
 ## [0.3.9] - Camera Positioning and First Hole Focus
 

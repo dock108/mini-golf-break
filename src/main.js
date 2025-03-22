@@ -10,12 +10,6 @@ class App {
     }
 
     setupEventListeners() {
-        // Add click event for the start practice button
-        const startPracticeButton = document.getElementById('start-practice');
-        if (startPracticeButton) {
-            startPracticeButton.addEventListener('click', () => this.startPractice());
-        }
-        
         // Add click event for the play course button
         const playCourseButton = document.getElementById('play-course');
         if (playCourseButton) {
@@ -28,8 +22,8 @@ class App {
             pauseButton.addEventListener('click', () => this.pauseGame());
         }
     }
-
-    startPractice() {
+    
+    startCourse() {
         // Hide the menu screen
         if (this.menuScreen) {
             this.menuScreen.style.display = 'none';
@@ -39,37 +33,15 @@ class App {
             if (titleElement && titleElement.textContent === 'Paused') {
                 titleElement.textContent = 'Mini Golf Break';
             }
-            
-            // Restore original button text
-            const startPracticeButton = document.getElementById('start-practice');
-            if (startPracticeButton && startPracticeButton.textContent === 'Resume Game') {
-                startPracticeButton.textContent = 'Start Practice';
-            }
         }
         
         // Initialize the game if not already initialized
         if (!this.isGameRunning) {
-            this.init('practice');
-            this.isGameRunning = true;
-        }
-        
-        // Enable game input
-        this.game.enableGameInput();
-    }
-    
-    startCourse() {
-        // Hide the menu screen
-        if (this.menuScreen) {
-            this.menuScreen.style.display = 'none';
-        }
-        
-        // Initialize the game with course mode if not already initialized
-        if (!this.isGameRunning) {
             this.init('course');
             this.isGameRunning = true;
         } else {
-            // If game is already running, switch to course mode
-            this.game.setCourseMode('basic');
+            // If game is already running, resume it
+            this.game.setCourseMode('course');
         }
         
         // Enable game input
@@ -86,12 +58,6 @@ class App {
             if (titleElement) {
                 titleElement.textContent = 'Paused';
             }
-            
-            // Change button text to "Resume Game"
-            const startPracticeButton = document.getElementById('start-practice');
-            if (startPracticeButton) {
-                startPracticeButton.textContent = 'Resume Game';
-            }
         }
         
         // Disable game input
@@ -100,7 +66,7 @@ class App {
         }
     }
 
-    init(mode = 'practice') {
+    init(mode = 'course') {
         // Initialize the game with the specified mode
         this.game.init(mode);
         
