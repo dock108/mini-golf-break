@@ -3,7 +3,7 @@ import * as CANNON from 'cannon-es';
 import { Course } from './Course';
 
 /**
- * BasicCourse - A single-hole mini golf course in space
+ * BasicCourse - A mini golf course in space with support for multiple holes
  */
 export class BasicCourse extends Course {
     /**
@@ -27,10 +27,32 @@ export class BasicCourse extends Course {
         this.courseObjects = [];
         this.physicsBodies = [];
         
-        // Single hole configuration
-        this.holePosition = new THREE.Vector3(0, 0, -8);
-        this.flag = null;
-        this.flagOrigVertices = null;
+        // Multi-hole configuration
+        this.currentHoleIndex = 0;
+        this.totalHoles = 2; // Initially supporting 2 holes
+        
+        // Define hole configurations
+        this.holes = [
+            // Hole 1 (original position)
+            {
+                holePosition: new THREE.Vector3(0, 0, -8),
+                startPosition: new THREE.Vector3(0, 0.2, 8),
+                courseWidth: 4,
+                courseLength: 20,
+                par: 3
+            },
+            // Hole 2 (positioned directly below Hole 1)
+            {
+                holePosition: new THREE.Vector3(0, -40, -8), // Keep same X,Z, just change Y to be directly below
+                startPosition: new THREE.Vector3(0, -39.8, 8), // Keep same X,Z as hole 1
+                courseWidth: 4,
+                courseLength: 20,
+                par: 3
+            }
+        ];
+        
+        // Backward compatibility - single hole position reference
+        this.holePosition = this.holes[0].holePosition;
         this.holePositions = new Map();
         
         // Now that everything is initialized, create the course
@@ -38,40 +60,117 @@ export class BasicCourse extends Course {
     }
     
     /**
-     * Override createCourse to build a single-hole course
+     * Override createCourse to build a multi-hole course
      */
     createCourse() {
-        // Create base ground first
-        this.createGround();
+        // Create base ground (space background)
+        this.createBackground();
         
-        // Create the actual hole
-        this.createHole();
+        // Create all holes in the course
+        for (let i = 0; i < this.totalHoles; i++) {
+            this.createHole(i);
+        }
+        
+        // Load the first hole by default
+        this.loadHole(0);
     }
     
     /**
-     * Create the overall ground plane
+     * Create a single hole with all its components
+     * @param {number} holeIndex - Index of the hole to create
      */
-    createGround() {
-        // Create a space-like background with a visible ground
-        const groundGeometry = new THREE.PlaneGeometry(1000, 1000, 1, 1);
-        const groundMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x111133, // Dark blue for space-like background
-            roughness: 0.9,
-            metalness: 0.2,
-            side: THREE.DoubleSide
-        });
+    createHole(holeIndex) {
+        const holeConfig = this.holes[holeIndex];
         
-        this.ground = new THREE.Mesh(groundGeometry, groundMaterial);
-        this.ground.rotation.x = -Math.PI / 2; // Rotate to be flat
-        this.ground.position.y = -0.05; // Set below the fairway
-        this.ground.receiveShadow = true;
-        this.scene.add(this.ground);
-        this.courseObjects.push(this.ground);
+        console.log(`%c[COURSE DEBUG] Creating hole ${holeIndex + 1}`, 'background:#222; color:#ff9900', holeConfig);
         
+        // Calculate the center position for the course
+        const centerPosition = new THREE.Vector3()
+            .addVectors(holeConfig.holePosition, holeConfig.startPosition)
+            .multiplyScalar(0.5);
+        centerPosition.y = 0; // Ensure it's at ground level
+        
+        // Create the unified green surface
+        this.createGreenSurface(centerPosition, holeConfig.courseWidth, holeConfig.courseLength, holeConfig.holePosition, holeIndex);
+        
+        // Create the walls/boundaries
+        this.createCourseBoundaries(centerPosition, holeConfig.courseWidth, holeConfig.courseLength, 1.0, 0.5, holeIndex);
+        
+        // Create the hole
+        this.createHoleGeometry(holeConfig.holePosition, holeIndex);
+        
+        // Create the start marker (tee)
+        this.createStartMarker(holeConfig.startPosition, holeIndex);
+        
+        // Store the hole info for backward compatibility
+        this.holePositions.set(holeIndex, { position: holeConfig.holePosition.clone() });
+        
+        console.log(`%c[COURSE DEBUG] Hole ${holeIndex + 1} creation complete`, 'background:#222; color:#ff9900');
+    }
+    
+    /**
+     * Load a specific hole and make it active
+     * @param {number} holeIndex - Index of the hole to load
+     */
+    loadHole(holeIndex) {
+        if (holeIndex < 0 || holeIndex >= this.totalHoles) {
+            console.error(`[COURSE ERROR] Invalid hole index: ${holeIndex}`);
+            return;
+        }
+        
+        console.log(`%c[COURSE DEBUG] Loading hole ${holeIndex + 1}`, 'background:#222; color:#ff9900');
+        
+        // Update current hole index
+        this.currentHoleIndex = holeIndex;
+        
+        // Update the holePosition reference for backward compatibility
+        this.holePosition = this.holes[holeIndex].holePosition;
+        
+        // Loop through all course objects and set visibility
+        for (let i = 0; i < this.courseObjects.length; i++) {
+            const obj = this.courseObjects[i];
+            if (obj.userData && obj.userData.holeIndex !== undefined) {
+                // Handle different object types
+                if (obj.geometry instanceof THREE.ExtrudeGeometry) {
+                    // Green surfaces - keep both visible
+                    obj.visible = true;
+                } else if (obj.geometry instanceof THREE.RingGeometry) {
+                    // Hole rims - keep both visible
+                    obj.visible = true;
+                } else if (obj.geometry instanceof THREE.CylinderGeometry) {
+                    // Tee markers and hole number indicators
+                    obj.visible = (obj.userData.holeIndex === holeIndex);
+                } else {
+                    // Walls and other objects
+                    obj.visible = (obj.userData.holeIndex === holeIndex);
+                }
+            }
+        }
+        
+        console.log(`%c[COURSE DEBUG] Hole ${holeIndex + 1} loaded successfully`, 'background:#222; color:#ff9900');
+    }
+    
+    /**
+     * Move to the next hole
+     * @returns {boolean} Whether the move was successful
+     */
+    nextHole() {
+        const nextIndex = this.currentHoleIndex + 1;
+        if (nextIndex < this.totalHoles) {
+            this.loadHole(nextIndex);
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Create the space background
+     */
+    createBackground() {
         // Set the scene background color to dark space
         this.scene.background = new THREE.Color(0x000011);
         
-        // Create ground physics body
+        // Create ground physics body (invisible)
         if (this.physicsWorld) {
             this.groundBody = this.physicsWorld.createGroundBody(this.physicsWorld.groundMaterial);
             this.physicsWorld.addBody(this.groundBody);
@@ -91,263 +190,207 @@ export class BasicCourse extends Course {
     }
     
     /**
-     * Create a single hole with all its elements
-     */
-    createHole() {
-        // Define hole and start positions
-        const holePosition = this.holePosition;
-        const startPosition = this.startPositions[0];
-        
-        // Store the hole info
-        this.holePositions.set(0, { position: holePosition.clone() });
-        
-        // Create the fairway
-        this.createFairway(holePosition, startPosition);
-        
-        // Create the hole elements
-        this.createHoleGeometry(holePosition);
-        
-        // Create the hole enclosure
-        this.createHoleEnclosure(holePosition, startPosition);
-        
-        // Create start marker
-        this.createStartMarker(startPosition);
-    }
-    
-    /**
-     * Create a fairway (visual path between start and hole)
+     * Create the unified green surface for the course
+     * @param {THREE.Vector3} centerPosition - Center position of the course
+     * @param {number} width - Width of the course
+     * @param {number} length - Length of the course
      * @param {THREE.Vector3} holePosition - Position of the hole
-     * @param {THREE.Vector3} startPosition - Position of the tee
+     * @param {number} holeIndex - Index of the hole this surface belongs to
      */
-    createFairway(holePosition, startPosition) {
-        const fairwayWidth = 4;
-        const fairwayLength = 16; // Distance between start and hole
-        
-        // Calculate the midpoint between start and hole positions
-        const fairwayPosition = new THREE.Vector3()
-            .addVectors(holePosition, startPosition)
-            .multiplyScalar(0.5);
-        fairwayPosition.y = 0; // Ensure it's at ground level
-        
-        // Create fairway geometry
-        const fairwayGeometry = new THREE.BoxGeometry(fairwayWidth, 0.1, fairwayLength);
-        const fairwayMaterial = new THREE.MeshStandardMaterial({
-            color: 0x88AA55, // Light green for fairway
-            roughness: 0.6,
-            metalness: 0.1
+    createGreenSurface(centerPosition, width, length, holePosition, holeIndex) {
+        // Debug logging
+        console.log(`%c[GREEN DEBUG] Creating green surface for hole ${holeIndex + 1}:`, 'background:#222; color:#2DCB2D', {
+            centerPosition: centerPosition.clone(),
+            width,
+            length,
+            holePosition: holePosition.clone()
         });
         
-        const fairway = new THREE.Mesh(fairwayGeometry, fairwayMaterial);
-        fairway.position.copy(fairwayPosition);
-        fairway.receiveShadow = true;
-        this.scene.add(fairway);
-        this.courseObjects.push(fairway);
-    }
-    
-    /**
-     * Create the hole geometry and physics
-     * @param {THREE.Vector3} position - Position for the hole
-     */
-    createHoleGeometry(position) {
-        // Ball radius is 0.2, so hole radius should be about 0.35
-        const holeRadius = 0.35;
-        const holeDepth = 0.3;
+        // Create a shape with a hole in it
+        const holeRadius = 0.5;
+        const shape = new THREE.Shape();
         
-        // Create the hole bottom (black circle at bottom of hole)
-        const holeBottomGeometry = new THREE.CircleGeometry(holeRadius, 32);
-        const holeBottomMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0x000000,
+        // Calculate corners relative to center
+        const halfWidth = width / 2;
+        const halfLength = length / 2;
+        
+        // Convert hole position to be relative to center position
+        const relativeHoleX = holePosition.x - centerPosition.x;
+        const relativeHoleZ = holePosition.z - centerPosition.z;
+        
+        // Draw the outer rectangle
+        shape.moveTo(-halfWidth, -halfLength);
+        shape.lineTo(halfWidth, -halfLength);
+        shape.lineTo(halfWidth, halfLength);
+        shape.lineTo(-halfWidth, halfLength);
+        shape.lineTo(-halfWidth, -halfLength);
+        
+        // Create a hole
+        const holePath = new THREE.Path();
+        holePath.absarc(relativeHoleX, relativeHoleZ, holeRadius, 0, Math.PI * 2, true);
+        shape.holes.push(holePath);
+        
+        // Create geometry from the shape
+        const geometry = new THREE.ExtrudeGeometry(shape, {
+            depth: 0.1,
+            bevelEnabled: false
+        });
+        
+        // Rotate the geometry to lay flat
+        geometry.rotateX(Math.PI / 2);
+        
+        // Create the green material
+        const greenMaterial = new THREE.MeshStandardMaterial({
+            color: 0x2DCB2D, // Bright green for better contrast
+            roughness: 0.5,
+            metalness: 0.1,
+            emissive: 0x006400,
+            emissiveIntensity: 0.1,
             side: THREE.DoubleSide
         });
         
-        const holeBottom = new THREE.Mesh(holeBottomGeometry, holeBottomMaterial);
-        holeBottom.rotation.x = -Math.PI / 2;
-        holeBottom.position.set(position.x, position.y - holeDepth + 0.005, position.z);
-        this.scene.add(holeBottom);
-        this.holes.push(holeBottom);
-        this.courseObjects.push(holeBottom);
+        // Create the mesh
+        const greenSurface = new THREE.Mesh(geometry, greenMaterial);
+        greenSurface.position.copy(centerPosition);
         
-        // Create hole walls
-        const holeWallGeometry = new THREE.CylinderGeometry(holeRadius, holeRadius, holeDepth, 32);
-        const holeWallMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0x000000,
-            side: THREE.BackSide
-        });
+        // Set the correct Y position with significant difference between holes
+        const surfaceY = holeIndex === 0 ? 0.01 : -39.99; // Match the hole position at -40
+        greenSurface.position.y = surfaceY;
         
-        const holeWall = new THREE.Mesh(holeWallGeometry, holeWallMaterial);
-        holeWall.position.set(position.x, position.y - holeDepth/2, position.z);
-        this.scene.add(holeWall);
-        this.holes.push(holeWall);
-        this.courseObjects.push(holeWall);
-        
-        // Create a visible rim around the hole
-        const rimRadius = holeRadius + 0.1;
-        const rimGeometry = new THREE.RingGeometry(holeRadius, rimRadius, 32);
-        const rimMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0xFFFFFF,
-            roughness: 0.7,
-            metalness: 0.3,
-            emissive: 0xAAAAAA,
-            emissiveIntensity: 0.3,
-            side: THREE.DoubleSide
-        });
-        
-        const rim = new THREE.Mesh(rimGeometry, rimMaterial);
-        rim.rotation.x = -Math.PI / 2;
-        rim.position.set(position.x, position.y + 0.01, position.z);
-        rim.receiveShadow = true;
-        this.scene.add(rim);
-        this.holes.push(rim);
-        this.courseObjects.push(rim);
-        
-        // Create the hole (inner circle)
-        const holeGeometry = new THREE.CircleGeometry(holeRadius, 32);
-        const holeMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0x000000,
-            side: THREE.DoubleSide
-        });
-        
-        const hole = new THREE.Mesh(holeGeometry, holeMaterial);
-        hole.rotation.x = -Math.PI / 2;
-        hole.position.set(position.x, position.y + 0.008, position.z);
-        this.scene.add(hole);
-        this.holes.push(hole);
-        this.courseObjects.push(hole);
-        
-        // Create physics for the hole
+        greenSurface.receiveShadow = true;
+        greenSurface.userData = { holeIndex: holeIndex };
+
+        // Add to scene and tracking array
+        this.scene.add(greenSurface);
+        this.courseObjects.push(greenSurface);
+
+        // Create physics for the green surface
         if (this.physicsWorld) {
-            // Create a funnel effect
-            const funnelRadius = rimRadius * 1.5;
-            const funnelShape = new CANNON.Cylinder(funnelRadius, holeRadius, 0.15, 16);
-            const funnelBody = new CANNON.Body({
-                mass: 0,
-                position: new CANNON.Vec3(position.x, position.y - 0.05, position.z),
-                shape: funnelShape,
-                material: this.physicsWorld.groundMaterial
+            // Create physics bodies for each section of the green
+            const thickness = 0.05; // Thickness of the physics bodies
+            
+            // Calculate distances from hole to edges
+            const distToFront = Math.abs(holePosition.z - (centerPosition.z + halfLength));
+            const distToBack = Math.abs(holePosition.z - (centerPosition.z - halfLength));
+            const distToLeft = Math.abs(holePosition.x - (centerPosition.x - halfWidth));
+            const distToRight = Math.abs(holePosition.x - (centerPosition.x + halfWidth));
+
+            // Create bodies for the four sections around the hole
+            const bodies = [
+                // Front section
+                {
+                    size: new CANNON.Vec3(width/2, thickness, distToFront - holeRadius - 0.1),
+                    position: new CANNON.Vec3(centerPosition.x, surfaceY, holePosition.z + (distToFront - holeRadius - 0.1)/2)
+                },
+                // Back section
+                {
+                    size: new CANNON.Vec3(width/2, thickness, distToBack - holeRadius - 0.1),
+                    position: new CANNON.Vec3(centerPosition.x, surfaceY, holePosition.z - (distToBack - holeRadius - 0.1)/2)
+                },
+                // Left section
+                {
+                    size: new CANNON.Vec3(distToLeft - holeRadius - 0.1, thickness, length/2),
+                    position: new CANNON.Vec3(holePosition.x - (distToLeft - holeRadius - 0.1)/2, surfaceY, centerPosition.z)
+                },
+                // Right section
+                {
+                    size: new CANNON.Vec3(distToRight - holeRadius - 0.1, thickness, length/2),
+                    position: new CANNON.Vec3(holePosition.x + (distToRight - holeRadius - 0.1)/2, surfaceY, centerPosition.z)
+                }
+            ];
+
+            bodies.forEach(bodyConfig => {
+                const body = new CANNON.Body({
+                    mass: 0,
+                    position: bodyConfig.position,
+                    shape: new CANNON.Box(bodyConfig.size),
+                    material: this.physicsWorld.groundMaterial
+                });
+                body.userData = { holeIndex: holeIndex };
+                this.physicsWorld.addBody(body);
+                this.physicsBodies.push(body);
             });
-            
-            funnelBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-            this.physicsWorld.addBody(funnelBody);
-            this.physicsBodies.push(funnelBody);
-            
-            // Create a hole trigger
-            const holeTriggerBody = new CANNON.Body({
+
+            // Create a hole trigger for physics - position it just at the surface level
+            const holeTrigger = new CANNON.Body({
                 mass: 0,
-                position: new CANNON.Vec3(position.x, position.y - 0.1, position.z),
-                shape: new CANNON.Cylinder(holeRadius * 0.9, holeRadius * 0.9, 0.2, 16),
-                material: this.physicsWorld.defaultMaterial,
+                position: new CANNON.Vec3(holePosition.x, surfaceY - 0.01, holePosition.z),
+                isTrigger: true,
                 collisionResponse: false
             });
             
-            holeTriggerBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-            holeTriggerBody.isTrigger = true;
-            holeTriggerBody.collisionFilterGroup = 2; // Holes
-            holeTriggerBody.collisionFilterMask = 4;  // Collide with ball
-            holeTriggerBody.userData = { type: 'hole' };
+            // Use a cylinder shape for the hole - make it taller to ensure detection
+            const holeShape = new CANNON.Cylinder(holeRadius * 1.1, holeRadius * 1.1, 1.0, 16);
+            holeTrigger.addShape(holeShape);
+            holeTrigger.collisionFilterGroup = 2;  // Group 2 for triggers
+            holeTrigger.collisionFilterMask = 4;   // Collide with group 4 (ball)
+            holeTrigger.userData = { type: 'hole', holeIndex: holeIndex };
             
-            this.holeBodies.push(holeTriggerBody);
-            this.physicsWorld.addBody(holeTriggerBody);
-            this.physicsBodies.push(holeTriggerBody);
+            // Store in arrays
+            this.physicsWorld.addBody(holeTrigger);
+            this.physicsBodies.push(holeTrigger);
             
-            // Create the hole depression
-            const holePhysicsBody = new CANNON.Body({
+            // Add a vertical tunnel connecting first and second holes
+            const tunnelHeight = 40; // Distance between first and second holes
+            
+            // Connect the tunnel from hole 1 to tee position of hole 2
+            const hole2TeePosition = this.holes[1].startPosition.clone();
+            
+            // Create a vertical tunnel from hole 1 straight down
+            const verticalTunnelTrigger = new CANNON.Body({
                 mass: 0,
-                position: new CANNON.Vec3(position.x, position.y - 0.15, position.z),
-                material: this.physicsWorld.defaultMaterial
+                position: new CANNON.Vec3(holePosition.x, surfaceY - tunnelHeight/4, holePosition.z),
+                isTrigger: true,
+                collisionResponse: false
             });
             
-            const holePlaneShape = new CANNON.Plane();
-            holePhysicsBody.addShape(holePlaneShape);
-            holePhysicsBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+            const verticalTunnelShape = new CANNON.Cylinder(holeRadius * 1.5, holeRadius * 1.5, tunnelHeight/2, 16);
+            verticalTunnelTrigger.addShape(verticalTunnelShape);
+            verticalTunnelTrigger.collisionFilterGroup = 2;  // Group 2 for triggers
+            verticalTunnelTrigger.collisionFilterMask = 4;   // Collide with group 4 (ball)
+            verticalTunnelTrigger.userData = { type: 'tunnel', holeIndex: holeIndex };
             
-            this.physicsWorld.addBody(holePhysicsBody);
-            this.physicsBodies.push(holePhysicsBody);
+            this.physicsWorld.addBody(verticalTunnelTrigger);
+            this.physicsBodies.push(verticalTunnelTrigger);
+            
+            // Create a large landing pad at the tee position of hole 2
+            const landingPadTrigger = new CANNON.Body({
+                mass: 0,
+                position: new CANNON.Vec3(hole2TeePosition.x, hole2TeePosition.y - 0.2, hole2TeePosition.z),
+                isTrigger: true,
+                collisionResponse: false
+            });
+            
+            const landingPadShape = new CANNON.Cylinder(holeRadius * 3, holeRadius * 3, 0.5, 16);
+            landingPadTrigger.addShape(landingPadShape);
+            landingPadTrigger.collisionFilterGroup = 2;  // Group 2 for triggers
+            landingPadTrigger.collisionFilterMask = 4;   // Collide with group 4 (ball)
+            landingPadTrigger.userData = { type: 'landing_pad', holeIndex: 1 }; // Point to hole 2
+            
+            this.physicsWorld.addBody(landingPadTrigger);
+            this.physicsBodies.push(landingPadTrigger);
+            
+            // Make sure we have a holeBodies array
+            if (!this.holeBodies) {
+                this.holeBodies = [];
+            }
+            this.holeBodies.push(holeTrigger);
+            
+            // Add a debug message
+            console.log(`%c[HOLE DEBUG] Created hole trigger at position: ${holeTrigger.position.x}, ${holeTrigger.position.y}, ${holeTrigger.position.z}`, 'background:#222; color:#FF00FF');
         }
-        
-        // Create the flag
-        this.createFlag(position);
-        
-        // Store the hole position with more details
-        const holeInfo = {
-            position: position.clone(),
-            radius: holeRadius,
-            body: this.holeBodies.length > 0 ? this.holeBodies[this.holeBodies.length - 1] : null
-        };
-        
-        // Update the hole positions map
-        this.holePositions.set(0, holeInfo);
     }
     
     /**
-     * Create a flag for the hole
-     * @param {THREE.Vector3} position - Position for the flag
+     * Create the boundaries/walls for the course
+     * @param {THREE.Vector3} centerPosition - Center position of the course
+     * @param {number} width - Width of the course
+     * @param {number} length - Length of the course
+     * @param {number} wallHeight - Height of the walls
+     * @param {number} wallThickness - Thickness of the walls
+     * @param {number} holeIndex - Index of the hole these boundaries belong to
      */
-    createFlag(position) {
-        const flagHeight = 1.8;
-        
-        // Create flagpole
-        const flagpoleGeometry = new THREE.CylinderGeometry(0.03, 0.03, flagHeight, 8);
-        const flagpoleMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0xE0E0E0,
-            roughness: 0.4,
-            metalness: 0.6,
-            emissive: 0xAAAAAA,
-            emissiveIntensity: 0.4
-        });
-        
-        const flagpole = new THREE.Mesh(flagpoleGeometry, flagpoleMaterial);
-        flagpole.position.set(position.x, position.y + flagHeight/2, position.z);
-        this.scene.add(flagpole);
-        this.courseObjects.push(flagpole);
-        
-        // Create flag
-        const flagWidth = 0.6;
-        const flagHeight2 = 0.4;
-        const flagSegments = 10;
-        const flagGeometry = new THREE.PlaneGeometry(flagWidth, flagHeight2, flagSegments, 1);
-        
-        // Create wave effect
-        const vertices = flagGeometry.attributes.position.array;
-        for (let i = 0; i < vertices.length; i += 3) {
-            const x = vertices[i];
-            const waveAmount = (x / flagWidth) * 0.1;
-            vertices[i+1] += Math.sin(x * 5) * waveAmount;
-        }
-        
-        const flagMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0xFF0000,
-            emissive: 0xFF0000,
-            emissiveIntensity: 0.7,
-            side: THREE.DoubleSide
-        });
-        
-        const flag = new THREE.Mesh(flagGeometry, flagMaterial);
-        flag.position.set(position.x + 0.3, position.y + flagHeight - 0.2, position.z);
-        flag.rotation.y = Math.PI / 2;
-        this.scene.add(flag);
-        this.courseObjects.push(flag);
-        
-        // Store flag for animation
-        this.flag = flag;
-        this.flagOrigVertices = [...vertices];
-        
-        // Add light at the flag
-        const flagLight = new THREE.PointLight(0xFFFFFF, 1.2, 12);
-        flagLight.position.set(position.x, position.y + flagHeight - 0.1, position.z);
-        this.scene.add(flagLight);
-        this.courseObjects.push(flagLight);
-    }
-    
-    /**
-     * Create enclosure walls for the hole
-     * @param {THREE.Vector3} holePosition - Position of the hole
-     * @param {THREE.Vector3} startPosition - Position of the tee
-     */
-    createHoleEnclosure(holePosition, startPosition) {
-        const width = 4; // Fairway width
-        
-        const wallHeight = 1.0;
-        const wallThickness = 0.5;
+    createCourseBoundaries(centerPosition, width, length, wallHeight, wallThickness, holeIndex) {
         const wallMaterial = new THREE.MeshStandardMaterial({
             color: 0xA0522D, // Brown
             roughness: 0.7,
@@ -356,100 +399,150 @@ export class BasicCourse extends Course {
             emissiveIntensity: 0.3
         });
         
-        // Calculate distance between hole and start
-        const length = Math.abs(holePosition.z - startPosition.z) + 2;
-        
-        // Calculate positions for walls
-        const centerZ = (holePosition.z + startPosition.z) / 2;
+        // Calculate half dimensions
         const halfWidth = width / 2 + wallThickness / 2;
         
-        // Define walls
+        // Calculate tee and hole positions relative to center
+        const holePosition = this.holes[holeIndex].holePosition;
+        const startPosition = this.holes[holeIndex].startPosition;
+        
+        // Calculate the actual width needed for horizontal walls to be flush with vertical walls
+        const horizontalWallWidth = width + wallThickness * 2;
+        
+        // Calculate the wall positions
+        const backWallZ = holePosition.z - 1.5;
+        const frontWallZ = startPosition.z + 1.5;
+        
+        // Calculate the side wall length to exactly match the distance between front and back walls
+        const sideWallLength = Math.abs(frontWallZ - backWallZ) + wallThickness;
+        
+        // Calculate the center position for side walls
+        const sideWallCenterZ = (frontWallZ + backWallZ) / 2;
+        
+        // Define walls - ensure side walls extend fully to connect with back and front walls
         const walls = [
-            // Left wall
+            // Left wall - extend to exactly match front and back wall positions
             { 
-                size: [wallThickness, wallHeight, length], 
-                position: [holePosition.x - halfWidth, wallHeight/2, centerZ] 
+                size: [wallThickness, wallHeight, sideWallLength], 
+                position: [centerPosition.x - halfWidth, wallHeight/2, sideWallCenterZ] 
             },
-            // Right wall
+            // Right wall - extend to exactly match front and back wall positions
             { 
-                size: [wallThickness, wallHeight, length], 
-                position: [holePosition.x + halfWidth, wallHeight/2, centerZ] 
+                size: [wallThickness, wallHeight, sideWallLength], 
+                position: [centerPosition.x + halfWidth, wallHeight/2, sideWallCenterZ] 
             },
-            // Back wall (behind hole)
+            // Back wall (behind hole) - moved back by 1.5 units
             { 
-                size: [width + wallThickness*2, wallHeight, wallThickness], 
-                position: [holePosition.x, wallHeight/2, holePosition.z - 1] 
+                size: [horizontalWallWidth, wallHeight, wallThickness], 
+                position: [centerPosition.x, wallHeight/2, backWallZ] 
             },
-            // Front wall (behind tee)
+            // Front wall (behind tee) - moved back by 1.5 units
             { 
-                size: [width + wallThickness*2, wallHeight, wallThickness], 
-                position: [holePosition.x, wallHeight/2, startPosition.z + 1] 
+                size: [horizontalWallWidth, wallHeight, wallThickness], 
+                position: [centerPosition.x, wallHeight/2, frontWallZ] 
             }
         ];
         
-        // Create each wall
+        // Create all the wall meshes
         walls.forEach(wall => {
-            // Create mesh
-            const geometry = new THREE.BoxGeometry(...wall.size);
-            const mesh = new THREE.Mesh(geometry, wallMaterial);
-            mesh.position.set(...wall.position);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            this.scene.add(mesh);
-            this.obstacles.push(mesh);
-            this.courseObjects.push(mesh);
+            // Create geometry for the wall
+            const wallGeometry = new THREE.BoxGeometry(wall.size[0], wall.size[1], wall.size[2]);
             
-            // Create physics body
+            // Create mesh for the wall
+            const wallMesh = new THREE.Mesh(wallGeometry, wallMaterial);
+            wallMesh.position.set(wall.position[0], wall.position[1], wall.position[2]);
+            wallMesh.castShadow = true;
+            wallMesh.receiveShadow = true;
+            wallMesh.userData = { holeIndex: holeIndex };
+            
+            // Initially hide this wall if it's not the current hole
+            if (holeIndex !== this.currentHoleIndex) {
+                wallMesh.visible = false;
+            }
+            
+            // Add to scene and tracking array
+            this.scene.add(wallMesh);
+            this.courseObjects.push(wallMesh);
+            
+            // Create physics body for the wall
             if (this.physicsWorld) {
-                const body = new CANNON.Body({
+                const wallBody = new CANNON.Body({
                     mass: 0,
-                    position: new CANNON.Vec3(...wall.position),
+                    position: new CANNON.Vec3(wall.position[0], wall.position[1], wall.position[2]),
                     shape: new CANNON.Box(new CANNON.Vec3(wall.size[0]/2, wall.size[1]/2, wall.size[2]/2)),
-                    material: this.physicsWorld.bumperMaterial
+                    material: this.physicsWorld.wallMaterial || this.physicsWorld.defaultMaterial
                 });
                 
-                this.physicsWorld.addBody(body);
-                this.obstacleBodies.push(body);
-                this.physicsBodies.push(body);
+                // Store hole index in user data
+                wallBody.userData = { holeIndex: holeIndex };
+                
+                this.physicsWorld.addBody(wallBody);
+                this.physicsBodies.push(wallBody);
             }
         });
+    }
+    
+    /**
+     * Create the hole geometry
+     * @param {THREE.Vector3} position - Position of the hole
+     * @param {number} holeIndex - Index of the hole this geometry belongs to
+     */
+    createHoleGeometry(position, holeIndex) {
+        // Create the hole mesh
+        const holeRadius = 0.35;
+        const holeDepth = 0.3;
         
-        // Add floor beneath the hole
-        const floorWidth = width + wallThickness*2;
-        const floorLength = length;
-        const floorGeometry = new THREE.BoxGeometry(floorWidth, 0.1, floorLength);
-        const floorMaterial = new THREE.MeshStandardMaterial({
-            color: 0x222244, // Dark blue floor
+        // Create visible rim around the hole
+        const rimGeometry = new THREE.RingGeometry(holeRadius - 0.02, holeRadius + 0.05, 32);
+        const rimMaterial = new THREE.MeshStandardMaterial({
+            color: 0x111111,
             roughness: 0.8,
-            metalness: 0.1,
-            opacity: 1.0
+            metalness: 0.2,
+            side: THREE.DoubleSide
         });
         
-        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-        floor.position.set(holePosition.x, -0.05, centerZ);
-        floor.receiveShadow = true;
-        this.scene.add(floor);
-        this.courseObjects.push(floor);
+        const rim = new THREE.Mesh(rimGeometry, rimMaterial);
+        rim.rotation.x = -Math.PI / 2; // Lay flat
+        rim.position.set(position.x, position.y + 0.005, position.z); // Use hole's Y position + small offset
+        rim.userData = { holeIndex: holeIndex };
         
-        // Create floor physics body
+        this.scene.add(rim);
+        this.courseObjects.push(rim);
+        
+        // Create hole body (for collision detection)
         if (this.physicsWorld) {
-            const floorBody = new CANNON.Body({
+            // Create a new body for the hole
+            const holeBody = new CANNON.Body({
                 mass: 0,
-                position: new CANNON.Vec3(holePosition.x, -0.05, centerZ),
-                shape: new CANNON.Box(new CANNON.Vec3(floorWidth/2, 0.05, floorLength/2)),
-                material: this.physicsWorld.groundMaterial
+                position: new CANNON.Vec3(position.x, position.y + 0.001, position.z), // Use hole's Y position
+                type: CANNON.Body.STATIC,
+                collisionResponse: false, // Don't affect ball motion
+                isTrigger: true // Acts as a trigger
             });
             
-            this.physicsWorld.addBody(floorBody);
-            this.physicsBodies.push(floorBody);
+            // Add a cylinder shape for the hole
+            const holeShape = new CANNON.Cylinder(holeRadius, holeRadius, 0.1, 16);
+            holeBody.addShape(holeShape);
+            
+            // Make holes only trigger the ball and not affect its motion
+            holeBody.collisionFilterGroup = 2; // Assign to group 2
+            holeBody.collisionFilterMask = 4; // Only collide with the ball (group 4)
+            
+            // Tag the body for easy identification and store hole index
+            holeBody.userData = { type: 'hole', holeIndex: holeIndex };
+            
+            this.physicsWorld.addBody(holeBody);
+            this.physicsBodies.push(holeBody);
+            this.holeBodies.push(holeBody);
         }
     }
     
     /**
      * Create a visual marker for the starting position
      * @param {THREE.Vector3} position - Position for the start marker
+     * @param {number} holeIndex - Index of the hole this marker belongs to
      */
-    createStartMarker(position) {
+    createStartMarker(position, holeIndex) {
         // Create base
         const teeBaseGeometry = new THREE.CylinderGeometry(0.6, 0.6, 0.05, 24);
         const teeBaseMaterial = new THREE.MeshStandardMaterial({ 
@@ -461,6 +554,8 @@ export class BasicCourse extends Course {
         const teeBase = new THREE.Mesh(teeBaseGeometry, teeBaseMaterial);
         teeBase.position.set(position.x, 0.03, position.z);
         teeBase.receiveShadow = true;
+        teeBase.userData = { holeIndex: holeIndex };
+        
         this.scene.add(teeBase);
         this.courseObjects.push(teeBase);
         
@@ -475,33 +570,24 @@ export class BasicCourse extends Course {
         const teeDot = new THREE.Mesh(teeDotGeometry, teeDotMaterial);
         teeDot.position.set(position.x, 0.04, position.z);
         teeDot.receiveShadow = true;
+        teeDot.userData = { holeIndex: holeIndex };
+        
         this.scene.add(teeDot);
         this.courseObjects.push(teeDot);
-    }
-    
-    /**
-     * Load a specific hole - for backward compatibility
-     */
-    loadHole(holeNumber = 1) {
-        // Only support the one hole
-        console.log('Loading hole 1 (only hole available)');
         
-        // Update golf ball target position
-        if (this.game && this.game.ball) {
-            if (this.game.ball.currentHolePosition !== undefined) {
-                this.game.ball.currentHolePosition = this.holePosition;
-                this.game.ball.currentHoleIndex = 0;
-            }
+        // Initially hide this marker if it's not the current hole
+        if (holeIndex !== this.currentHoleIndex) {
+            teeBase.visible = false;
+            teeDot.visible = false;
         }
-        
-        return true;
     }
     
     /**
-     * Get current hole par (always 3 for this simple course)
+     * Get current hole par
+     * @returns {number} Par value for current hole
      */
     getCurrentHolePar() {
-        return 3;
+        return this.holes[this.currentHoleIndex].par;
     }
     
     /**
@@ -513,22 +599,19 @@ export class BasicCourse extends Course {
     }
     
     /**
-     * Get the start position for the hole
+     * Get the start position for the current hole
+     * @returns {THREE.Vector3} Starting position for current hole
      */
     getHoleStartPosition() {
-        return this.startPositions[0];
+        return this.holes[this.currentHoleIndex].startPosition.clone();
     }
     
     /**
-     * Get the hole position
+     * Get the position of the hole for the current hole
+     * @returns {THREE.Vector3} Hole position for current hole
      */
     getHolePosition() {
-        // Either return from the stored Map or from the instance property
-        if (this.holePositions && this.holePositions.has(0)) {
-            const holeInfo = this.holePositions.get(0);
-            return holeInfo.position;
-        }
-        return this.holePosition;
+        return this.holes[this.currentHoleIndex].holePosition.clone();
     }
     
     /**
@@ -537,38 +620,31 @@ export class BasicCourse extends Course {
      */
     getTeePosition() {
         // Return the start position of the current hole
-        return this.startPositions[0].clone();
+        return this.holes[this.currentHoleIndex].startPosition.clone();
     }
     
     /**
-     * Update the course animations
+     * Get the total number of holes in the course
+     * @returns {number} Total number of holes
      */
-    update() {
-        // Animate the flag if it exists
-        if (this.flag && this.flagOrigVertices) {
-            const vertices = this.flag.geometry.attributes.position.array;
-            const origVerts = this.flagOrigVertices;
-            
-            if (origVerts && origVerts.length === vertices.length) {
-                const time = Date.now() * 0.003;
-                
-                // Update vertices for wave effect
-                for (let i = 0; i < vertices.length; i += 3) {
-                    const x = origVerts[i];
-                    const waveStrength = (x / 0.6) * 0.15;
-                    
-                    vertices[i+1] = origVerts[i+1] + Math.sin(time * 2 + x * 10) * waveStrength;
-                    vertices[i+2] = origVerts[i+2] + Math.cos(time + x * 5) * waveStrength * 0.5;
-                }
-                
-                this.flag.geometry.attributes.position.needsUpdate = true;
-            }
-        }
-        
-        // Call parent update if it exists
-        if (super.update) {
-            super.update();
-        }
+    getTotalHoles() {
+        return this.totalHoles;
+    }
+    
+    /**
+     * Get the current hole number (1-indexed)
+     * @returns {number} Current hole number
+     */
+    getCurrentHoleNumber() {
+        return this.currentHoleIndex + 1;
+    }
+    
+    /**
+     * Update loop for the course. Called every frame.
+     * @param {number} dt - Delta time in seconds
+     */
+    update(dt) {
+        // Any per-frame updates for the course can go here
     }
     
     /**

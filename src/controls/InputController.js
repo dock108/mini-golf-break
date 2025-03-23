@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { EventTypes } from '../events/EventTypes';
 
+/**
+ * InputController - Handles all user input for the game
+ * Manages mouse/touch interactions for aiming and hitting the ball
+ */
 export class InputController {
     constructor(game) {
         this.game = game;
@@ -35,47 +39,129 @@ export class InputController {
         // Store control state to restore later
         this.controlsWereEnabled = true;
         
-        // Initialize event listeners
-        this.initEventListeners();
-        this.setupGameEventListeners();
-    }
-    
-    initEventListeners() {
-        // Add event listeners to document (so we capture events even outside the canvas)
-        document.addEventListener('mousedown', this.onMouseDown.bind(this));
-        document.addEventListener('mousemove', this.onMouseMove.bind(this));
-        document.addEventListener('mouseup', this.onMouseUp.bind(this));
-        
-        // Touch events
-        document.addEventListener('touchstart', this.onTouchStart.bind(this), { passive: false });
-        document.addEventListener('touchmove', this.onTouchMove.bind(this), { passive: false });
-        document.addEventListener('touchend', this.onTouchEnd.bind(this));
+        // Initialization state tracking
+        this.isInitialized = false;
     }
     
     /**
-     * Setup game event listeners
+     * Initialize event listeners and setup
+     */
+    init() {
+        try {
+            if (this.isInitialized) {
+                if (this.game.debugManager) {
+                    this.game.debugManager.warn('InputController.init', 'Already initialized');
+                }
+                return this;
+            }
+            
+            this.initEventListeners();
+            this.setupGameEventListeners();
+            
+            // Mark as initialized
+            this.isInitialized = true;
+            
+            if (this.game.debugManager) {
+                this.game.debugManager.log('InputController initialized');
+            }
+        } catch (error) {
+            if (this.game.debugManager) {
+                this.game.debugManager.error('InputController.init', 'Failed to initialize input controller', error);
+            } else {
+                console.error('Failed to initialize input controller:', error);
+            }
+        }
+        
+        return this;
+    }
+    
+    /**
+     * Initialize DOM event listeners
+     */
+    initEventListeners() {
+        try {
+            // Get the DOM element to attach events to
+            const domElement = this.renderer ? this.renderer.domElement : window;
+            
+            // Bind methods to ensure 'this' context is preserved
+            this.onMouseDown = this.onMouseDown.bind(this);
+            this.onMouseMove = this.onMouseMove.bind(this);
+            this.onMouseUp = this.onMouseUp.bind(this);
+            this.onTouchStart = this.onTouchStart.bind(this);
+            this.onTouchMove = this.onTouchMove.bind(this);
+            this.onTouchEnd = this.onTouchEnd.bind(this);
+            
+            // Add event listeners
+            domElement.addEventListener('mousedown', this.onMouseDown);
+            window.addEventListener('mousemove', this.onMouseMove);
+            window.addEventListener('mouseup', this.onMouseUp);
+            
+            // Touch events
+            domElement.addEventListener('touchstart', this.onTouchStart);
+            window.addEventListener('touchmove', this.onTouchMove);
+            window.addEventListener('touchend', this.onTouchEnd);
+            
+            if (this.game.debugManager) {
+                this.game.debugManager.log('InputController DOM event listeners initialized');
+            }
+        } catch (error) {
+            if (this.game.debugManager) {
+                this.game.debugManager.error('InputController.initEventListeners', 'Failed to initialize DOM event listeners', error);
+            } else {
+                console.error('Failed to initialize DOM event listeners:', error);
+            }
+        }
+    }
+    
+    /**
+     * Setup game event subscriptions
      */
     setupGameEventListeners() {
-        // Listen for ball stopped events to re-enable input
-        this.game.eventManager.subscribe(
-            EventTypes.BALL_STOPPED,
-            this.handleBallStopped,
-            this
-        );
+        if (!this.game.eventManager) {
+            if (this.game.debugManager) {
+                this.game.debugManager.warn('InputController.setupGameEventListeners', 'EventManager not available, skipping event subscriptions');
+            }
+            return;
+        }
         
-        // Listen for ball in hole events to disable input
-        this.game.eventManager.subscribe(
-            EventTypes.BALL_IN_HOLE,
-            this.handleBallInHole,
-            this
-        );
-        
-        // Listen for hole started events to enable input
-        this.game.eventManager.subscribe(
-            EventTypes.HOLE_STARTED,
-            this.handleHoleStarted,
-            this
-        );
+        try {
+            // Initialize event subscriptions array if not already created
+            this.eventSubscriptions = this.eventSubscriptions || [];
+            
+            // Store subscription functions to simplify cleanup
+            this.eventSubscriptions = [
+                // Listen for ball stopped to re-enable input
+                this.game.eventManager.subscribe(
+                    EventTypes.BALL_STOPPED,
+                    this.handleBallStopped,
+                    this
+                ),
+                
+                // Listen for ball in hole to disable input
+                this.game.eventManager.subscribe(
+                    EventTypes.BALL_IN_HOLE,
+                    this.handleBallInHole,
+                    this
+                ),
+                
+                // Listen for hole started to enable input
+                this.game.eventManager.subscribe(
+                    EventTypes.HOLE_STARTED,
+                    this.handleHoleStarted,
+                    this
+                )
+            ];
+            
+            if (this.game.debugManager) {
+                this.game.debugManager.log('InputController game event listeners initialized');
+            }
+        } catch (error) {
+            if (this.game.debugManager) {
+                this.game.debugManager.error('InputController.setupGameEventListeners', 'Failed to set up game event listeners', error);
+            } else {
+                console.error('Failed to set up game event listeners:', error);
+            }
+        }
     }
     
     /**
@@ -640,6 +726,68 @@ export class InputController {
                 this.directionLine.material.dispose();
             }
             this.directionLine = null;
+        }
+    }
+    
+    /**
+     * Clean up resources
+     */
+    cleanup() {
+        try {
+            // Clean up DOM event listeners
+            try {
+                const domElement = this.renderer ? this.renderer.domElement : window;
+                
+                // Remove mouse events
+                domElement.removeEventListener('mousedown', this.onMouseDown);
+                window.removeEventListener('mousemove', this.onMouseMove);
+                window.removeEventListener('mouseup', this.onMouseUp);
+                
+                // Remove touch events
+                domElement.removeEventListener('touchstart', this.onTouchStart);
+                window.removeEventListener('touchmove', this.onTouchMove);
+                window.removeEventListener('touchend', this.onTouchEnd);
+            } catch (error) {
+                if (this.game.debugManager) {
+                    this.game.debugManager.warn('InputController.cleanup', 'Error removing DOM event listeners', error);
+                }
+            }
+            
+            // Clean up event subscriptions
+            if (this.eventSubscriptions) {
+                this.eventSubscriptions.forEach(unsubscribe => unsubscribe());
+                this.eventSubscriptions = [];
+            }
+            
+            // Clean up direction line
+            this.removeDirectionLine();
+            
+            // Reset power indicator
+            this.resetPowerIndicator();
+            
+            // Clean up THREE.js objects
+            if (this.raycaster) {
+                this.raycaster = null;
+            }
+            
+            // Clear references
+            this.pointer = null;
+            this.intersectionPoint = null;
+            
+            // Reset initialization state
+            this.isInitialized = false;
+            
+            // Log cleanup
+            if (this.game.debugManager) {
+                this.game.debugManager.log('InputController cleaned up');
+            }
+        } catch (error) {
+            // Log cleanup errors
+            if (this.game.debugManager) {
+                this.game.debugManager.error('InputController.cleanup', 'Error during cleanup', error);
+            } else {
+                console.error('Error during InputController cleanup:', error);
+            }
         }
     }
 } 

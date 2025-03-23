@@ -188,11 +188,10 @@ export class UIManager {
      */
     handleHoleCompleted(event) {
         const holeNumber = event.get('holeNumber');
-        const holeScore = event.get('holeScore');
-        const totalScore = event.get('totalScore');
+        const totalStrokes = this.game.scoringSystem.getTotalStrokes();
         
-        // Show message
-        const message = `Hole completed in ${holeScore} strokes! Total: ${totalScore}`;
+        // Show message with total strokes
+        const message = `Hole ${holeNumber} completed! Total strokes so far: ${totalStrokes}`;
         this.showMessage(message, 3000);
         
         // Update score display
@@ -219,14 +218,14 @@ export class UIManager {
      * @param {GameEvent} event - Game completed event
      */
     handleGameCompleted(event) {
-        const totalScore = event.get('totalScore');
+        const totalStrokes = event.get('totalStrokes');
         
         // Show message
-        const message = `Game completed! Final score: ${totalScore}`;
+        const message = `Game completed! Final score: ${totalStrokes}`;
         this.showMessage(message, 5000);
         
         // Show final score screen
-        this.showFinalScore(totalScore);
+        this.showFinalScore(totalStrokes);
     }
     
     /**
@@ -313,10 +312,10 @@ export class UIManager {
     updateScore() {
         if (!this.scoreElement) return;
         
-        const holeNumber = this.game.stateManager.getCurrentHoleNumber();
-        const totalScore = this.game.scoringSystem.getTotalScore();
+        const holeNumber = this.game.course ? this.game.course.getCurrentHoleNumber() : 1;
+        const totalStrokes = this.game.scoringSystem.getTotalStrokes();
         
-        this.scoreElement.innerHTML = `<div>Hole: ${holeNumber}</div><div>Total: ${totalScore}</div>`;
+        this.scoreElement.innerHTML = `<div>Hole: ${holeNumber}</div><div>Total Strokes: ${totalStrokes}</div>`;
     }
     
     /**
@@ -325,7 +324,8 @@ export class UIManager {
     updateHoleNumber() {
         if (!this.scoreElement) return;
         
-        const holeNumber = this.game.stateManager.getCurrentHoleNumber();
+        // Get hole number directly from the course
+        const holeNumber = this.game.course ? this.game.course.getCurrentHoleNumber() : 1;
         const holeElement = this.scoreElement.querySelector('div:first-child');
         
         if (holeElement) {
@@ -339,8 +339,8 @@ export class UIManager {
     updateStrokes() {
         if (!this.strokesElement) return;
         
-        const strokes = this.game.scoringSystem.getCurrentHoleStrokes();
-        this.strokesElement.textContent = `Strokes: ${strokes}`;
+        const strokes = this.game.scoringSystem.getTotalStrokes();
+        this.strokesElement.textContent = `Total Strokes: ${strokes}`;
     }
     
     /**
@@ -394,7 +394,7 @@ export class UIManager {
         
         const finalScoreElement = this.scoreScreen.querySelector('#final-score');
         if (finalScoreElement) {
-            finalScoreElement.textContent = `Score: ${scoreData.strokes}`;
+            finalScoreElement.textContent = `Total Strokes: ${scoreData.strokes}`;
         }
         
         this.scoreScreen.style.display = 'flex';

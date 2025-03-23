@@ -4,8 +4,7 @@
 export class ScoringSystem {
     constructor(game) {
         this.game = game;
-        this.score = 0;
-        this.currentHole = 1; // Always 1 for single-hole game
+        this.continuousStrokeCount = 0;  // Total strokes across all holes
         this.scoreDisplayElement = null;
         
         // Create score display
@@ -16,111 +15,55 @@ export class ScoringSystem {
      * Create the score display element
      */
     createScoreDisplay() {
-        this.scoreDisplayElement = document.getElementById('score-display');
-        if (!this.scoreDisplayElement) {
-            this.scoreDisplayElement = document.createElement('div');
-            this.scoreDisplayElement.id = 'score-display';
-            this.scoreDisplayElement.className = 'game-ui score-display';
-            document.body.appendChild(this.scoreDisplayElement);
-        }
-        
+        this.scoreDisplayElement = document.createElement('div');
+        this.scoreDisplayElement.id = 'score-display';
+        this.scoreDisplayElement.style.position = 'absolute';
+        this.scoreDisplayElement.style.top = '20px';
+        this.scoreDisplayElement.style.right = '20px';
+        this.scoreDisplayElement.style.color = 'white';
+        this.scoreDisplayElement.style.fontSize = '24px';
+        document.body.appendChild(this.scoreDisplayElement);
         this.updateScoreDisplay();
-        
-        return this;
     }
     
     /**
-     * Set current hole - kept for compatibility but always sets to hole 1
-     */
-    setCurrentHole() {
-        this.currentHole = 1;
-        this.updateHoleDisplay();
-        return this;
-    }
-    
-    /**
-     * Add a stroke to the current score
+     * Add a stroke to the continuous counter
      */
     addStroke() {
-        this.score++;
+        this.continuousStrokeCount++;
         this.updateScoreDisplay();
         return this;
     }
     
     /**
-     * Get current number of strokes
-     * @returns {number} Current number of strokes for this hole
+     * Get total strokes across all holes
+     */
+    getTotalStrokes() {
+        return this.continuousStrokeCount;
+    }
+    
+    /**
+     * Get current strokes (same as total strokes in continuous counting)
      */
     getCurrentStrokes() {
-        return this.score;
+        return this.continuousStrokeCount;
     }
     
     /**
-     * Get current hole strokes
+     * Complete the current hole (no longer resets score)
      */
-    getCurrentHoleStrokes() {
-        return this.score;
-    }
-    
-    /**
-     * Reset hole score
-     */
-    resetHoleScore() {
-        this.score = 0;
+    completeHole() {
         this.updateScoreDisplay();
         return this;
     }
     
     /**
-     * Get total score - same as current score in single-hole game
-     */
-    getTotalScore() {
-        return this.score;
-    }
-    
-    /**
-     * Complete the current hole
-     * @param {number} strokeCount - Optional explicit stroke count, uses current score if not provided
-     */
-    completeHole(strokeCount = null) {
-        // Use provided stroke count if available, otherwise use current score
-        if (strokeCount !== null) {
-            this.score = strokeCount;
-            this.updateScoreDisplay();
-        }
-        
-        return this;
-    }
-    
-    /**
-     * Reset current hole score
-     */
-    resetCurrentHoleScore() {
-        this.score = 0;
-        this.updateScoreDisplay();
-        return this;
-    }
-    
-    /**
-     * Update hole display
-     */
-    updateHoleDisplay() {
-        // Update hole display if needed
-        if (this.scoreDisplayElement) {
-            this.scoreDisplayElement.textContent = `Hole 1: `;
-        }
-        
-        return this;
-    }
-    
-    /**
-     * Update score display
+     * Update score display to show continuous stroke count
      */
     updateScoreDisplay() {
         if (this.scoreDisplayElement) {
-            this.scoreDisplayElement.textContent = `Hole 1: ${this.score} strokes`;
+            this.scoreDisplayElement.textContent = `Total Strokes: ${this.continuousStrokeCount}`;
         }
-        
         return this;
     }
 } 

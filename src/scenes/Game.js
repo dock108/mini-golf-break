@@ -4,6 +4,7 @@ import { CameraController } from '../controls/CameraController';
 import { ScoringSystem } from '../game/ScoringSystem';
 import { TeeMarker } from '../objects/TeeMarker';
 import { BasicCourse } from '../objects/BasicCourse';
+import { EventTypes } from '../events/EventTypes';
 
 // Import managers
 import { StateManager } from '../managers/StateManager';
@@ -72,68 +73,86 @@ export class Game {
      * Initialize the game
      */
     init() {
-        // Setup renderer first
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        this.renderer.setClearColor(0x000000); // Black background for space
-        
-        // Initialize managers in appropriate order
-        this.debugManager.init();
-        this.eventManager.init();
-        this.performanceManager.init();
-        this.stateManager.resetState();
-        this.uiManager.init();
-        this.visualEffectsManager.init();
-        this.physicsManager.init();
-        this.audioManager.init();
-        this.hazardManager.init();
-        this.ballManager.init();
-        this.holeManager.init();
-        
-        // Attach renderer to DOM via UI manager
-        this.uiManager.attachRenderer(this.renderer);
-
-        // Set the scene background to black for space environment
-        this.scene.background = new THREE.Color(0x000000);
-        
-        // Create starfield for space environment
-        this.createStarfield();
-
-        // Initialize camera controller after renderer is created
-        this.cameraController.setRenderer(this.renderer);
-        this.cameraController.init();
-        
-        // Create tee marker
-        if (!this.teeMarker) {
-            this.teeMarker = new TeeMarker(this.scene);
+        try {
+            // Setup renderer first
+            this.renderer = new THREE.WebGLRenderer({ antialias: true });
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.renderer.shadowMap.enabled = true;
+            this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            this.renderer.setClearColor(0x000000); // Black background for space
+            
+            // Initialize managers in appropriate order with proper dependency management
+            
+            // First tier - Core systems that don't depend on others
+            this.debugManager.init();
+            this.eventManager.init();
+            
+            // Second tier - Systems that depend only on core systems
+            this.performanceManager.init();
+            this.stateManager.resetState();
+            
+            // Attach renderer to DOM via UI manager
+            this.uiManager.init();
+            this.uiManager.attachRenderer(this.renderer);
+            
+            // Set the scene background to black for space environment
+            this.scene.background = new THREE.Color(0x000000);
+            
+            // Create starfield for space environment
+            this.createStarfield();
+            
+            // Initialize camera controller after renderer is created
+            this.cameraController.setRenderer(this.renderer);
+            this.cameraController.init();
+            
+            // Third tier - Game systems that may depend on UI and rendering
+            this.visualEffectsManager.init();
+            this.physicsManager.init();
+            this.audioManager.init();
+            
+            // Fourth tier - Game object managers that depend on physics and scene
+            this.hazardManager.init();
+            this.holeManager.init();
+            this.ballManager.init();  // Ball depends on physics and scene
+            
+            // Create tee marker
+            if (!this.teeMarker) {
+                this.teeMarker = new TeeMarker(this.scene);
+            }
+            
+            // Setup lights
+            this.setupLights();
+            
+            // Create course 
+            this.createCourse();
+            
+            // Create input controller - depends on camera and ball
+            this.inputController = new InputController(this);
+            this.inputController.init();
+            
+            // Add window resize listener
+            try {
+                window.addEventListener('resize', this.handleResize.bind(this));
+            } catch (error) {
+                this.debugManager.warn('Game.init', 'Failed to add resize event listener', error);
+            }
+            
+            // Start the game loop last, after everything is initialized
+            this.gameLoopManager.init();
+            this.gameLoopManager.startLoop();
+            
+            // Publish game started event
+            this.eventManager.publish(EventTypes.GAME_STARTED, { timestamp: Date.now() }, this);
+            
+            // Debug log that game was initialized
+            this.debugManager.log("Game initialized");
+            
+            // Set up event listeners
+            this.setupEventListeners();
+        } catch (error) {
+            this.debugManager.error('Game.init', 'Failed to initialize game', error, true);
+            console.error('CRITICAL: Failed to initialize game:', error);
         }
-        
-        // Setup lights
-        this.setupLights();
-        
-        // Create course and ball
-        this.createCourse();
-        
-        // Create input controller
-        this.inputController = new InputController(this);
-        
-        // Add event listeners
-        window.addEventListener('resize', () => this.handleResize());
-        
-        // Set up continue button action
-        const continueButton = document.getElementById('continue-button');
-        if (continueButton) {
-            continueButton.addEventListener('click', () => this.nextHole());
-        }
-        
-        // Start the game loop
-        this.gameLoopManager.init();
-        this.gameLoopManager.startLoop();
-        
-        // Debug log that game was initialized
-        this.debugManager.log("Game initialized");
     }
     
     /**
@@ -232,10 +251,81 @@ export class Game {
     /**
      * Move to the next hole
      */
-    nextHole() {
-        // Use HoleManager to handle transitioning to next hole
-        if (this.holeManager) {
-            this.holeManager.nextHole();
+    moveToNextHole() {
+        // Try to advance to the next hole in the course
+        if (this.course.nextHole()) {
+            // Successful move to next hole
+            
+            // Reset ball at the new hole's starting position if it's not already there
+            // (the ball might already be at the tee position if it fell through)
+            if (this.ballManager && this.ballManager.ball) {
+                const startPosition = this.course.getTeePosition();
+                const currentPosition = this.ballManager.ball.getPosition();
+                
+                // Only reset the ball if it's not already close to the start position
+                const distanceToStart = startPosition.distanceTo(currentPosition);
+                if (distanceToStart > 1.0) {
+                    this.ballManager.resetBall(startPosition);
+                }
+            }
+            
+            // Position camera for the new hole
+            this.cameraController.positionCameraForHole();
+            
+            // Update UI for new hole
+            this.uiManager.updateHoleNumber();
+            this.uiManager.updateScore();
+            
+            // Show hole message
+            const holeNumber = this.course.getCurrentHoleNumber();
+            this.uiManager.showMessage(`Hole ${holeNumber}`, 2000);
+            
+            // Make sure the state is reset 
+            this.stateManager.setHoleCompleted(false);
+            this.stateManager.setBallInMotion(false);
+            
+            return true;
+        } else {
+            // All holes completed
+            this.uiManager.showMessage("Course Complete!", 3000);
+            return false;
+        }
+    }
+    
+    /**
+     * Handle when ball enters a hole successfully
+     */
+    handleBallInHole() {
+        try {
+            // Make sure ball can fall through the hole by disabling collision with the ground surface
+            if (this.ballManager && this.ballManager.ball) {
+                const ball = this.ballManager.ball;
+                
+                // Play a success sound
+                if (this.audioManager) {
+                    this.audioManager.playSound('success', 0.7);
+                }
+                
+                // Add a visual effect for success (using the ball's handleHoleSuccess method)
+                if (ball.handleHoleSuccess) {
+                    ball.handleHoleSuccess();
+                }
+            }
+            
+            // Mark the current hole as completed, which will disable input
+            this.stateManager.setHoleCompleted(true);
+            
+            // Add small delay before showing a message
+            setTimeout(() => {
+                this.uiManager.showMessage("Great Shot!", 2000);
+            }, 500);
+            
+            // Note: We don't call moveToNextHole() here anymore
+            // The ball's landing pad collision will trigger that after the ball
+            // has fallen through the hole and landed on the tee
+            
+        } catch (error) {
+            console.error("Error in handleBallInHole:", error);
         }
     }
     
@@ -279,77 +369,98 @@ export class Game {
     }
     
     /**
-     * Handle window resize event
+     * Handle window resize
      */
     handleResize() {
-        // Update camera aspect ratio
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
-        
-        // Update renderer size
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        if (this.renderer && this.camera) {
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            
+            // The camera aspect ratio update is handled by the CameraController
+        }
     }
     
     /**
-     * Clean up resources
+     * Cleanup the game and all its components
      */
     cleanup() {
-        // Stop the game loop first
-        if (this.gameLoopManager) this.gameLoopManager.cleanup();
-        if (this.holeManager) this.holeManager.cleanup();
-        if (this.hazardManager) this.hazardManager.cleanup();
-        if (this.ballManager) this.ballManager.cleanup();
-        if (this.visualEffectsManager) this.visualEffectsManager.cleanup();
-        if (this.audioManager) this.audioManager.cleanup();
-        if (this.performanceManager) this.performanceManager.cleanup();
-        if (this.debugManager) this.debugManager.cleanup();
-        if (this.physicsManager) this.physicsManager.cleanup();
-        if (this.uiManager) this.uiManager.cleanup();
-        if (this.stateManager) this.stateManager.cleanup();
-        if (this.eventManager) this.eventManager.cleanup();
-        
-        // Remove event listeners
-        window.removeEventListener('resize', this.handleResize);
-        
-        // Clean up other resources
-        if (this.inputController) {
-            // Cleanup input controller events
-            this.inputController = null;
-        }
-        
-        if (this.course) {
-            this.course.cleanup();
-            this.course = null;
-        }
-        
-        if (this.teeMarker) {
-            this.teeMarker.cleanup();
-            this.teeMarker = null;
-        }
-        
-        // Dispose of Three.js scene and renderer
-        if (this.scene) {
-            // Properly dispose of all objects in the scene
-            this.scene.traverse(object => {
-                if (object.geometry) object.geometry.dispose();
-                if (object.material) {
-                    if (Array.isArray(object.material)) {
-                        object.material.forEach(material => material.dispose());
-                    } else {
-                        object.material.dispose();
+        try {
+            // Stop the game loop first
+            if (this.gameLoopManager) {
+                this.gameLoopManager.stopLoop();
+                this.gameLoopManager.cleanup();
+            }
+            
+            // Remove event listeners
+            window.removeEventListener('resize', this.handleResize);
+            
+            // Clean up managers in reverse order of initialization
+            if (this.inputController) this.inputController.cleanup();
+            if (this.ballManager) this.ballManager.cleanup();
+            if (this.holeManager) this.holeManager.cleanup();
+            if (this.hazardManager) this.hazardManager.cleanup();
+            if (this.audioManager) this.audioManager.cleanup();
+            if (this.physicsManager) this.physicsManager.cleanup();
+            if (this.visualEffectsManager) this.visualEffectsManager.cleanup();
+            if (this.cameraController) this.cameraController.cleanup();
+            if (this.uiManager) this.uiManager.cleanup();
+            if (this.stateManager) this.stateManager.cleanup();
+            if (this.performanceManager) this.performanceManager.cleanup();
+            
+            // Core systems last
+            if (this.eventManager) this.eventManager.cleanup();
+            if (this.debugManager) this.debugManager.cleanup();
+            
+            // Remove objects from scene
+            if (this.scene) {
+                while (this.scene.children.length > 0) {
+                    const object = this.scene.children[0];
+                    this.scene.remove(object);
+                    
+                    // Dispose of geometries and materials
+                    if (object.geometry) object.geometry.dispose();
+                    if (object.material) {
+                        if (Array.isArray(object.material)) {
+                            object.material.forEach(material => material.dispose());
+                        } else {
+                            object.material.dispose();
+                        }
                     }
                 }
-            });
+            }
             
-            // Clear the scene
-            while(this.scene.children.length > 0) {
-                this.scene.remove(this.scene.children[0]);
+            // Dispose of renderer
+            if (this.renderer) {
+                this.renderer.dispose();
+                this.renderer = null;
+            }
+            
+            // Clear references
+            this.camera = null;
+            this.scene = null;
+            this.clock = null;
+            
+            console.log('Game cleaned up');
+        } catch (error) {
+            if (this.debugManager) {
+                this.debugManager.error('Game.cleanup', 'Error during cleanup', error);
+            } else {
+                console.error('Error during cleanup:', error);
             }
         }
+    }
+
+    /**
+     * Set up event listeners
+     */
+    setupEventListeners() {
+        // Subscribe to ball in hole events
+        this.eventManager.subscribe(
+            EventTypes.BALL_IN_HOLE,
+            this.handleBallInHole,
+            this
+        );
         
-        if (this.renderer) {
-            this.renderer.dispose();
-            this.renderer = null;
-        }
+        // Add other event subscriptions as needed
+        window.addEventListener('resize', this.handleResize.bind(this));
     }
 } 

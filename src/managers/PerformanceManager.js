@@ -67,6 +67,32 @@ export class PerformanceManager {
         // Budget warnings
         this.budgetViolations = new Map();
         this.lastWarningTimes = {};
+        
+        // Event handler reference for cleanup
+        this.boundHandleKeyPress = this.handleKeyPress.bind(this);
+    }
+    
+    /**
+     * Safely traverses a potentially undefined object path and returns a default value if the path is invalid
+     * @param {Object} obj - The root object to traverse
+     * @param {string} path - The property path (e.g., 'game.physicsManager.world.bodies')
+     * @param {*} defaultValue - Default value to return if path is invalid
+     * @returns {*} The value at the specified path or defaultValue if path is invalid
+     */
+    safelyGet(obj, path, defaultValue = null) {
+        if (!obj) return defaultValue;
+        
+        const props = path.split('.');
+        let result = obj;
+        
+        for (const prop of props) {
+            if (result === null || result === undefined || typeof result !== 'object') {
+                return defaultValue;
+            }
+            result = result[prop];
+        }
+        
+        return result !== undefined ? result : defaultValue;
     }
     
     /**
@@ -76,7 +102,7 @@ export class PerformanceManager {
         try {
             // Set up keyboard listener for toggling
             if (window) {
-                window.addEventListener('keydown', this.handleKeyPress.bind(this));
+                window.addEventListener('keydown', this.boundHandleKeyPress);
             }
             
             // Create the performance display
@@ -178,14 +204,20 @@ export class PerformanceManager {
             const now = performance.now();
             if (!this.lastWarningTimes[name] || now - this.lastWarningTimes[name] > 1000) {
                 this.lastWarningTimes[name] = now;
-                console.warn(`Performance warning: ${name} ${value.toFixed(2)} ${name === 'fps' ? 'below' : 'exceeds'} target of ${threshold}`);
+                
+                // Format the warning message
+                const warningMessage = `${name} ${value.toFixed(2)} ${name === 'fps' ? 'below' : 'exceeds'} target of ${threshold}`;
+                
+                // Always log to console
+                console.warn(`Performance warning: ${warningMessage}`);
                 
                 // Count violations
                 this.budgetViolations.set(name, (this.budgetViolations.get(name) || 0) + 1);
                 
                 // Log to debug manager if available
-                if (this.game && this.game.debugManager) {
-                    this.game.debugManager.warn('PerformanceManager', `${name} ${value.toFixed(2)} ${name === 'fps' ? 'below' : 'exceeds'} target of ${threshold}`);
+                const debugManager = this.safelyGet(this.game, 'debugManager');
+                if (debugManager && typeof debugManager.warn === 'function') {
+                    debugManager.warn('PerformanceManager', warningMessage);
                 }
             }
         }
@@ -268,24 +300,37 @@ export class PerformanceManager {
      * Update memory statistics
      */
     updateMemoryStats() {
-        // Get memory info if available
-        if (window.performance && window.performance.memory) {
-            const memoryInfo = window.performance.memory;
-            this.metrics.memory.jsHeapSize = memoryInfo.jsHeapSizeLimit;
-            this.metrics.memory.usedJSHeapSize = memoryInfo.usedJSHeapSize;
-        }
-        
-        // Count Three.js objects
-        if (this.game && this.game.scene) {
-            let objectCount = 0;
-            this.game.scene.traverse(() => { objectCount++; });
-            this.metrics.objects.three = objectCount;
-        }
-        
-        // Count physics bodies
-        if (this.game && this.game.physicsManager && this.game.physicsManager.world && this.game.physicsManager.world.bodies) {
-            this.metrics.objects.physics = this.game.physicsManager.world.bodies.length;
-        } else {
+        try {
+            // Get memory info if available
+            if (this.safelyGet(window, 'performance.memory')) {
+                const memoryInfo = window.performance.memory;
+                this.metrics.memory.jsHeapSize = memoryInfo.jsHeapSizeLimit;
+                this.metrics.memory.usedJSHeapSize = memoryInfo.usedJSHeapSize;
+            }
+            
+            // Count Three.js objects
+            const scene = this.safelyGet(this.game, 'scene');
+            if (scene && typeof scene.traverse === 'function') {
+                let objectCount = 0;
+                scene.traverse(() => { objectCount++; });
+                this.metrics.objects.three = objectCount;
+            } else {
+                this.metrics.objects.three = 0;
+            }
+            
+            // Count physics bodies
+            const bodies = this.safelyGet(this.game, 'physicsManager.world.bodies');
+            if (Array.isArray(bodies)) {
+                this.metrics.objects.physics = bodies.length;
+            } else {
+                this.metrics.objects.physics = 0;
+            }
+        } catch (error) {
+            // Log error but don't crash
+            console.warn('Error updating memory stats:', error);
+            
+            // Set default values
+            this.metrics.objects.three = 0;
             this.metrics.objects.physics = 0;
         }
     }
@@ -296,6 +341,11 @@ export class PerformanceManager {
      * @returns {Function} Wrapped update method with performance timing
      */
     wrapUpdate(originalUpdateMethod) {
+        if (!originalUpdateMethod || typeof originalUpdateMethod !== 'function') {
+            console.warn('PerformanceManager: Cannot wrap update method - invalid function provided');
+            return () => {}; // Return empty function as fallback
+        }
+        
         return () => {
             this.beginFrame();
             
@@ -305,8 +355,17 @@ export class PerformanceManager {
             // Start the render timer right before the original update
             this.startTimer('render');
             
-            // Run the original update
-            originalUpdateMethod();
+            try {
+                // Run the original update
+                originalUpdateMethod();
+            } catch (error) {
+                console.error('Error in game update loop:', error);
+                // Log to debug manager if available
+                const debugManager = this.safelyGet(this.game, 'debugManager');
+                if (debugManager && typeof debugManager.error === 'function') {
+                    debugManager.error('GameLoop', 'Error in update method', error, true);
+                }
+            }
             
             // End the render timer
             this.endTimer('render');
@@ -403,28 +462,32 @@ export class PerformanceManager {
     updatePerformanceDisplay() {
         if (!this.performanceDisplay) return;
         
-        const data = this.getPerformanceData();
-        let html = `<div style="font-weight: bold; margin-bottom: 5px;">PERFORMANCE (${PERFORMANCE_CONFIG.toggleKey} to toggle)</div>`;
-        
-        // FPS with color coding
-        const fpsColor = data.fps.current < PERFORMANCE_CONFIG.warningThresholds.fps ? '#FF5555' : '#55FF55';
-        html += `<div>FPS: <span style="color: ${fpsColor}">${data.fps.current}</span> (avg: ${data.fps.avg}, min: ${data.fps.min})</div>`;
-        
-        // Frame time with color coding
-        const frameTimeColor = data.frameTime.current > PERFORMANCE_CONFIG.warningThresholds.frameTime ? '#FF5555' : '#55FF55';
-        html += `<div>Frame: <span style="color: ${frameTimeColor}">${data.frameTime.current}ms</span> (avg: ${data.frameTime.avg}ms)</div>`;
-        
-        // Timing breakdowns
-        html += `<div>Physics: ${data.physics.current}ms (avg: ${data.physics.avg}ms)</div>`;
-        html += `<div>Render: ${data.render.current}ms (avg: ${data.render.avg}ms)</div>`;
-        
-        // Memory usage
-        html += `<div>Memory: ${data.memory.usedMB}MB / ${data.memory.totalMB}MB</div>`;
-        
-        // Object counts
-        html += `<div>Objects: ${data.objects.three} (Three.js), ${data.objects.physics} (Physics)</div>`;
-        
-        this.performanceDisplay.innerHTML = html;
+        try {
+            const data = this.getPerformanceData();
+            let html = `<div style="font-weight: bold; margin-bottom: 5px;">PERFORMANCE (${PERFORMANCE_CONFIG.toggleKey} to toggle)</div>`;
+            
+            // FPS with color coding
+            const fpsColor = data.fps.current < PERFORMANCE_CONFIG.warningThresholds.fps ? '#FF5555' : '#55FF55';
+            html += `<div>FPS: <span style="color: ${fpsColor}">${data.fps.current}</span> (avg: ${data.fps.avg}, min: ${data.fps.min})</div>`;
+            
+            // Frame time with color coding
+            const frameTimeColor = data.frameTime.current > PERFORMANCE_CONFIG.warningThresholds.frameTime ? '#FF5555' : '#55FF55';
+            html += `<div>Frame: <span style="color: ${frameTimeColor}">${data.frameTime.current}ms</span> (avg: ${data.frameTime.avg}ms)</div>`;
+            
+            // Timing breakdowns
+            html += `<div>Physics: ${data.physics.current}ms (avg: ${data.physics.avg}ms)</div>`;
+            html += `<div>Render: ${data.render.current}ms (avg: ${data.render.avg}ms)</div>`;
+            
+            // Memory usage
+            html += `<div>Memory: ${data.memory.usedMB}MB / ${data.memory.totalMB}MB</div>`;
+            
+            // Object counts
+            html += `<div>Objects: ${data.objects.three} (Three.js), ${data.objects.physics} (Physics)</div>`;
+            
+            this.performanceDisplay.innerHTML = html;
+        } catch (error) {
+            console.warn('Error updating performance display:', error);
+        }
     }
     
     /**
@@ -440,16 +503,22 @@ export class PerformanceManager {
      * Clean up resources
      */
     cleanup() {
-        // Remove event listener
-        window.removeEventListener('keydown', this.handleKeyPress.bind(this));
-        
-        // Remove UI elements
-        if (this.performanceDisplay && this.performanceDisplay.parentNode) {
-            this.performanceDisplay.parentNode.removeChild(this.performanceDisplay);
+        try {
+            // Remove event listener using the stored reference
+            if (window && this.boundHandleKeyPress) {
+                window.removeEventListener('keydown', this.boundHandleKeyPress);
+            }
+            
+            // Remove UI elements
+            if (this.performanceDisplay && this.performanceDisplay.parentNode) {
+                this.performanceDisplay.parentNode.removeChild(this.performanceDisplay);
+            }
+            
+            // Clear data
+            this.markers = {};
+        } catch (error) {
+            console.warn('Error during PerformanceManager cleanup:', error);
         }
-        
-        // Clear data
-        this.markers = {};
         
         return this;
     }

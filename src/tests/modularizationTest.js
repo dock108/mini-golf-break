@@ -88,27 +88,21 @@ export function testScoringSystem() {
     
     // Test scoring functionality
     try {
-        // Test score tracking
-        console.log('Testing score tracking...');
-        scoringSystem.resetHoleScore();
-        console.assert(scoringSystem.getCurrentHoleStrokes() === 0, 'Initial score should be 0');
+        // Test continuous stroke counting
+        console.log('Testing continuous stroke counting...');
+        console.assert(scoringSystem.getTotalStrokes() === 0, 'Initial stroke count should be 0');
         
         scoringSystem.addStroke();
-        console.assert(scoringSystem.getCurrentHoleStrokes() === 1, 'Score should be 1 after adding stroke');
+        console.assert(scoringSystem.getTotalStrokes() === 1, 'Stroke count should be 1 after adding stroke');
         
         scoringSystem.addStroke();
         scoringSystem.addStroke();
-        console.assert(scoringSystem.getCurrentHoleStrokes() === 3, 'Score should be 3 after adding 3 strokes');
+        console.assert(scoringSystem.getTotalStrokes() === 3, 'Stroke count should be 3 after adding 3 strokes');
         
-        // Test hole completion
+        // Test hole completion without reset
         console.log('Testing hole completion...');
         scoringSystem.completeHole();
-        console.assert(scoringSystem.getTotalScore() === 3, 'Total score should be 3 after completing hole');
-        
-        // Test reset
-        console.log('Testing reset functionality...');
-        scoringSystem.resetHoleScore();
-        console.assert(scoringSystem.getCurrentHoleStrokes() === 0, 'Score should be 0 after reset');
+        console.assert(scoringSystem.getTotalStrokes() === 3, 'Total strokes should remain 3 after completing hole');
         
         console.log('✅ Scoring System tests passed');
     } catch (error) {

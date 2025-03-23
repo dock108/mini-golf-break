@@ -1,4 +1,5 @@
 import { GameEvent } from '../events/GameEvent';
+import { EventTypes } from '../events/EventTypes';
 
 /**
  * EventManager - Central event bus for the game
@@ -103,12 +104,121 @@ export class EventManager {
                 const { callback, context } = subscriber;
                 callback.call(context, event);
             } catch (error) {
-                console.error(`Error in event handler for ${eventType}:`, error);
+                // Create a context-rich error message
+                const subscriberInfo = subscriber.context ? 
+                    `in ${subscriber.context.constructor ? subscriber.context.constructor.name : 'unknown'} context` : 
+                    'with no context';
+                
+                // Create a compact representation of data for logging
+                const simplifiedData = this.getSimplifiedData(data);
+                
+                // Determine if this error should be displayed in the UI
+                // Critical errors that might affect gameplay should be shown to users
+                const isUICritical = this.isCriticalEventError(eventType, error); 
+                
                 if (this.game.debugManager) {
-                    this.game.debugManager.error(`Event handler error for ${eventType}: ${error.message}`);
+                    // Use proper source identification and include comprehensive context
+                    this.game.debugManager.error(
+                        'EventManager.publish', 
+                        `Error handling event ${eventType} ${subscriberInfo}: ${error.message}`,
+                        {
+                            eventType,
+                            eventData: simplifiedData,
+                            source: source ? this.getSourceIdentifier(source) : null,
+                            error: {
+                                message: error.message,
+                                stack: error.stack
+                            }
+                        },
+                        isUICritical // Show in UI for critical gameplay-affecting errors
+                    );
+                } else {
+                    // Fallback to console if DebugManager is not available
+                    console.error(
+                        `[ERROR] EventManager.publish: Error handling event ${eventType} ${subscriberInfo}:`, 
+                        error, 
+                        { eventData: simplifiedData }
+                    );
+                }
+                
+                // Optionally publish a system error event for other components to react
+                if (eventType !== EventTypes.ERROR_OCCURRED) { // Prevent infinite loops
+                    this.publish(EventTypes.ERROR_OCCURRED, {
+                        source: 'EventManager',
+                        error: error.message,
+                        eventType
+                    });
                 }
             }
         });
+    }
+    
+    /**
+     * Create a simplified representation of event data for logging
+     * @param {object} data - The event data
+     * @returns {object} Simplified data for logging
+     * @private
+     */
+    getSimplifiedData(data) {
+        if (!data || typeof data !== 'object') return data;
+        
+        // Create a simplified copy for logging
+        const simplified = {};
+        
+        Object.keys(data).forEach(key => {
+            const value = data[key];
+            if (value === null || value === undefined) {
+                simplified[key] = value;
+            } else if (typeof value === 'object') {
+                if (value instanceof Array) {
+                    simplified[key] = `Array(${value.length})`;
+                } else if (value.constructor && value.constructor.name) {
+                    simplified[key] = `Object<${value.constructor.name}>`;
+                } else {
+                    simplified[key] = 'Object';
+                }
+            } else {
+                simplified[key] = value;
+            }
+        });
+        
+        return simplified;
+    }
+    
+    /**
+     * Get an identifier for the source object
+     * @param {object} source - Source object
+     * @returns {string} Source identifier
+     * @private
+     */
+    getSourceIdentifier(source) {
+        if (!source) return 'unknown';
+        if (typeof source === 'string') return source;
+        if (source.constructor && source.constructor.name) {
+            return source.constructor.name;
+        }
+        return 'unknown';
+    }
+    
+    /**
+     * Determine if an event error is critical enough to show in the UI
+     * @param {string} eventType - The event type where the error occurred
+     * @param {Error} error - The error that occurred
+     * @returns {boolean} Whether to show in UI
+     * @private
+     */
+    isCriticalEventError(eventType, error) {
+        // Determine which event handler errors are critical enough for UI display
+        // Errors in core gameplay events might warrant user notification
+        const criticalEventTypes = [
+            EventTypes.BALL_HIT,
+            EventTypes.HOLE_COMPLETED,
+            EventTypes.GAME_COMPLETED,
+            EventTypes.GAME_STARTED,
+            EventTypes.HAZARD_DETECTED
+        ];
+        
+        return criticalEventTypes.includes(eventType);
     }
     
     /**
@@ -166,7 +276,15 @@ export class EventManager {
     }
     
     /**
-     * Cleanup resources
+     * Get the event types enumeration
+     * @returns {object} The EventTypes enumeration
+     */
+    getEventTypes() {
+        return EventTypes;
+    }
+    
+    /**
+     * Cleanup the event manager
      */
     cleanup() {
         this.clear();

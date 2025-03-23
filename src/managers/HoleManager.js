@@ -122,8 +122,7 @@ export class HoleManager {
         this.game.stateManager.setHoleCompleted(true);
         
         // Get score data
-        const holeScore = this.game.scoringSystem.getCurrentHoleStrokes();
-        const totalScore = this.game.scoringSystem.getTotalStrokes();
+        const totalStrokes = this.game.scoringSystem.getTotalStrokes();
         const holeNumber = this.game.stateManager.getCurrentHoleNumber();
         
         // Trigger the ball success effect through events
@@ -131,8 +130,7 @@ export class HoleManager {
             EventTypes.BALL_IN_HOLE,
             {
                 holeNumber: holeNumber,
-                holeScore: holeScore,
-                totalScore: totalScore,
+                totalStrokes: totalStrokes,
                 position: ball.mesh.position.clone()
             },
             this
@@ -143,8 +141,7 @@ export class HoleManager {
             EventTypes.HOLE_COMPLETED,
             {
                 holeNumber: holeNumber,
-                holeScore: holeScore,
-                totalScore: totalScore
+                totalStrokes: totalStrokes
             },
             this
         );
@@ -201,14 +198,13 @@ export class HoleManager {
         this.game.stateManager.setGameOver(true);
         
         // Get final score data
-        const totalScore = this.game.scoringSystem.getTotalStrokes();
+        const totalStrokes = this.game.scoringSystem.getTotalStrokes();
         
         // Publish game completed event
         this.game.eventManager.publish(
             EventTypes.GAME_COMPLETED,
             {
-                totalScore: totalScore,
-                holeScores: this.game.scoringSystem.getHoleScores()
+                totalStrokes: totalStrokes
             },
             this
         );

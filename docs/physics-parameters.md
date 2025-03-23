@@ -62,13 +62,17 @@ This document outlines the key physics parameters used in the Mini Golf Break ga
 
 ## Implementation Notes
 
-1. The ball's sleep parameters in `Ball.js` and `PhysicsWorld.js` differ slightly:
-- In `Ball.js`: sleepSpeedLimit = 0.15, sleepTimeLimit = 0.2
-- In `PhysicsWorld.js`: defaultSleepSpeedLimit = 0.1, defaultSleepTimeLimit = 0.5
-- The values in `Ball.js` take precedence as they are applied directly to the ball instance.
+1. Sleep parameters are now consistently defined across all components:
+- Ball.js: sleepSpeedLimit = 0.15, sleepTimeLimit = 0.2
+- PhysicsWorld.js: defaultSleepSpeedLimit = 0.15, defaultSleepTimeLimit = 0.2
+- PhysicsWorld.createSphereBody(): sleepSpeedLimit = 0.15, sleepTimeLimit = 0.2
 
 2. Damping values (linearDamping = 0.6, angularDamping = 0.6) are defined consistently between `Ball.js` and `PhysicsWorld.js`.
 
 3. Ball mass was intentionally reduced from 0.5kg to 0.45kg in version 0.2.0 for improved handling.
 
-4. When detecting if the ball has stopped, additional checks beyond the physics engine's sleep state are performed to ensure consistent gameplay. 
+4. When detecting if the ball has stopped, additional checks beyond the physics engine's sleep state are performed to ensure consistent gameplay.
+
+5. World configuration parameters have been standardized:
+- Solver iterations: 10 (as documented)
+- Max physics sub-steps per frame: 3 (as documented) 
