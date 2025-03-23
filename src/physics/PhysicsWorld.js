@@ -6,8 +6,8 @@ export class PhysicsWorld {
         this.world = new CANNON.World();
         this.world.gravity.set(0, -9.81, 0); // Earth gravity
         
-        // Increase solver iterations for better stability
-        this.world.solver.iterations = 30;
+        // Set solver iterations to match documentation
+        this.world.solver.iterations = 10; // Updated to match documentation (was 30)
         this.world.solver.tolerance = 0.0001;
         
         // Use SAPBroadphase for better performance with many objects
@@ -15,6 +15,10 @@ export class PhysicsWorld {
         
         // Allow sleeping bodies for better performance
         this.world.allowSleep = true;
+        
+        // Set default sleep parameters to match documentation
+        this.world.defaultSleepSpeedLimit = 0.15; // Updated to match documentation
+        this.world.defaultSleepTimeLimit = 0.2;   // Updated to match documentation
         
         // Set default material properties
         this.defaultMaterial = new CANNON.Material('default');
@@ -29,7 +33,7 @@ export class PhysicsWorld {
         
         // Set the timestep (fixed at 60fps)
         this.fixedTimeStep = 1.0 / 60.0;
-        this.maxSubSteps = 8; // Increased from 5 for smoother physics
+        this.maxSubSteps = 3; // Updated to match documentation (was 8)
         
         // Last time used for calculating elapsed time
         this.lastCallTime = performance.now() / 1000;
@@ -97,6 +101,24 @@ export class PhysicsWorld {
         
         this.lastCallTime = time;
         
+        // Debug log much less frequently (approximately once every minute)
+        const debugRate = 0.0005; 
+        if (Math.random() < debugRate) {
+            const bodyCount = this.world ? this.world.bodies.length : 0;
+            console.log(`DEBUG PhysicsWorld.update: Physics update dt=${dt.toFixed(4)}, bodyCount=${bodyCount}`);
+            
+            // Check if there's a ball in the physics world
+            const ballBody = this.world.bodies.find(body => 
+                body.shapes && body.shapes[0] && body.shapes[0].type === CANNON.Shape.types.SPHERE);
+                
+            if (ballBody) {
+                console.log(`DEBUG PhysicsWorld.update: Ball found in physics world. ` +
+                            `Position: (${ballBody.position.x.toFixed(2)}, ${ballBody.position.y.toFixed(2)}, ${ballBody.position.z.toFixed(2)}), ` +
+                            `Velocity: (${ballBody.velocity.x.toFixed(2)}, ${ballBody.velocity.y.toFixed(2)}, ${ballBody.velocity.z.toFixed(2)}), ` +
+                            `Sleeping: ${ballBody.sleepState}`);
+            }
+        }
+        
         // Step the physics world
         this.world.step(this.fixedTimeStep, dt, this.maxSubSteps);
     }
@@ -147,11 +169,11 @@ export class PhysicsWorld {
             mass: mass,
             material: material,
             position: new CANNON.Vec3(position.x, position.y, position.z),
-            linearDamping: 0.6, // Updated to match Ball.js
-            angularDamping: 0.6, // Updated to match Ball.js
+            linearDamping: 0.6,
+            angularDamping: 0.6,
             allowSleep: true, // Let body sleep when stopped
-            sleepSpeedLimit: 0.03, // Lower threshold to sleep sooner
-            sleepTimeLimit: 0.5 // Sleep more quickly
+            sleepSpeedLimit: 0.15, // Updated to match documentation (was 0.03)
+            sleepTimeLimit: 0.2    // Updated to match documentation (was 0.5)
         });
         
         // Add a sphere shape

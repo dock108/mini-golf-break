@@ -1,11 +1,15 @@
 import * as THREE from 'three';
+import { EventTypes } from '../events/EventTypes';
 
+/**
+ * InputController - Handles all user input for the game
+ * Manages mouse/touch interactions for aiming and hitting the ball
+ */
 export class InputController {
-    constructor(game, camera, renderer, ball) {
+    constructor(game) {
         this.game = game;
-        this.camera = camera;
-        this.renderer = renderer;
-        this.ball = ball;
+        this.camera = game.camera;
+        this.renderer = game.renderer;
         
         // Track input state
         this.isInputEnabled = true;
@@ -35,20 +39,155 @@ export class InputController {
         // Store control state to restore later
         this.controlsWereEnabled = true;
         
-        // Initialize event listeners
-        this.initEventListeners();
+        // Initialization state tracking
+        this.isInitialized = false;
     }
     
-    initEventListeners() {
-        // Add event listeners to document (so we capture events even outside the canvas)
-        document.addEventListener('mousedown', this.onMouseDown.bind(this));
-        document.addEventListener('mousemove', this.onMouseMove.bind(this));
-        document.addEventListener('mouseup', this.onMouseUp.bind(this));
+    /**
+     * Initialize event listeners and setup
+     */
+    init() {
+        try {
+            if (this.isInitialized) {
+                if (this.game.debugManager) {
+                    this.game.debugManager.warn('InputController.init', 'Already initialized');
+                }
+                return this;
+            }
+            
+            this.initEventListeners();
+            this.setupGameEventListeners();
+            
+            // Mark as initialized
+            this.isInitialized = true;
+            
+            if (this.game.debugManager) {
+                this.game.debugManager.log('InputController initialized');
+            }
+        } catch (error) {
+            if (this.game.debugManager) {
+                this.game.debugManager.error('InputController.init', 'Failed to initialize input controller', error);
+            } else {
+                console.error('Failed to initialize input controller:', error);
+            }
+        }
         
-        // Touch events
-        document.addEventListener('touchstart', this.onTouchStart.bind(this), { passive: false });
-        document.addEventListener('touchmove', this.onTouchMove.bind(this), { passive: false });
-        document.addEventListener('touchend', this.onTouchEnd.bind(this));
+        return this;
+    }
+    
+    /**
+     * Initialize DOM event listeners
+     */
+    initEventListeners() {
+        try {
+            // Get the DOM element to attach events to
+            const domElement = this.renderer ? this.renderer.domElement : window;
+            
+            // Bind methods to ensure 'this' context is preserved
+            this.onMouseDown = this.onMouseDown.bind(this);
+            this.onMouseMove = this.onMouseMove.bind(this);
+            this.onMouseUp = this.onMouseUp.bind(this);
+            this.onTouchStart = this.onTouchStart.bind(this);
+            this.onTouchMove = this.onTouchMove.bind(this);
+            this.onTouchEnd = this.onTouchEnd.bind(this);
+            
+            // Add event listeners
+            domElement.addEventListener('mousedown', this.onMouseDown);
+            window.addEventListener('mousemove', this.onMouseMove);
+            window.addEventListener('mouseup', this.onMouseUp);
+            
+            // Touch events
+            domElement.addEventListener('touchstart', this.onTouchStart);
+            window.addEventListener('touchmove', this.onTouchMove);
+            window.addEventListener('touchend', this.onTouchEnd);
+            
+            if (this.game.debugManager) {
+                this.game.debugManager.log('InputController DOM event listeners initialized');
+            }
+        } catch (error) {
+            if (this.game.debugManager) {
+                this.game.debugManager.error('InputController.initEventListeners', 'Failed to initialize DOM event listeners', error);
+            } else {
+                console.error('Failed to initialize DOM event listeners:', error);
+            }
+        }
+    }
+    
+    /**
+     * Setup game event subscriptions
+     */
+    setupGameEventListeners() {
+        if (!this.game.eventManager) {
+            if (this.game.debugManager) {
+                this.game.debugManager.warn('InputController.setupGameEventListeners', 'EventManager not available, skipping event subscriptions');
+            }
+            return;
+        }
+        
+        try {
+            // Initialize event subscriptions array if not already created
+            this.eventSubscriptions = this.eventSubscriptions || [];
+            
+            // Store subscription functions to simplify cleanup
+            this.eventSubscriptions = [
+                // Listen for ball stopped to re-enable input
+                this.game.eventManager.subscribe(
+                    EventTypes.BALL_STOPPED,
+                    this.handleBallStopped,
+                    this
+                ),
+                
+                // Listen for ball in hole to disable input
+                this.game.eventManager.subscribe(
+                    EventTypes.BALL_IN_HOLE,
+                    this.handleBallInHole,
+                    this
+                ),
+                
+                // Listen for hole started to enable input
+                this.game.eventManager.subscribe(
+                    EventTypes.HOLE_STARTED,
+                    this.handleHoleStarted,
+                    this
+                )
+            ];
+            
+            if (this.game.debugManager) {
+                this.game.debugManager.log('InputController game event listeners initialized');
+            }
+        } catch (error) {
+            if (this.game.debugManager) {
+                this.game.debugManager.error('InputController.setupGameEventListeners', 'Failed to set up game event listeners', error);
+            } else {
+                console.error('Failed to set up game event listeners:', error);
+            }
+        }
+    }
+    
+    /**
+     * Handle ball stopped event
+     */
+    handleBallStopped(event) {
+        // Re-enable input when ball stops (if hole is not completed)
+        if (!this.game.stateManager.isHoleCompleted()) {
+            this.enableInput();
+        }
+    }
+    
+    /**
+     * Handle ball in hole event
+     */
+    handleBallInHole(event) {
+        // Disable input when ball goes in hole
+        this.disableInput();
+    }
+    
+    /**
+     * Handle hole started event
+     */
+    handleHoleStarted(event) {
+        // Enable input when a new hole starts
+        this.enableInput();
     }
     
     isEventInsideCanvas(event) {
@@ -73,14 +212,21 @@ export class InputController {
         // Check if mouse is over the canvas
         if (!this.isEventInsideCanvas(event)) return;
         
+        // First, check if the ball is in motion - if so, we shouldn't allow new shots
+        if (this.game.stateManager && this.game.stateManager.isBallInMotion()) {
+            console.log("Ball is in motion, ignoring input");
+            return;
+        }
+        
         // When starting a drag, store the current orbit controls state and disable them
-        if (this.game.controls) {
-            this.controlsWereEnabled = this.game.controls.enabled;
-            this.game.controls.enabled = false;
+        if (this.game.cameraController && this.game.cameraController.controls) {
+            this.controlsWereEnabled = this.game.cameraController.controls.enabled;
+            this.game.cameraController.controls.enabled = false;
         }
         
         // Set pointer down flag
         this.isPointerDown = true;
+        this.isDragging = false; // Reset drag state
         
         // Update mouse position
         this.pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -89,25 +235,53 @@ export class InputController {
         // Cast ray into the scene
         this.raycaster.setFromCamera(this.pointer, this.camera);
         
-        // Create a plane at ball height for consistent dragging
-        const ballPosition = this.ball.mesh.position.clone();
-        const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -ballPosition.y);
+        // Get ball reference from ball manager
+        const ball = this.game.ballManager ? this.game.ballManager.ball : null;
         
-        // Find intersection with the drag plane
-        const intersection = new THREE.Vector3();
-        this.raycaster.ray.intersectPlane(dragPlane, intersection);
+        // Check if we clicked directly on the ball first
+        let clickedOnBall = false;
+        if (ball && ball.mesh) {
+            const intersects = this.raycaster.intersectObject(ball.mesh);
+            clickedOnBall = intersects.length > 0;
+            
+            // If we didn't click directly on the ball, check if we're close enough to the ball position
+            // This makes it easier to click on the ball, especially on mobile
+            if (!clickedOnBall) {
+                // Create a plane at ball height for consistent dragging
+                const ballPosition = ball.mesh.position.clone();
+                const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -ballPosition.y);
+                
+                // Find intersection with the drag plane
+                const intersection = new THREE.Vector3();
+                this.raycaster.ray.intersectPlane(dragPlane, intersection);
+                
+                if (intersection) {
+                    // Check if the intersection point is close enough to the ball (in world units)
+                    const distanceToBall = intersection.distanceTo(ballPosition);
+                    clickedOnBall = distanceToBall < ball.radius * 3; // Using 3x radius for easier clicking
+                    
+                    this.intersectionPoint = intersection.clone();
+                    
+                    // Initially no direction or power
+                    this.hitDirection = new THREE.Vector3(0, 0, 0);
+                    this.hitPower = 0;
+                    
+                    // Show power indicator
+                    if (this.powerIndicator) {
+                        this.powerIndicator.style.display = 'block';
+                        this.updatePowerIndicator(0);
+                    }
+                    
+                    console.log(`Clicked at distance ${distanceToBall.toFixed(2)} from ball, clickedOnBall: ${clickedOnBall}`);
+                }
+            }
+        }
         
-        if (intersection) {
-            this.intersectionPoint = intersection.clone();
-            
-            // Initially no direction or power
-            this.hitDirection = new THREE.Vector3(0, 0, 0);
-            this.hitPower = 0;
-            
-            // Show power indicator
-            if (this.powerIndicator) {
-                this.powerIndicator.style.display = 'block';
-                this.updatePowerIndicator(0);
+        // If we didn't click on or near the ball, restore camera controls and exit
+        if (!clickedOnBall) {
+            this.isPointerDown = false;
+            if (this.game.cameraController && this.game.cameraController.controls) {
+                this.game.cameraController.controls.enabled = this.controlsWereEnabled;
             }
         }
         
@@ -130,7 +304,7 @@ export class InputController {
         this.raycaster.setFromCamera(this.pointer, this.camera);
         
         // Create a plane at ball height for consistent dragging
-        const ballPosition = this.ball.mesh.position.clone();
+        const ballPosition = this.game.ballManager.ball.mesh.position.clone();
         const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -ballPosition.y);
         
         // Find intersection with the drag plane
@@ -151,11 +325,6 @@ export class InputController {
             
             // Update or create the aim line
             this.updateAimLine(ballPosition, this.hitDirection, this.hitPower);
-            
-            // Debugging stats
-            if (this.game && this.game.debugMode) {
-                console.log(`Direction: ${this.hitDirection.x.toFixed(2)}, ${this.hitDirection.z.toFixed(2)}, Power: ${this.hitPower.toFixed(2)}`);
-            }
         }
         
         // Prevent default behavior
@@ -163,31 +332,50 @@ export class InputController {
     }
     
     onMouseUp(event) {
-        // Skip if input is not enabled or if no dragging started
-        if (!this.isInputEnabled || !this.isPointerDown) return;
-        
-        // Restore orbit controls to previous state
-        if (this.game.controls) {
-            this.game.controls.enabled = this.controlsWereEnabled;
+        // Skip if not in dragging mode
+        if (!this.isPointerDown || !this.isDragging) {
+            this.isPointerDown = false;
+            return;
         }
         
-        // Only process if we were dragging
-        if (this.isDragging && this.hitPower > 0.05) {
-            // Hit the ball with calculated direction and power
-            this.game.hitBall(this.hitDirection, this.hitPower);
+        // Only handle left mouse button
+        if (event.button !== 0) return;
+        
+        // If dragging and input is enabled, attempt to hit the ball
+        if (this.isInputEnabled && this.hitPower > 0.05) {
+            // Hide direction line
+            this.removeDirectionLine();
+            
+            // Hide power indicator
+            if (this.powerIndicator) {
+                this.powerIndicator.style.display = 'none';
+            }
+            
+            // Hit ball using BallManager
+            if (this.game.ballManager) {
+                this.game.ballManager.hitBall(this.hitDirection, this.hitPower);
+                
+                // Disable input until ball stops
+                this.disableInput();
+                
+                // Publish input event
+                this.game.eventManager.publish(
+                    EventTypes.INPUT_DISABLED,
+                    {
+                        reason: 'ball_hit'
+                    },
+                    this
+                );
+            }
         }
         
-        // Reset flags
+        // Reset input state
         this.isPointerDown = false;
         this.isDragging = false;
-        this.intersectionPoint = null;
         
-        // Hide direction line
-        this.removeAimLine();
-        
-        // Hide power indicator
-        if (this.powerIndicator) {
-            this.powerIndicator.style.display = 'none';
+        // Restore camera controls
+        if (this.game.cameraController && this.game.cameraController.controls) {
+            this.game.cameraController.controls.enabled = this.controlsWereEnabled;
         }
         
         // Prevent default behavior
@@ -217,9 +405,9 @@ export class InputController {
             this.dragCurrent.copy(this.dragStart);
             
             // Disable orbit controls during drag
-            if (this.game.controls) {
-                this.controlsWereEnabled = this.game.controls.enabled;
-                this.game.controls.enabled = false;
+            if (this.game.cameraController && this.game.cameraController.controls) {
+                this.controlsWereEnabled = this.game.cameraController.controls.enabled;
+                this.game.cameraController.controls.enabled = false;
             }
             
             // Create direction line
@@ -261,7 +449,7 @@ export class InputController {
                 const direction = this.getWorldDirection();
                 
                 // Apply force to ball
-                this.ball.applyForce(direction, this.dragPower);
+                this.game.ballManager.applyForce(direction, this.dragPower);
                 
                 // Set game state
                 this.game.gameState.ballInMotion = true;
@@ -281,14 +469,14 @@ export class InputController {
             this.clickedOnBall = false;
             
             // Restore orbit controls
-            if (this.game.controls && this.controlsWereEnabled) {
-                this.game.controls.enabled = this.controlsWereEnabled;
+            if (this.game.cameraController && this.game.cameraController.controls && this.controlsWereEnabled) {
+                this.game.cameraController.controls.enabled = this.controlsWereEnabled;
+            } else if (this.game.cameraController && this.game.cameraController.controls) {
+                // Restore orbit controls if we're not dragging
+                this.game.cameraController.controls.enabled = true;
             }
             
             event.preventDefault();
-        } else if (this.game.controls) {
-            // Restore orbit controls if we're not dragging
-            this.game.controls.enabled = true;
         }
     }
     
@@ -315,7 +503,7 @@ export class InputController {
     
     getWorldDirection() {
         // Get ball position in world space
-        const ballPosition = this.ball.mesh.position.clone();
+        const ballPosition = this.game.ballManager.ball.mesh.position.clone();
         
         // Create a plane at the ball's height
         const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -ballPosition.y);
@@ -365,10 +553,10 @@ export class InputController {
     }
     
     updateDirectionLine() {
-        if (!this.directionLine || !this.ball.mesh) return;
+        if (!this.directionLine || !this.game.ballManager.ball.mesh) return;
         
         // Get ball position
-        const ballPosition = this.ball.mesh.position.clone();
+        const ballPosition = this.game.ballManager.ball.mesh.position.clone();
         
         // Calculate direction
         const direction = this.getWorldDirection();
@@ -436,22 +624,48 @@ export class InputController {
         }
     }
     
+    /**
+     * Enable user input for hitting the ball
+     */
     enableInput() {
-        this.isInputEnabled = true;
-        
-        // Reset the drag state to ensure we can draw the line again for the next shot
-        this.isDragging = false;
-        this.dragPower = 0;
-        
-        // Make sure the direction line is removed
-        this.removeDirectionLine();
+        if (!this.isInputEnabled) {
+            this.isInputEnabled = true;
+            
+            // Publish input enabled event
+            this.game.eventManager.publish(
+                EventTypes.INPUT_ENABLED,
+                {},
+                this
+            );
+            
+            this.game.debugManager.log("Input enabled");
+        }
     }
     
+    /**
+     * Disable user input for hitting the ball
+     */
     disableInput() {
-        this.isInputEnabled = false;
-        this.isDragging = false;
-        this.removeDirectionLine();
-        this.resetPowerIndicator();
+        if (this.isInputEnabled) {
+            this.isInputEnabled = false;
+            this.isPointerDown = false;
+            this.isDragging = false;
+            
+            // Clean up any visual elements
+            this.removeDirectionLine();
+            this.resetPowerIndicator();
+            
+            // Publish input disabled event
+            this.game.eventManager.publish(
+                EventTypes.INPUT_DISABLED,
+                {
+                    reason: 'programmatic'
+                },
+                this
+            );
+            
+            this.game.debugManager.log("Input disabled");
+        }
     }
     
     updateAimLine(ballPosition, direction, power) {
@@ -512,6 +726,68 @@ export class InputController {
                 this.directionLine.material.dispose();
             }
             this.directionLine = null;
+        }
+    }
+    
+    /**
+     * Clean up resources
+     */
+    cleanup() {
+        try {
+            // Clean up DOM event listeners
+            try {
+                const domElement = this.renderer ? this.renderer.domElement : window;
+                
+                // Remove mouse events
+                domElement.removeEventListener('mousedown', this.onMouseDown);
+                window.removeEventListener('mousemove', this.onMouseMove);
+                window.removeEventListener('mouseup', this.onMouseUp);
+                
+                // Remove touch events
+                domElement.removeEventListener('touchstart', this.onTouchStart);
+                window.removeEventListener('touchmove', this.onTouchMove);
+                window.removeEventListener('touchend', this.onTouchEnd);
+            } catch (error) {
+                if (this.game.debugManager) {
+                    this.game.debugManager.warn('InputController.cleanup', 'Error removing DOM event listeners', error);
+                }
+            }
+            
+            // Clean up event subscriptions
+            if (this.eventSubscriptions) {
+                this.eventSubscriptions.forEach(unsubscribe => unsubscribe());
+                this.eventSubscriptions = [];
+            }
+            
+            // Clean up direction line
+            this.removeDirectionLine();
+            
+            // Reset power indicator
+            this.resetPowerIndicator();
+            
+            // Clean up THREE.js objects
+            if (this.raycaster) {
+                this.raycaster = null;
+            }
+            
+            // Clear references
+            this.pointer = null;
+            this.intersectionPoint = null;
+            
+            // Reset initialization state
+            this.isInitialized = false;
+            
+            // Log cleanup
+            if (this.game.debugManager) {
+                this.game.debugManager.log('InputController cleaned up');
+            }
+        } catch (error) {
+            // Log cleanup errors
+            if (this.game.debugManager) {
+                this.game.debugManager.error('InputController.cleanup', 'Error during cleanup', error);
+            } else {
+                console.error('Error during InputController cleanup:', error);
+            }
         }
     }
 } 

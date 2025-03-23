@@ -10,10 +10,10 @@ class App {
     }
 
     setupEventListeners() {
-        // Add click event for the start game button
-        const startButton = document.getElementById('start-game');
-        if (startButton) {
-            startButton.addEventListener('click', () => this.startGame());
+        // Add click event for the play course button
+        const playCourseButton = document.getElementById('play-course');
+        if (playCourseButton) {
+            playCourseButton.addEventListener('click', () => this.startCourse());
         }
         
         // Add click event for the pause button
@@ -22,8 +22,8 @@ class App {
             pauseButton.addEventListener('click', () => this.pauseGame());
         }
     }
-
-    startGame() {
+    
+    startCourse() {
         // Hide the menu screen
         if (this.menuScreen) {
             this.menuScreen.style.display = 'none';
@@ -32,12 +32,6 @@ class App {
             const titleElement = this.menuScreen.querySelector('h1');
             if (titleElement && titleElement.textContent === 'Paused') {
                 titleElement.textContent = 'Mini Golf Break';
-            }
-            
-            // Restore original button text
-            const startButton = document.getElementById('start-game');
-            if (startButton && startButton.textContent === 'Resume Game') {
-                startButton.textContent = 'Start Game';
             }
         }
         
@@ -61,12 +55,6 @@ class App {
             if (titleElement) {
                 titleElement.textContent = 'Paused';
             }
-            
-            // Change button text to "Resume Game"
-            const startButton = document.getElementById('start-game');
-            if (startButton) {
-                startButton.textContent = 'Resume Game';
-            }
         }
         
         // Disable game input
@@ -79,13 +67,7 @@ class App {
         // Initialize the game
         this.game.init();
         
-        // Start the game loop
-        this.animate();
-    }
-
-    animate() {
-        requestAnimationFrame(() => this.animate());
-        this.game.update();
+        // Game handles its own animation loop, so we don't need to start one here
     }
 }
 

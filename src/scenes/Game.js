@@ -1,537 +1,466 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { InputController } from '../controls/InputController';
-import { Ball } from '../objects/Ball';
-import { Course } from '../objects/Course';
+import { CameraController } from '../controls/CameraController';
+import { ScoringSystem } from '../game/ScoringSystem';
+import { TeeMarker } from '../objects/TeeMarker';
+import { BasicCourse } from '../objects/BasicCourse';
+import { EventTypes } from '../events/EventTypes';
 
+// Import managers
+import { StateManager } from '../managers/StateManager';
+import { UIManager } from '../managers/UIManager';
+import { PhysicsManager } from '../managers/PhysicsManager';
+import { DebugManager } from '../managers/DebugManager';
+import { AudioManager } from '../managers/AudioManager';
+import { VisualEffectsManager } from '../managers/VisualEffectsManager';
+import { BallManager } from '../managers/BallManager';
+import { HazardManager } from '../managers/HazardManager';
+import { HoleManager } from '../managers/HoleManager';
+import { GameLoopManager } from '../managers/GameLoopManager';
+import { EventManager } from '../managers/EventManager';
+import { PerformanceManager } from '../managers/PerformanceManager';
+
+/**
+ * Game - Main class that orchestrates the mini-golf game
+ * Uses a component-based architecture with dedicated managers for different concerns
+ */
 export class Game {
     constructor() {
+        // Core Three.js components
         this.scene = new THREE.Scene();
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
-        this.physicsWorld = null;
-        this.controls = null;
-        this.inputController = null;
+        this.renderer = null;  // Will be initialized in init()
         
-        this.ball = null;
+        // Create managers
+        this.debugManager = new DebugManager(this);
+        this.eventManager = new EventManager(this);
+        this.performanceManager = new PerformanceManager(this);
+        this.stateManager = new StateManager(this);
+        this.uiManager = new UIManager(this);
+        this.physicsManager = new PhysicsManager(this);
+        this.audioManager = new AudioManager(this);
+        this.visualEffectsManager = new VisualEffectsManager(this);
+        this.ballManager = new BallManager(this);
+        this.hazardManager = new HazardManager(this);
+        this.holeManager = new HoleManager(this);
+        this.gameLoopManager = new GameLoopManager(this);
+        
+        // Create camera controller
+        this.cameraController = new CameraController(this);
+        this.camera = this.cameraController.camera;
+        
+        // Create scoring system
+        this.scoringSystem = new ScoringSystem(this);
+        
+        // Game objects (these aren't managers but specific game elements)
         this.course = null;
-        
-        this.scoreElement = document.getElementById('score-value');
-        this.score = 0;
+        this.teeMarker = null;
         
         // Lighting
-        this.ambientLight = null;
-        this.directionalLight = null;
-        
-        // Game state
-        this.gameState = {
-            ballInMotion: false,
-            resetBall: false,
-            holeCompleted: false
+        this.lights = {
+            ambient: null,
+            directionalLight: null
         };
         
-        // Track last safe ball position
+        // Track last safe position for ball
         this.lastSafePosition = new THREE.Vector3(0, 0, 0);
         
-        // Debug helpers
-        this.debugMode = false;
-        this.debugObjects = [];
-        
-        // Listen for debug key (press 'd' to toggle)
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'd') {
-                this.toggleDebugMode();
-            }
-        });
+        // Performance tracking
+        this.clock = new THREE.Clock();
+        this.deltaTime = 0;
     }
 
+    /**
+     * Initialize the game
+     */
     init() {
-        // Setup renderer
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        this.renderer.setClearColor(0x87CEEB); // Sky blue background
-        document.getElementById('game-container').appendChild(this.renderer.domElement);
-
-        // Setup camera
-        this.camera.position.set(0, 10, 10);
-        this.camera.lookAt(0, 0, 0);
-        
-        // Setup controls
-        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-        this.controls.enableDamping = true;
-        this.controls.dampingFactor = 0.1;
-        this.controls.screenSpacePanning = false;
-        this.controls.minDistance = 5;
-        this.controls.maxDistance = 30;
-        this.controls.maxPolarAngle = Math.PI / 2.1; // Slightly above ground level
-        
-        // Setup lights
-        this.setupLights();
-        
-        // Initialize physics first
-        this.physicsWorld = new PhysicsWorld();
-        
-        // Initialize course (this adds physics bodies to the world)
-        this.course = new Course(this.scene, this.physicsWorld);
-        
-        // Create ball last (so it appears on top of the course)
-        this.createBall();
-        
-        // Initialize input controller after all game objects are created
-        this.initInput();
-        
-        // Add debug helpers if needed
-        if (this.debugMode) {
-            this.setupDebugHelpers();
-        }
-        
-        // Handle window resize
-        window.addEventListener('resize', () => this.onWindowResize());
-        
-        console.log("Game initialized successfully!");
-    }
-    
-    setupLights() {
-        // Ambient light
-        this.ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-        this.scene.add(this.ambientLight);
-        
-        // Directional light (sun)
-        this.directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        this.directionalLight.position.set(10, 20, 10);
-        this.directionalLight.castShadow = true;
-        
-        // Configure shadow properties
-        this.directionalLight.shadow.mapSize.width = 2048;
-        this.directionalLight.shadow.mapSize.height = 2048;
-        this.directionalLight.shadow.camera.near = 0.5;
-        this.directionalLight.shadow.camera.far = 50;
-        this.directionalLight.shadow.camera.left = -20;
-        this.directionalLight.shadow.camera.right = 20;
-        this.directionalLight.shadow.camera.top = 20;
-        this.directionalLight.shadow.camera.bottom = -20;
-        
-        this.scene.add(this.directionalLight);
-    }
-    
-    toggleDebugMode() {
-        this.debugMode = !this.debugMode;
-        console.log(`Debug mode ${this.debugMode ? 'enabled' : 'disabled'}`);
-        
-        if (this.debugMode) {
-            this.setupDebugHelpers();
-        } else {
-            this.removeDebugHelpers();
-        }
-    }
-    
-    setupDebugHelpers() {
-        // Clear existing helpers
-        this.removeDebugHelpers();
-        
-        // Add axes helper
-        const axesHelper = new THREE.AxesHelper(5);
-        this.scene.add(axesHelper);
-        this.debugObjects.push(axesHelper);
-        
-        // Add grid helper
-        const gridHelper = new THREE.GridHelper(50, 50);
-        this.scene.add(gridHelper);
-        this.debugObjects.push(gridHelper);
-        
-        // Add debug info display
-        const debugInfo = document.createElement('div');
-        debugInfo.id = 'debug-info';
-        debugInfo.className = 'debug-info';
-        debugInfo.innerHTML = 'Debug Mode Enabled';
-        document.body.appendChild(debugInfo);
-        this.debugObjects.push(debugInfo);
-    }
-    
-    removeDebugHelpers() {
-        // Remove all debug objects
-        this.debugObjects.forEach(obj => {
-            if (obj instanceof THREE.Object3D) {
-                this.scene.remove(obj);
-            } else if (obj instanceof HTMLElement) {
-                document.body.removeChild(obj);
-            }
-        });
-        
-        this.debugObjects = [];
-    }
-
-    update() {
-        // Update orbit controls
-        if (this.controls) {
-            this.controls.update();
-        }
-        
-        // Update physics
-        if (this.physicsWorld) {
-            this.physicsWorld.update();
-        }
-        
-        // Update game objects
-        if (this.ball) {
-            this.ball.update();
+        try {
+            // Setup renderer first
+            this.renderer = new THREE.WebGLRenderer({ antialias: true });
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.renderer.shadowMap.enabled = true;
+            this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            this.renderer.setClearColor(0x000000); // Black background for space
             
-            // Debug log for ball physics
-            if (this.debugMode && this.ball.body) {
-                const vel = this.ball.body.velocity;
-                if (vel.length() > 0.1) {
-                    console.log(`Ball velocity: ${vel.x.toFixed(2)}, ${vel.y.toFixed(2)}, ${vel.z.toFixed(2)}`);
-                }
+            // Initialize managers in appropriate order with proper dependency management
+            
+            // First tier - Core systems that don't depend on others
+            this.debugManager.init();
+            this.eventManager.init();
+            
+            // Second tier - Systems that depend only on core systems
+            this.performanceManager.init();
+            this.stateManager.resetState();
+            
+            // Attach renderer to DOM via UI manager
+            this.uiManager.init();
+            this.uiManager.attachRenderer(this.renderer);
+            
+            // Set the scene background to black for space environment
+            this.scene.background = new THREE.Color(0x000000);
+            
+            // Create starfield for space environment
+            this.createStarfield();
+            
+            // Initialize camera controller after renderer is created
+            this.cameraController.setRenderer(this.renderer);
+            this.cameraController.init();
+            
+            // Third tier - Game systems that may depend on UI and rendering
+            this.visualEffectsManager.init();
+            this.physicsManager.init();
+            this.audioManager.init();
+            
+            // Fourth tier - Game object managers that depend on physics and scene
+            this.hazardManager.init();
+            this.holeManager.init();
+            this.ballManager.init();  // Ball depends on physics and scene
+            
+            // Create tee marker
+            if (!this.teeMarker) {
+                this.teeMarker = new TeeMarker(this.scene);
             }
             
-            // Follow ball with camera during motion
-            if (this.ball.body) {
-                // Always update camera target to follow the ball, whether moving or not
-                this.updateCameraFollow(this.gameState.ballInMotion);
+            // Setup lights
+            this.setupLights();
+            
+            // Create course 
+            this.createCourse();
+            
+            // Create input controller - depends on camera and ball
+            this.inputController = new InputController(this);
+            this.inputController.init();
+            
+            // Add window resize listener
+            try {
+                window.addEventListener('resize', this.handleResize.bind(this));
+            } catch (error) {
+                this.debugManager.warn('Game.init', 'Failed to add resize event listener', error);
             }
             
-            // Check if ball is stopped after being in motion
-            if (this.gameState.ballInMotion && this.ball.isStopped()) {
-                console.log("Ball stopped");
-                this.gameState.ballInMotion = false;
-                
-                // Update last safe position when ball comes to rest
-                this.updateLastSafePosition();
-                
-                // Don't reset camera position - just keep targeting the ball
-                // The updateCameraFollow method already updated the camera target
-                
-                if (this.inputController) {
-                    this.inputController.enableInput();
-                }
-                
-                // Reset state for the next shot
-                this.gameState.holeCompleted = false;
-            }
+            // Start the game loop last, after everything is initialized
+            this.gameLoopManager.init();
+            this.gameLoopManager.startLoop();
             
-            // Check if ball is in a hole
-            if (!this.gameState.holeCompleted && this.course && this.ball) {
-                // Check using the ball's position and pass the ball object for physics checks
-                if (this.course.isInHole(this.ball.mesh.position, this.ball)) {
-                    console.log("Ball is in hole!");
-                    this.handleHoleCompleted();
-                }
-            }
+            // Publish game started event
+            this.eventManager.publish(EventTypes.GAME_STARTED, { timestamp: Date.now() }, this);
             
-            // Check if ball is in water or out of bounds
-            if (!this.gameState.resetBall && this.course && this.ball && 
-                this.course.isInWater(this.ball.mesh.position)) {
-                this.handleBallInWater();
-            }
+            // Debug log that game was initialized
+            this.debugManager.log("Game initialized");
             
-            // Reset ball if needed
-            if (this.gameState.resetBall) {
-                if (this.gameState.holeCompleted) {
-                    // If hole completed, place at random position
-                    this.placeBallAtRandomPosition();
-                } else {
-                    // If water hazard, place at last safe position
-                    this.placeBallAtLastSafePosition();
-                }
-                
-                this.gameState.resetBall = false;
-                this.gameState.holeCompleted = false;
-                
-                if (this.inputController) {
-                    this.inputController.enableInput();
-                }
-            }
-        }
-        
-        // Update course
-        if (this.course) {
-            this.course.update();
-        }
-        
-        // Render scene
-        this.renderer.render(this.scene, this.camera);
-    }
-    
-    updateCameraFollow(isMoving = false) {
-        if (!this.ball || !this.ball.mesh) return;
-        
-        const ballPosition = this.ball.mesh.position.clone();
-        
-        // Always update the target to look at the ball
-        this.controls.target.lerp(ballPosition, 0.2);
-        
-        // Only move the camera position if the ball is in motion or parameter is true
-        if (isMoving) {
-            // Get ball velocity to determine movement direction
-            const ballVelocity = this.ball.body.velocity;
-            
-            // Only update if the ball is moving with enough speed
-            if (ballVelocity.length() > 0.5) {
-                // Calculate the camera position based on ball's movement direction
-                // Position camera BEHIND the ball relative to its motion
-                const movementDirection = new THREE.Vector3(
-                    ballVelocity.x,
-                    0, // Keep y component zero for horizontal direction
-                    ballVelocity.z
-                ).normalize().multiplyScalar(-1); // Negative to position behind ball
-                
-                // Current camera height relative to target
-                const currentHeight = this.camera.position.y - this.controls.target.y;
-                
-                // Desired distance from ball
-                const cameraDistance = 7;
-                
-                // Calculate new camera position
-                const newCameraPosition = ballPosition.clone()
-                    .add(movementDirection.multiplyScalar(cameraDistance))
-                    .add(new THREE.Vector3(0, currentHeight, 0));
-                
-                // Smooth transition to new position
-                this.camera.position.lerp(newCameraPosition, 0.05);
-                
-                if (this.debugMode) {
-                    console.log(`Camera following ball, velocity: (${ballVelocity.x.toFixed(2)}, ${ballVelocity.z.toFixed(2)})`);
-                }
-            }
-        }
-        
-        // Update the controls
-        this.controls.update();
-    }
-    
-    focusCameraOnBall() {
-        if (!this.ball || !this.ball.mesh) return;
-        
-        const ballPosition = this.ball.mesh.position.clone();
-        
-        // Position camera in a better angle for viewing and hitting the ball
-        const cameraDistance = 7; // Distance from ball
-        const cameraHeight = 5;   // Height above ground
-        const cameraAngle = Math.PI / 4; // 45 degrees behind ball
-        
-        // Disable controls temporarily during transition
-        const controlsEnabled = this.controls.enabled;
-        this.controls.enabled = false;
-        
-        // Set target to ball position
-        this.controls.target.copy(ballPosition);
-        
-        // Calculate camera position with safety checks to avoid NaN
-        let cameraX = ballPosition.x - Math.cos(cameraAngle) * cameraDistance;
-        let cameraZ = ballPosition.z - Math.sin(cameraAngle) * cameraDistance;
-        
-        // Verify values are valid numbers
-        if (isNaN(cameraX) || !isFinite(cameraX)) cameraX = ballPosition.x - cameraDistance;
-        if (isNaN(cameraZ) || !isFinite(cameraZ)) cameraZ = ballPosition.z - cameraDistance;
-        
-        // Set camera position
-        this.camera.position.set(
-            cameraX,
-            ballPosition.y + cameraHeight,
-            cameraZ
-        );
-        
-        // Update controls
-        this.controls.update();
-        
-        // Re-enable controls
-        this.controls.enabled = controlsEnabled;
-        
-        console.log(`Camera positioned at (${this.camera.position.x.toFixed(2)}, ${this.camera.position.y.toFixed(2)}, ${this.camera.position.z.toFixed(2)})`);
-    }
-    
-    handleHoleCompleted() {
-        if (!this.gameState.holeCompleted) {
-            this.score++;
-            this.updateScoreDisplay();
-            this.gameState.holeCompleted = true;
-            this.gameState.resetBall = true;
-            
-            // Show success message with appropriate text based on strokes
-            let message = 'Hole in One!';
-            if (this.score > 1) {
-                message = `Hole completed in ${this.score} strokes!`;
-            }
-            this.showMessage(message, 2000);
-            
-            // Disable input until ball is reset
-            if (this.inputController) {
-                this.inputController.disableInput();
-            }
-            
-            console.log('Hole completed! Score: ' + this.score);
+            // Set up event listeners
+            this.setupEventListeners();
+        } catch (error) {
+            this.debugManager.error('Game.init', 'Failed to initialize game', error, true);
+            console.error('CRITICAL: Failed to initialize game:', error);
         }
     }
     
-    showMessage(text, duration = 2000) {
-        // Find or create message element
-        let messageElement = document.getElementById('game-message');
-        if (!messageElement) {
-            messageElement = document.createElement('div');
-            messageElement.id = 'game-message';
-            messageElement.style.position = 'absolute';
-            messageElement.style.top = '50%';
-            messageElement.style.left = '50%';
-            messageElement.style.transform = 'translate(-50%, -50%)';
-            messageElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-            messageElement.style.color = 'white';
-            messageElement.style.padding = '20px';
-            messageElement.style.borderRadius = '10px';
-            messageElement.style.fontFamily = 'Arial, sans-serif';
-            messageElement.style.fontSize = '24px';
-            messageElement.style.zIndex = '1000';
-            messageElement.style.textAlign = 'center';
-            document.body.appendChild(messageElement);
-        }
-        
-        // Set message and show
-        messageElement.innerText = text;
-        messageElement.style.display = 'block';
-        
-        // Hide after duration
-        setTimeout(() => {
-            messageElement.style.display = 'none';
-        }, duration);
-    }
-    
-    handleBallInWater() {
-        if (!this.gameState.resetBall) {
-            this.gameState.resetBall = true;
-            
-            // Increment score (penalty stroke)
-            this.score++;
-            this.updateScoreDisplay();
-            
-            // Show penalty message
-            this.showMessage('Water hazard! +1 stroke penalty', 2000);
-            
-            // Disable input until ball is reset
-            if (this.inputController) {
-                this.inputController.disableInput();
-            }
-            
-            console.log('Ball in water! Resetting to last position...');
-        }
-    }
-    
-    updateLastSafePosition() {
-        if (this.ball && this.ball.mesh) {
-            // Store the current position as last safe position
-            this.lastSafePosition.copy(this.ball.mesh.position);
-            if (this.debugMode) {
-                console.log(`Saved safe position: ${this.lastSafePosition.x.toFixed(2)}, ${this.lastSafePosition.y.toFixed(2)}, ${this.lastSafePosition.z.toFixed(2)}`);
-            }
-        }
-    }
-    
-    placeBallAtRandomPosition() {
-        // Get a random start position from the course
-        const randomPosition = this.course.getRandomStartPosition();
-        
-        console.log(`Placing ball at position: ${randomPosition.x.toFixed(2)}, ${randomPosition.y.toFixed(2)}, ${randomPosition.z.toFixed(2)}`);
-        
-        // Place the ball at the random position
-        this.ball.setPosition(randomPosition.x, randomPosition.y, randomPosition.z);
-        
-        // Reset ball velocity
-        this.ball.resetVelocity();
-        
-        // Reset game state
-        this.gameState.ballInMotion = false;
-        
-        // Set this position as the initial safe position
-        this.lastSafePosition.copy(new THREE.Vector3(randomPosition.x, randomPosition.y, randomPosition.z));
-        
-        // Don't explicitly move camera - let the updateCameraFollow take care of it
-        // Just keep the target updated
-        if (this.controls) {
-            this.controls.target.copy(randomPosition);
-            this.controls.update();
-        }
-    }
-    
-    placeBallAtLastSafePosition() {
-        if (!this.ball) return;
-        
-        console.log(`Placing ball at last safe position: ${this.lastSafePosition.x.toFixed(2)}, ${this.lastSafePosition.y.toFixed(2)}, ${this.lastSafePosition.z.toFixed(2)}`);
-        
-        // Place the ball at the last safe position
-        this.ball.setPosition(
-            this.lastSafePosition.x, 
-            this.lastSafePosition.y, 
-            this.lastSafePosition.z
-        );
-        
-        // Reset ball velocity
-        this.ball.resetVelocity();
-        
-        // Reset game state
-        this.gameState.ballInMotion = false;
-        
-        // Don't explicitly move camera - let the updateCameraFollow take care of it
-        // Just keep the target updated
-        if (this.controls) {
-            this.controls.target.copy(this.lastSafePosition);
-            this.controls.update();
-        }
-    }
-    
-    initInput() {
-        // Create input controller
-        this.inputController = new InputController(this, this.camera, this.renderer, this.ball);
-        
-        // Disable input initially (will be enabled when game starts)
-        this.inputController.disableInput();
-    }
-    
+    /**
+     * Enable game input, used after unpausing
+     */
     enableGameInput() {
         if (this.inputController) {
             this.inputController.enableInput();
         }
     }
     
-    hitBall(direction, power) {
-        if (this.ball && !this.gameState.ballInMotion) {
-            // Apply force to ball
-            this.ball.applyForce(direction, power);
+    /**
+     * Create starfield background
+     */
+    createStarfield() {
+        // Create star points for background starfield
+        const starGeometry = new THREE.BufferGeometry();
+        const starMaterial = new THREE.PointsMaterial({
+            color: 0xFFFFFF,
+            size: 0.1,
+            transparent: true
+        });
+        
+        const starVertices = [];
+        for (let i = 0; i < 10000; i++) {
+            const x = (Math.random() - 0.5) * 2000;
+            const y = (Math.random() - 0.5) * 2000;
+            const z = (Math.random() - 0.5) * 2000;
+            starVertices.push(x, y, z);
+        }
+        
+        starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+        const stars = new THREE.Points(starGeometry, starMaterial);
+        this.scene.add(stars);
+    }
+    
+    /**
+     * Set up scene lights
+     */
+    setupLights() {
+        // Add ambient light
+        this.lights.ambient = new THREE.AmbientLight(0x404040, 1);
+        this.scene.add(this.lights.ambient);
+        
+        // Add directional light for shadows
+        this.lights.directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        this.lights.directionalLight.position.set(10, 20, 15);
+        this.lights.directionalLight.castShadow = true;
+        
+        // Configure shadow settings
+        this.lights.directionalLight.shadow.mapSize.width = 2048;
+        this.lights.directionalLight.shadow.mapSize.height = 2048;
+        this.lights.directionalLight.shadow.camera.near = 0.5;
+        this.lights.directionalLight.shadow.camera.far = 50;
+        this.lights.directionalLight.shadow.camera.left = -20;
+        this.lights.directionalLight.shadow.camera.right = 20;
+        this.lights.directionalLight.shadow.camera.top = 20;
+        this.lights.directionalLight.shadow.camera.bottom = -20;
+        
+        this.scene.add(this.lights.directionalLight);
+    }
+    
+    /**
+     * Create the course and necessary game objects
+     */
+    createCourse() {
+        // Create the golf course
+        this.course = new BasicCourse(this.scene, this.physicsManager.getWorld(), this);
+        
+        // Set course reference in camera controller
+        this.cameraController.setCourse(this.course);
+        
+        // Set ball at starting position
+        if (this.ballManager) {
+            this.ballManager.createBall();
+        }
+        
+        // Enable input
+        if (this.inputController) {
+            this.inputController.enableInput();
+        }
+        
+        // Position camera to view the hole
+        this.cameraController.positionCameraForHole();
+        
+        // Show hole number
+        this.uiManager.updateHoleNumber();
+        
+        // Update UI
+        this.uiManager.updateScore();
+        
+        // Show welcome message
+        this.uiManager.showMessage("Welcome to Mini Golf Break!", 2000);
+    }
+    
+    /**
+     * Move to the next hole
+     */
+    moveToNextHole() {
+        // Try to advance to the next hole in the course
+        if (this.course.nextHole()) {
+            // Successful move to next hole
             
-            // Set game state
-            this.gameState.ballInMotion = true;
-            
-            // Disable input until ball stops
-            if (this.inputController) {
-                this.inputController.disableInput();
+            // Reset ball at the new hole's starting position if it's not already there
+            // (the ball might already be at the tee position if it fell through)
+            if (this.ballManager && this.ballManager.ball) {
+                const startPosition = this.course.getTeePosition();
+                const currentPosition = this.ballManager.ball.getPosition();
+                
+                // Only reset the ball if it's not already close to the start position
+                const distanceToStart = startPosition.distanceTo(currentPosition);
+                if (distanceToStart > 1.0) {
+                    this.ballManager.resetBall(startPosition);
+                }
             }
+            
+            // Position camera for the new hole
+            this.cameraController.positionCameraForHole();
+            
+            // Update UI for new hole
+            this.uiManager.updateHoleNumber();
+            this.uiManager.updateScore();
+            
+            // Show hole message
+            const holeNumber = this.course.getCurrentHoleNumber();
+            this.uiManager.showMessage(`Hole ${holeNumber}`, 2000);
+            
+            // Make sure the state is reset 
+            this.stateManager.setHoleCompleted(false);
+            this.stateManager.setBallInMotion(false);
+            
+            return true;
+        } else {
+            // All holes completed
+            this.uiManager.showMessage("Course Complete!", 3000);
+            return false;
         }
     }
     
-    updateScoreDisplay() {
-        if (this.scoreElement) {
-            this.scoreElement.textContent = this.score.toString();
+    /**
+     * Handle when ball enters a hole successfully
+     */
+    handleBallInHole() {
+        try {
+            // Make sure ball can fall through the hole by disabling collision with the ground surface
+            if (this.ballManager && this.ballManager.ball) {
+                const ball = this.ballManager.ball;
+                
+                // Play a success sound
+                if (this.audioManager) {
+                    this.audioManager.playSound('success', 0.7);
+                }
+                
+                // Add a visual effect for success (using the ball's handleHoleSuccess method)
+                if (ball.handleHoleSuccess) {
+                    ball.handleHoleSuccess();
+                }
+            }
+            
+            // Mark the current hole as completed, which will disable input
+            this.stateManager.setHoleCompleted(true);
+            
+            // Add small delay before showing a message
+            setTimeout(() => {
+                this.uiManager.showMessage("Great Shot!", 2000);
+            }, 500);
+            
+            // Note: We don't call moveToNextHole() here anymore
+            // The ball's landing pad collision will trigger that after the ball
+            // has fallen through the hole and landed on the tee
+            
+        } catch (error) {
+            console.error("Error in handleBallInHole:", error);
         }
     }
-
-    onWindowResize() {
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-    }
-
-    createBall() {
-        // Create the player's ball
-        this.ball = new Ball(this.scene, this.physicsWorld, this);
-        
-        // Set initial position
-        this.placeBallAtRandomPosition();
-        
-        // Ensure we have a valid last safe position right from the start
-        if (this.ball && this.ball.mesh) {
-            this.lastSafePosition.copy(this.ball.mesh.position);
-            if (this.debugMode) {
-                console.log(`Initial safe position set to: ${this.lastSafePosition.x.toFixed(2)}, ${this.lastSafePosition.y.toFixed(2)}, ${this.lastSafePosition.z.toFixed(2)}`);
+    
+    /**
+     * Reset the current hole
+     */
+    resetHole() {
+        // Set ball back to start position
+        if (this.ballManager && this.ballManager.ball) {
+            const startPosition = this.course.getHoleStartPosition();
+            this.ballManager.ball.setPosition(startPosition.x, startPosition.y, startPosition.z);
+            this.ballManager.ball.resetVelocity();
+            
+            // Update safe position
+            if (this.hazardManager) {
+                this.hazardManager.setLastSafePosition(startPosition);
             }
         }
+        
+        // Reset state
+        this.stateManager.setHoleCompleted(false);
+        this.stateManager.setBallInMotion(false);
+        
+        // Position camera directly
+        this.cameraController.positionCameraForHole();
+        
+        // Show the tee marker at the start position
+        if (this.teeMarker) {
+            const safePosition = this.hazardManager ? this.hazardManager.getLastSafePosition() : new THREE.Vector3(0, 0, 0);
+            this.teeMarker.setPosition(safePosition);
+            this.teeMarker.show();
+        }
+        
+        // Enable input
+        if (this.inputController) {
+            this.inputController.enableInput();
+        }
+        
+        // Show welcome message
+        this.uiManager.showMessage("Ready for another round!", 2000);
+    }
+    
+    /**
+     * Handle window resize
+     */
+    handleResize() {
+        if (this.renderer && this.camera) {
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            
+            // The camera aspect ratio update is handled by the CameraController
+        }
+    }
+    
+    /**
+     * Cleanup the game and all its components
+     */
+    cleanup() {
+        try {
+            // Stop the game loop first
+            if (this.gameLoopManager) {
+                this.gameLoopManager.stopLoop();
+                this.gameLoopManager.cleanup();
+            }
+            
+            // Remove event listeners
+            window.removeEventListener('resize', this.handleResize);
+            
+            // Clean up managers in reverse order of initialization
+            if (this.inputController) this.inputController.cleanup();
+            if (this.ballManager) this.ballManager.cleanup();
+            if (this.holeManager) this.holeManager.cleanup();
+            if (this.hazardManager) this.hazardManager.cleanup();
+            if (this.audioManager) this.audioManager.cleanup();
+            if (this.physicsManager) this.physicsManager.cleanup();
+            if (this.visualEffectsManager) this.visualEffectsManager.cleanup();
+            if (this.cameraController) this.cameraController.cleanup();
+            if (this.uiManager) this.uiManager.cleanup();
+            if (this.stateManager) this.stateManager.cleanup();
+            if (this.performanceManager) this.performanceManager.cleanup();
+            
+            // Core systems last
+            if (this.eventManager) this.eventManager.cleanup();
+            if (this.debugManager) this.debugManager.cleanup();
+            
+            // Remove objects from scene
+            if (this.scene) {
+                while (this.scene.children.length > 0) {
+                    const object = this.scene.children[0];
+                    this.scene.remove(object);
+                    
+                    // Dispose of geometries and materials
+                    if (object.geometry) object.geometry.dispose();
+                    if (object.material) {
+                        if (Array.isArray(object.material)) {
+                            object.material.forEach(material => material.dispose());
+                        } else {
+                            object.material.dispose();
+                        }
+                    }
+                }
+            }
+            
+            // Dispose of renderer
+            if (this.renderer) {
+                this.renderer.dispose();
+                this.renderer = null;
+            }
+            
+            // Clear references
+            this.camera = null;
+            this.scene = null;
+            this.clock = null;
+            
+            console.log('Game cleaned up');
+        } catch (error) {
+            if (this.debugManager) {
+                this.debugManager.error('Game.cleanup', 'Error during cleanup', error);
+            } else {
+                console.error('Error during cleanup:', error);
+            }
+        }
+    }
+
+    /**
+     * Set up event listeners
+     */
+    setupEventListeners() {
+        // Subscribe to ball in hole events
+        this.eventManager.subscribe(
+            EventTypes.BALL_IN_HOLE,
+            this.handleBallInHole,
+            this
+        );
+        
+        // Add other event subscriptions as needed
+        window.addEventListener('resize', this.handleResize.bind(this));
     }
 } 

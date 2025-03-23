@@ -1,15 +1,17 @@
 # Mini Golf Break
 
-A fun, casual offline mini-golf experience built for grown-up PS2-era kids looking to unwind without chaos or multiplayer madness.
+A minimalist mini-golf experience built for quick relaxation breaks. Navigate your ball through a perfectly crafted hole with intuitive controls and satisfying physics.
 
 ## Features
-- **Quick Gameplay Sessions**: Designed specifically for short, relaxing rounds lasting just 2-5 minutes—perfect for busy schedules or quick breaks.
-- **Drag-and-Release Controls**: Simple, intuitive controls that mimic pulling back and releasing a pool cue, making gameplay accessible and enjoyable.
-- **Offline First**: Fully playable offline, ensuring you can enjoy a relaxing round of mini-golf anywhere, anytime—no internet required.
-- **Realistic Physics**: Powered by Cannon-es physics engine with finely-tuned parameters for authentic ball movement and natural rolling behavior.
-- **Minimalist Design**: Clean, distraction-free visuals that focus on gameplay rather than flashy graphics.
-- **Game Menu**: Start screen with instructions and pause functionality for a polished gaming experience.
-- **Debug Mode**: Press 'd' during gameplay to toggle debug mode, showing physics bodies and additional information.
+- **Clean Visual Design**: Play mini-golf in a beautiful, atmospheric setting with proper lighting and a minimalist environment
+- **Quick Gameplay Session**: Designed specifically for short, relaxing rounds lasting just 1-2 minutes—perfect for a mental break
+- **Drag-and-Release Controls**: Simple, intuitive controls that mimic pulling back and releasing a pool cue, making gameplay accessible
+- **Realistic Physics**: Powered by Cannon-es physics engine with finely-tuned parameters for authentic ball movement
+- **Visual Feedback**: Satisfying glow and particle effects when the ball drops in the hole
+- **Animated Scorecard**: Celebratory scorecard appears when you complete the hole, showing your score with a counter animation
+- **Sound Effects**: Audio feedback for hitting the ball and completing the hole enhances the experience
+- **Intelligent Camera**: Camera consistently positions behind the ball looking toward the hole for optimal aiming
+- **Replayable Experience**: After completing the hole, easily replay with a single click for another quick round
 
 ## Installation
 
@@ -24,32 +26,28 @@ cd mini-golf-break
 npm install
 
 # Start the development server
-npm start
+npm run dev
 ```
 
 ## Gameplay Instructions
 
-- **Starting**: Click "Start Game" on the menu to begin playing.
-- **Controls**: Click and drag backwards from the ball to set direction and power, then release to hit.
-- **Power Indicator**: A visual bar shows the strength of your shot based on how far you drag.
-- **Camera**: Use right-click drag to rotate the camera around the ball, scroll to zoom in/out.
-- **Objective**: Get the ball into the hole with as few strokes as possible.
-- **Hazards**: Avoid water (blue areas) which will reset your ball with a penalty stroke.
-- **Scoring**: Your score is tracked in the top-right corner - lower is better!
-- **Pausing**: Click the pause button or press ESC to return to the menu.
+- **Controls**: Click and drag backwards from the ball to set direction and power, then release to hit
+- **Power Indicator**: A visual bar shows the strength of your shot based on how far you drag
+- **Camera**: Use right-click drag to rotate the camera around the ball, scroll to zoom in/out
+- **Objective**: Get the ball into the hole with as few strokes as possible
+- **Scoring**: A beautiful animated scorecard appears when you complete the hole
+- **Replaying**: After completing the hole, click anywhere to play again
 
 ## Development Status
 
-This project is currently in active development. The current version features:
+This project is currently a focused single-hole experience, concentrating on perfecting the core gameplay mechanics:
 
-- A playable course with four holes
-- Finely-tuned physics for realistic ball movement
-- Intuitive drag-and-release controls with power indication
-- Visual aim guides when preparing shots
-- Water hazard detection with penalty system
-- Score tracking and pause functionality
-- Smooth camera that follows the ball during motion
-- Start menu with gameplay instructions
+- Clean, minimalist course design with appropriate lighting
+- Enhanced ball-hole interaction with realistic physics
+- Satisfying visual and audio feedback when completing the hole
+- Animated scorecard showing your score
+- Smooth restart flow to encourage multiple plays
+- Refined ball physics for satisfying movement
 
 Check the [CHANGELOG.md](./CHANGELOG.md) for detailed development history and the [PROJECT_CHECKLIST.md](./PROJECT_CHECKLIST.md) for current progress and upcoming features.
 
@@ -62,6 +60,12 @@ Check the [CHANGELOG.md](./CHANGELOG.md) for detailed development history and th
 - High-precision solver with 30 iterations and 8 substeps
 - Carefully tuned material properties for different surfaces
 
+### Visual Feedback
+- Particle effects and color change when the ball enters the hole
+- Animated scorecard with counting animation for score display
+- Subtle ball glow to maintain visibility in the environment
+- Camera positioning for optimal view of both ball and hole
+
 ## Project Structure
 
 ```
@@ -71,6 +75,7 @@ mini-golf-break/
 │   ├── objects/              # Game objects (ball, course)
 │   ├── physics/              # Physics engine integration
 │   ├── scenes/               # Game scene management
+│   ├── game/                 # Game logic and scoring
 │   └── utils/                # Utility functions
 ├── public/                   # Static assets and bundled output
 ├── docs/                     # Documentation
@@ -83,15 +88,11 @@ mini-golf-break/
 - [Webpack](https://webpack.js.org/) - Module bundling
 
 ## Roadmap
-- Enhanced visual feedback for successful shots
-- Sound effects for ball interactions
-- Additional course layouts and obstacles
+- Additional visual elements in the environment
+- Expanded sound effects library
 - Mobile touch controls optimization
-- Game completion flow and statistics
-
-## Contributing
-
-Contributions are welcome! Please check the [PROJECT_CHECKLIST.md](./PROJECT_CHECKLIST.md) for areas that need attention.
+- Multiple hole options with different layouts
+- Local high scores tracking
 
 ## License
 
