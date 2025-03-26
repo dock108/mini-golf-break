@@ -15,24 +15,12 @@ class App {
         if (playCourseButton) {
             playCourseButton.addEventListener('click', () => this.startCourse());
         }
-        
-        // Add click event for the pause button
-        const pauseButton = document.getElementById('pause-button');
-        if (pauseButton) {
-            pauseButton.addEventListener('click', () => this.pauseGame());
-        }
     }
     
     startCourse() {
         // Hide the menu screen
         if (this.menuScreen) {
             this.menuScreen.style.display = 'none';
-            
-            // Restore original title for next time
-            const titleElement = this.menuScreen.querySelector('h1');
-            if (titleElement && titleElement.textContent === 'Paused') {
-                titleElement.textContent = 'Mini Golf Break';
-            }
         }
         
         // Initialize the game if not already initialized
@@ -43,24 +31,6 @@ class App {
         
         // Enable game input
         this.game.enableGameInput();
-    }
-    
-    pauseGame() {
-        // Show the menu screen
-        if (this.menuScreen) {
-            this.menuScreen.style.display = 'flex';
-            
-            // Change title to show "Paused" instead of "Mini Golf Break"
-            const titleElement = this.menuScreen.querySelector('h1');
-            if (titleElement) {
-                titleElement.textContent = 'Paused';
-            }
-        }
-        
-        // Disable game input
-        if (this.game && this.game.inputController) {
-            this.game.inputController.disableInput();
-        }
     }
 
     init() {

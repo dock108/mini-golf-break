@@ -18,15 +18,18 @@ export class UIManager {
         this.strokesElement = null;
         this.debugElement = null;
         this.powerIndicator = null;
-        this.continueButton = null;
         this.scoreScreen = null;
+        
+        // New UI elements for enhanced display
+        this.holeInfoElement = null;
+        this.scorecardElement = null;
     }
     
     /**
-     * Initialize the UI elements
+     * Initialize the UI manager
      */
     init() {
-        this.createUIElements();
+        this.createUI();
         this.setupEventListeners();
         return this;
     }
@@ -81,103 +84,86 @@ export class UIManager {
     /**
      * Create UI elements
      */
-    createUIElements() {
-        // Create message element
-        this.messageElement = document.getElementById('message-container');
-        if (!this.messageElement) {
-            this.messageElement = document.createElement('div');
-            this.messageElement.id = 'message-container';
-            document.body.appendChild(this.messageElement);
-        }
+    createUI() {
+        // Clean up any existing UI elements first
+        this.cleanup();
         
-        // Create score elements
-        this.scoreElement = document.getElementById('score-container');
-        if (!this.scoreElement) {
-            this.scoreElement = document.createElement('div');
-            this.scoreElement.id = 'score-container';
-            document.body.appendChild(this.scoreElement);
-            
-            this.strokesElement = document.createElement('div');
-            this.strokesElement.id = 'strokes-display';
-            this.scoreElement.appendChild(this.strokesElement);
-        }
+        // Create main UI container
+        this.uiContainer = document.createElement('div');
+        this.uiContainer.id = 'ui-container';
+        this.uiContainer.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+        `;
+        document.body.appendChild(this.uiContainer);
+
+        // Create top-right info container
+        const topRightContainer = document.createElement('div');
+        topRightContainer.style.cssText = `
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 10px;
+            pointer-events: auto;
+        `;
+        this.uiContainer.appendChild(topRightContainer);
+
+        // Create score element
+        this.scoreElement = document.createElement('div');
+        this.scoreElement.style.cssText = `
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        `;
+        topRightContainer.appendChild(this.scoreElement);
+
+        // Create strokes element
+        this.strokesElement = document.createElement('div');
+        this.strokesElement.style.cssText = `
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        `;
+        topRightContainer.appendChild(this.strokesElement);
+
+        // Create message container (center)
+        this.messageElement = document.createElement('div');
+        this.messageElement.id = 'message-container';
+        this.messageElement.style.cssText = `
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            display: none;
+            pointer-events: auto;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            font-size: 16px;
+        `;
+        this.uiContainer.appendChild(this.messageElement);
         
-        // Create debug display
-        this.debugElement = document.getElementById('debug-display');
-        if (!this.debugElement && this.game.debugManager.enabled) {
-            this.debugElement = document.createElement('div');
-            this.debugElement.id = 'debug-display';
-            document.body.appendChild(this.debugElement);
-        }
-        
-        // Create power indicator
-        this.powerIndicator = document.getElementById('power-indicator');
-        if (!this.powerIndicator) {
-            this.powerIndicator = document.createElement('div');
-            this.powerIndicator.id = 'power-indicator';
-            this.powerIndicator.innerHTML = '<div id="power-level"></div>';
-            document.body.appendChild(this.powerIndicator);
-        }
-        
-        // Create continue button
-        this.continueButton = document.getElementById('continue-button');
-        if (!this.continueButton) {
-            this.continueButton = document.createElement('button');
-            this.continueButton.id = 'continue-button';
-            this.continueButton.textContent = 'Continue';
-            this.continueButton.style.display = 'none';
-            document.body.appendChild(this.continueButton);
-            
-            // Add event listener
-            this.continueButton.addEventListener('click', () => {
-                // Publish button click event
-                this.game.eventManager.publish(
-                    EventTypes.UI_BUTTON_CLICKED,
-                    { buttonId: 'continue-button' },
-                    this
-                );
-                
-                // Hide the button
-                this.continueButton.style.display = 'none';
-            });
-        }
-        
-        // Create final score screen
-        this.scoreScreen = document.getElementById('score-screen');
-        if (!this.scoreScreen) {
-            this.scoreScreen = document.createElement('div');
-            this.scoreScreen.id = 'score-screen';
-            this.scoreScreen.innerHTML = `
-                <div id="final-score-container">
-                    <h2>Game Complete!</h2>
-                    <div id="final-score"></div>
-                    <button id="restart-button">Play Again</button>
-                </div>
-            `;
-            this.scoreScreen.style.display = 'none';
-            document.body.appendChild(this.scoreScreen);
-            
-            // Add event listener to restart button
-            const restartButton = this.scoreScreen.querySelector('#restart-button');
-            if (restartButton) {
-                restartButton.addEventListener('click', () => {
-                    // Publish button click event
-                    this.game.eventManager.publish(
-                        EventTypes.UI_BUTTON_CLICKED,
-                        { buttonId: 'restart-button' },
-                        this
-                    );
-                    
-                    // Hide the score screen
-                    this.scoreScreen.style.display = 'none';
-                    
-                    // Reload the page to restart
-                    window.location.reload();
-                });
-            }
-        }
-        
-        // Initial UI update
+        // Initial UI updates
         this.updateScore();
         this.updateStrokes();
     }
@@ -194,7 +180,9 @@ export class UIManager {
         const message = `Hole ${holeNumber} completed! Total strokes so far: ${totalStrokes}`;
         this.showMessage(message, 3000);
         
-        // Update score display
+        // Update all UI elements
+        this.updateHoleInfo();
+        this.updateScorecard();
         this.updateScore();
     }
     
@@ -208,8 +196,9 @@ export class UIManager {
         // Show message
         this.showMessage(`Hole ${holeNumber}`, 2000);
         
-        // Update UI
-        this.updateHoleNumber();
+        // Update all UI elements
+        this.updateHoleInfo();
+        this.updateScorecard();
         this.updateScore();
     }
     
@@ -233,7 +222,8 @@ export class UIManager {
      * @param {GameEvent} event - Ball hit event
      */
     handleBallHit(event) {
-        // Update strokes display
+        // Update both score and strokes display
+        this.updateScore();
         this.updateStrokes();
     }
     
@@ -242,12 +232,7 @@ export class UIManager {
      * @param {GameEvent} event - Ball in hole event
      */
     handleBallInHole(event) {
-        // Show continue button after delay
-        setTimeout(() => {
-            if (this.game.stateManager.isHoleCompleted()) {
-                this.showContinueButton();
-            }
-        }, 1500);
+        // No need to show continue button anymore as transition is automatic
     }
     
     /**
@@ -313,24 +298,55 @@ export class UIManager {
         if (!this.scoreElement) return;
         
         const holeNumber = this.game.course ? this.game.course.getCurrentHoleNumber() : 1;
-        const totalStrokes = this.game.scoringSystem.getTotalStrokes();
+        const currentStrokes = this.game.scoringSystem.getCurrentStrokes();
         
-        this.scoreElement.innerHTML = `<div>Hole: ${holeNumber}</div><div>Total Strokes: ${totalStrokes}</div>`;
+        this.scoreElement.textContent = `Hole: ${holeNumber} | Stroke: ${currentStrokes}`;
     }
     
     /**
-     * Update current hole number display
+     * Update hole information display
      */
-    updateHoleNumber() {
-        if (!this.scoreElement) return;
+    updateHoleInfo() {
+        if (!this.holeInfoElement) return;
         
-        // Get hole number directly from the course
         const holeNumber = this.game.course ? this.game.course.getCurrentHoleNumber() : 1;
-        const holeElement = this.scoreElement.querySelector('div:first-child');
+        const par = this.game.holeStateManager.getHolePar(holeNumber - 1);
+        const strokes = this.game.scoringSystem.getCurrentStrokes();
         
-        if (holeElement) {
-            holeElement.textContent = `Hole: ${holeNumber}`;
+        this.holeInfoElement.innerHTML = `
+            <div style="font-size: 1.2em; margin-bottom: 5px;">Hole ${holeNumber}</div>
+            <div>Par: ${par}</div>
+            <div>Strokes: ${strokes}</div>
+        `;
+    }
+    
+    /**
+     * Update scorecard display
+     */
+    updateScorecard() {
+        if (!this.scorecardElement) return;
+        
+        const scorecard = this.game.holeStateManager.getAllHoleStates();
+        const totalHoles = this.game.course ? this.game.course.getTotalHoles() : 1;
+        
+        let html = '<div style="font-size: 1.2em; margin-bottom: 10px;">Scorecard</div>';
+        
+        for (let i = 0; i < totalHoles; i++) {
+            const state = scorecard.get(i) || { par: 3, strokes: null, completed: false };
+            const strokeDisplay = state.strokes !== null ? state.strokes : '-';
+            const status = state.completed ? '✓' : '';
+            
+            html += `
+                <div style="display: flex; justify-content: space-between; margin: 5px 0;">
+                    <span>Hole ${i + 1}</span>
+                    <span>Par: ${state.par}</span>
+                    <span>${strokeDisplay}</span>
+                    <span>${status}</span>
+                </div>
+            `;
         }
+        
+        this.scorecardElement.innerHTML = html;
     }
     
     /**
@@ -339,8 +355,8 @@ export class UIManager {
     updateStrokes() {
         if (!this.strokesElement) return;
         
-        const strokes = this.game.scoringSystem.getTotalStrokes();
-        this.strokesElement.textContent = `Total Strokes: ${strokes}`;
+        const totalStrokes = this.game.scoringSystem.getTotalStrokes();
+        this.strokesElement.textContent = `Total Strokes: ${totalStrokes}`;
     }
     
     /**
@@ -360,15 +376,6 @@ export class UIManager {
     }
     
     /**
-     * Show continue button
-     */
-    showContinueButton() {
-        if (!this.continueButton) return;
-        
-        this.continueButton.style.display = 'block';
-    }
-    
-    /**
      * Show final score screen
      * @param {number} score - Final score
      */
@@ -384,40 +391,47 @@ export class UIManager {
     }
     
     /**
-     * Show scorecard at the end of hole
-     * @param {Object} scoreData - Data with score (strokes, par)
-     * @param {Function} onContinue - Callback when player clicks to continue
-     */
-    showScorecard(scoreData, onContinue) {
-        // Simplified scorecard display as an alternative to the removed component
-        if (!this.scoreScreen) return;
-        
-        const finalScoreElement = this.scoreScreen.querySelector('#final-score');
-        if (finalScoreElement) {
-            finalScoreElement.textContent = `Total Strokes: ${scoreData.strokes}`;
-        }
-        
-        this.scoreScreen.style.display = 'flex';
-    }
-    
-    /**
      * Clean up UI resources
      */
     cleanup() {
-        // Hide and clean up any message
-        if (this.messageElement && this.messageElement.parentNode) {
-            this.messageElement.parentNode.removeChild(this.messageElement);
+        // Remove the entire UI container and all its children
+        if (this.uiContainer) {
+            this.uiContainer.remove();
+            this.uiContainer = null;
         }
+        
+        // Remove any standalone elements that might have been created
+        const elementsToRemove = [
+            'score-container',
+            'strokes-display',
+            'debug-display',
+            'power-indicator',
+            'score-screen',
+            'message-container',
+            'error-overlay'
+        ];
+        
+        elementsToRemove.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.remove();
+            }
+        });
+        
+        // Reset all element references
+        this.holeInfoElement = null;
+        this.scorecardElement = null;
+        this.messageElement = null;
+        this.scoreElement = null;
+        this.strokesElement = null;
+        this.debugElement = null;
+        this.powerIndicator = null;
+        this.scoreScreen = null;
         
         // Clear any existing message timeout
         if (this.messageTimeoutId) {
             clearTimeout(this.messageTimeoutId);
             this.messageTimeoutId = null;
-        }
-        
-        // Clean up other UI elements
-        if (this.scoreElement && this.scoreElement.parentNode) {
-            this.scoreElement.parentNode.removeChild(this.scoreElement);
         }
         
         // Reset state

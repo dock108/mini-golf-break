@@ -511,17 +511,6 @@ export class Course {
         return false;
     }
     
-    /**
-     * Get the par value for the current hole
-     * @returns {number} Par value (default: 3)
-     */
-    getCurrentHolePar() {
-        // For this simple implementation, we'll return a default par of 3
-        // In a more advanced implementation, this could return different par values
-        // based on the current hole difficulty
-        return 3;
-    }
-    
     update() {
         // Animate flags waving
         if (this.flags) {

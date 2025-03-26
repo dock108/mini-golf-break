@@ -229,41 +229,8 @@ export class Ball {
         
         // Check if the ball collided with a hole
         if (event.body.userData && event.body.userData.type === 'hole') {
-            // Log the collision for debugging
-            console.log(`HOLE COLLISION: Ball at ${this.body.position.x.toFixed(2)}, ${this.body.position.y.toFixed(2)}, ${this.body.position.z.toFixed(2)} hit hole at ${event.body.position.x.toFixed(2)}, ${event.body.position.y.toFixed(2)}, ${event.body.position.z.toFixed(2)}`);
-            
-            // Stop the ball's current movement and suck it into the hole
+            // Stop the ball's movement
             this.resetVelocity();
-            
-            // Center the ball over the hole and start the sucking effect
-            if (this.body) {
-                // Get hole position
-                const holeX = event.body.position.x;
-                const holeZ = event.body.position.z;
-                
-                // Immediately position ball directly over hole (horizontal centering)
-                this.body.position.x = holeX;
-                this.body.position.z = holeZ;
-                
-                // Disable physics interactions with everything but triggers
-                this.body.collisionFilterMask = 2; // Only collide with hole triggers (group 2)
-                
-                // Create a "sucking" animation effect
-                this.isSuckedIntoHole = true;
-                this.holePosition = new THREE.Vector3(holeX, event.body.position.y - 0.5, holeZ);
-                
-                // Apply downward force to simulate sucking
-                if (this.body.gravity) {
-                    this.body.gravity.set(0, -30, 0);
-                }
-                
-                // Apply small downward velocity
-                this.body.velocity.set(0, -2, 0);
-                this.body.angularVelocity.set(0, 2, 0); // Add a small spin for effect
-                
-                // Keep the ball awake to ensure it keeps moving
-                this.body.wakeUp();
-            }
             
             // Trigger the ball in hole event
             if (this.game && this.game.eventManager) {
@@ -274,47 +241,13 @@ export class Ball {
                     holeIndex: event.body.userData.holeIndex
                 });
             }
-        }
-        
-        // Check if ball collided with a landing pad (at the second hole's tee)
-        if (event.body.userData && event.body.userData.type === 'landing_pad') {
-            console.log(`LANDING PAD COLLISION: Ball reached tee of hole ${event.body.userData.holeIndex + 1}`);
-            
-            // Reset ball physics to normal state
-            this.body.collisionFilterMask = 1 | 2; // Collide with ground and triggers again
-            
-            if (this.body && this.body.gravity) {
-                this.body.gravity.set(0, -9.81, 0); // Reset to normal gravity
-            }
-            
-            // Stop the ball's motion completely
-            this.resetVelocity();
-            
-            // Get the tee position for the second hole
-            if (this.game && this.game.course) {
-                const holeIndex = event.body.userData.holeIndex;
-                const teePosition = this.game.course.holes[holeIndex].startPosition.clone();
-                
-                // Reset the sucking effect
-                this.resetSuckingEffect();
-                
-                // Set ball position precisely at the tee
-                this.setPosition(teePosition.x, teePosition.y, teePosition.z);
-                
-                // Force the ball to stay still
-                this.body.sleep();
-                
-                // Make sure the ball's internal state recognizes it's at rest
-                this.isMoving = false;
-                this.hasBeenHit = false;
-                
-                // Wait a brief moment and then trigger hole transition
-                setTimeout(() => {
-                    if (this.game && this.game.moveToNextHole) {
-                        this.game.moveToNextHole();
-                    }
-                }, 1000);
-            }
+
+            // Start transition to next hole after a short delay
+            setTimeout(() => {
+                if (this.game && this.game.holeTransitionManager) {
+                    this.game.holeTransitionManager.transitionToNextHole();
+                }
+            }, 500);
         }
     }
     
@@ -334,30 +267,6 @@ export class Ball {
             // Update the attached light position
             if (this.ballLight) {
                 this.ballLight.position.copy(this.mesh.position);
-            }
-            
-            // Handle sucking animation when ball is in hole
-            if (this.isSuckedIntoHole && this.holePosition) {
-                // Calculate how close we are to the target position (sucked fully into hole)
-                const distanceToTarget = this.body.position.y - this.holePosition.y;
-                
-                // If we're still being sucked in
-                if (distanceToTarget > 0.05) {
-                    // Make sure ball stays centered over hole
-                    this.body.position.x = this.holePosition.x;
-                    this.body.position.z = this.holePosition.z;
-                    
-                    // Keep the ball moving down with a spin
-                    this.body.velocity.set(0, -2, 0); 
-                    this.body.angularVelocity.set(0, 2, 0);
-                    
-                    // Gradually shrink the ball as it gets sucked in (visual effect)
-                    const shrinkFactor = Math.max(0.5, distanceToTarget * 2);
-                    this.mesh.scale.set(shrinkFactor, shrinkFactor, shrinkFactor);
-                    
-                    // Keep ball awake
-                    this.body.wakeUp();
-                }
             }
             
             // Check if ball is out of bounds (fell off course) and reset if needed

@@ -25,6 +25,8 @@ export class CameraController {
         
         // Initialization state tracking
         this.isInitialized = false;
+        
+        this.isTransitioning = false;
     }
     
     /**
@@ -49,47 +51,18 @@ export class CameraController {
                 return this;
             }
             
-            // Ensure we have a renderer
-            if (!this.renderer) {
-                if (this.game.debugManager) {
-                    this.game.debugManager.warn('CameraController.init', 'Initialized without renderer, orbit controls will be disabled');
-                } else {
-                    console.warn("CameraController initialized without renderer, orbit controls will be disabled");
-                }
-            }
+            // Setup camera
+            this.setupCamera();
             
-            // Setup camera initial position - higher up for better space view
-            this.camera.position.set(0, 15, 15);
-            this.camera.lookAt(0, 0, 0);
-            
-            // Initialize orbit controls if we have a renderer
+            // Setup controls if renderer is available
             if (this.renderer) {
-                try {
-                    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-                    
-                    // Configure controls
-                    this.controls.enableDamping = true;
-                    this.controls.dampingFactor = 0.1;
-                    this.controls.rotateSpeed = 0.7;
-                    this.controls.zoomSpeed = 1.2;
-                    this.controls.minDistance = 2;
-                    this.controls.maxDistance = 30;
-                    this.controls.maxPolarAngle = Math.PI / 2; // Limit vertical rotation
-                    
-                    // Enable target movement with middle mouse
-                    this.controls.enablePan = true;
-                    this.controls.panSpeed = 0.8;
-                    this.controls.screenSpacePanning = true;
-                } catch (error) {
-                    if (this.game.debugManager) {
-                        this.game.debugManager.error('CameraController.init', 'Failed to initialize orbit controls', error);
-                    } else {
-                        console.error("Failed to initialize orbit controls:", error);
-                    }
-                }
+                this.setupControls();
             } else if (this.game.debugManager) {
-                this.game.debugManager.warn('CameraController.init', 'Orbit controls disabled - no renderer available');
+                this.game.debugManager.warn('CameraController.init', 'Initialized without renderer, orbit controls will be disabled');
             }
+            
+            // Set up event listeners
+            this.setupEventListeners();
             
             // Set up resize event listener
             try {
@@ -101,9 +74,6 @@ export class CameraController {
                     this.game.debugManager.warn('CameraController.init', 'Failed to add resize listener', error);
                 }
             }
-            
-            // Set up event listeners
-            this.setupEventListeners();
             
             // Mark as initialized
             this.isInitialized = true;
@@ -323,6 +293,14 @@ export class CameraController {
     }
     
     /**
+     * Set transition mode for camera
+     * @param {boolean} enabled - Whether transition mode should be enabled
+     */
+    setTransitionMode(enabled) {
+        this.isTransitioning = enabled;
+    }
+
+    /**
      * Update camera position to follow the ball
      */
     updateCameraFollowBall() {
@@ -332,6 +310,20 @@ export class CameraController {
         
         // Get the ball's position
         const ballPosition = ball.mesh.position.clone();
+        
+        // During transition, follow the ball more closely
+        if (this.isTransitioning) {
+            // Position camera slightly above and behind ball
+            const cameraPosition = ballPosition.clone().add(new THREE.Vector3(2, 4, 2));
+            this.camera.position.lerp(cameraPosition, 0.1);
+            this.camera.lookAt(ballPosition);
+            
+            if (this.controls) {
+                this.controls.target.copy(ballPosition);
+                this.controls.update();
+            }
+            return;
+        }
         
         // Only follow the ball if it's moving
         if (this.game.stateManager && this.game.stateManager.isBallInMotion()) {
@@ -425,6 +417,67 @@ export class CameraController {
                 this.game.debugManager.error('CameraController.cleanup', 'Error during cleanup', error);
             } else {
                 console.error('Error during CameraController cleanup:', error);
+            }
+        }
+    }
+
+    /**
+     * Set up the camera with initial configuration
+     */
+    setupCamera() {
+        try {
+            // Setup camera initial position - higher up for better space view
+            this.camera.position.set(0, 15, 15);
+            this.camera.lookAt(0, 0, 0);
+            
+            if (this.game.debugManager) {
+                this.game.debugManager.log('Camera setup complete');
+            }
+        } catch (error) {
+            if (this.game.debugManager) {
+                this.game.debugManager.error('CameraController.setupCamera', 'Failed to setup camera', error);
+            } else {
+                console.error('Failed to setup camera:', error);
+            }
+        }
+    }
+
+    /**
+     * Set up the orbit controls
+     */
+    setupControls() {
+        try {
+            if (!this.renderer) {
+                if (this.game.debugManager) {
+                    this.game.debugManager.warn('CameraController.setupControls', 'No renderer available, skipping controls setup');
+                }
+                return;
+            }
+
+            this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+            
+            // Configure controls
+            this.controls.enableDamping = true;
+            this.controls.dampingFactor = 0.1;
+            this.controls.rotateSpeed = 0.7;
+            this.controls.zoomSpeed = 1.2;
+            this.controls.minDistance = 2;
+            this.controls.maxDistance = 30;
+            this.controls.maxPolarAngle = Math.PI / 2; // Limit vertical rotation
+            
+            // Enable target movement with middle mouse
+            this.controls.enablePan = true;
+            this.controls.panSpeed = 0.8;
+            this.controls.screenSpacePanning = true;
+
+            if (this.game.debugManager) {
+                this.game.debugManager.log('Controls setup complete');
+            }
+        } catch (error) {
+            if (this.game.debugManager) {
+                this.game.debugManager.error('CameraController.setupControls', 'Failed to setup controls', error);
+            } else {
+                console.error('Failed to setup controls:', error);
             }
         }
     }

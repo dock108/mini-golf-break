@@ -2,6 +2,30 @@
 
 All notable changes to the Mini Golf Break project will be documented in this file.
 
+## [0.9.0] - Hole Management System Refactor
+
+### Architecture Improvements
+- Split monolithic HoleManager into specialized components:
+  - HoleStateManager for state tracking
+  - HoleTransitionManager for hole transitions
+  - HoleCompletionManager for completion logic
+- Implemented vertical hole stacking with disappearing completed holes
+- Added ball fall animation between holes
+- Enhanced hole completion with fade-out animation
+
+### Visual Enhancements
+- Added hole disappearing animation with fade-out and scale
+- Improved hole transition visuals with ball fall effect
+- Enhanced visual feedback for hole completion
+- Updated camera behavior for vertical course layout
+
+### Technical Improvements
+- Improved event system integration for hole management
+- Enhanced state tracking with dedicated managers
+- Added proper cleanup for completed holes
+- Implemented better error handling in managers
+- Updated documentation structure and organization
+
 ## [0.8.5] - Course Surface Visualization Fix
 
 ### Visual Improvements

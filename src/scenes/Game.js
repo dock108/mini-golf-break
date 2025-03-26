@@ -15,7 +15,9 @@ import { AudioManager } from '../managers/AudioManager';
 import { VisualEffectsManager } from '../managers/VisualEffectsManager';
 import { BallManager } from '../managers/BallManager';
 import { HazardManager } from '../managers/HazardManager';
-import { HoleManager } from '../managers/HoleManager';
+import { HoleStateManager } from '../managers/HoleStateManager';
+import { HoleTransitionManager } from '../managers/HoleTransitionManager';
+import { HoleCompletionManager } from '../managers/HoleCompletionManager';
 import { GameLoopManager } from '../managers/GameLoopManager';
 import { EventManager } from '../managers/EventManager';
 import { PerformanceManager } from '../managers/PerformanceManager';
@@ -41,7 +43,9 @@ export class Game {
         this.visualEffectsManager = new VisualEffectsManager(this);
         this.ballManager = new BallManager(this);
         this.hazardManager = new HazardManager(this);
-        this.holeManager = new HoleManager(this);
+        this.holeStateManager = new HoleStateManager(this);
+        this.holeTransitionManager = new HoleTransitionManager(this);
+        this.holeCompletionManager = new HoleCompletionManager(this);
         this.gameLoopManager = new GameLoopManager(this);
         
         // Create camera controller
@@ -110,10 +114,15 @@ export class Game {
             this.physicsManager.init();
             this.audioManager.init();
             
+            // Create course first, before initializing hole managers
+            this.createCourse();
+            
             // Fourth tier - Game object managers that depend on physics and scene
             this.hazardManager.init();
-            this.holeManager.init();
-            this.ballManager.init();  // Ball depends on physics and scene
+            this.holeStateManager.init();
+            this.holeTransitionManager.init();
+            this.holeCompletionManager.init();
+            this.ballManager.init();
             
             // Create tee marker
             if (!this.teeMarker) {
@@ -123,12 +132,14 @@ export class Game {
             // Setup lights
             this.setupLights();
             
-            // Create course 
-            this.createCourse();
-            
             // Create input controller - depends on camera and ball
             this.inputController = new InputController(this);
             this.inputController.init();
+            
+            // Update UI with initial state
+            this.uiManager.updateHoleInfo();
+            this.uiManager.updateScore();
+            this.uiManager.updateStrokes();
             
             // Add window resize listener
             try {
@@ -216,14 +227,17 @@ export class Game {
     }
     
     /**
-     * Create the course and necessary game objects
+     * Create the course
      */
     createCourse() {
-        // Create the golf course
-        this.course = new BasicCourse(this.scene, this.physicsManager.getWorld(), this);
+        // Create course with game reference
+        this.course = new BasicCourse(this);
         
         // Set course reference in camera controller
         this.cameraController.setCourse(this.course);
+        
+        // Create the course
+        this.course.createCourse();
         
         // Set ball at starting position
         if (this.ballManager) {
@@ -238,11 +252,10 @@ export class Game {
         // Position camera to view the hole
         this.cameraController.positionCameraForHole();
         
-        // Show hole number
-        this.uiManager.updateHoleNumber();
-        
-        // Update UI
+        // Update UI with initial state
+        this.uiManager.updateHoleInfo();
         this.uiManager.updateScore();
+        this.uiManager.updateStrokes();
         
         // Show welcome message
         this.uiManager.showMessage("Welcome to Mini Golf Break!", 2000);
@@ -253,7 +266,7 @@ export class Game {
      */
     moveToNextHole() {
         // Try to advance to the next hole in the course
-        if (this.course.nextHole()) {
+        if (this.course.loadNextHole()) {
             // Successful move to next hole
             
             // Reset ball at the new hole's starting position if it's not already there
@@ -273,8 +286,9 @@ export class Game {
             this.cameraController.positionCameraForHole();
             
             // Update UI for new hole
-            this.uiManager.updateHoleNumber();
+            this.uiManager.updateHoleInfo();
             this.uiManager.updateScore();
+            this.uiManager.updateStrokes();
             
             // Show hole message
             const holeNumber = this.course.getCurrentHoleNumber();
@@ -396,7 +410,9 @@ export class Game {
             // Clean up managers in reverse order of initialization
             if (this.inputController) this.inputController.cleanup();
             if (this.ballManager) this.ballManager.cleanup();
-            if (this.holeManager) this.holeManager.cleanup();
+            if (this.holeCompletionManager) this.holeCompletionManager.cleanup();
+            if (this.holeTransitionManager) this.holeTransitionManager.cleanup();
+            if (this.holeStateManager) this.holeStateManager.cleanup();
             if (this.hazardManager) this.hazardManager.cleanup();
             if (this.audioManager) this.audioManager.cleanup();
             if (this.physicsManager) this.physicsManager.cleanup();
