@@ -36,28 +36,23 @@ export class BasicCourse extends Course {
         this.obstacles = [];
         this.obstacleBodies = [];
         
-        // Define vertical spacing between holes
-        this.VERTICAL_HOLE_SPACING = 35; // Reduced from 100 to 35 units for a shorter fall
-        
-        // Define hole configurations - stacked vertically
-        this.holes = [
-            // Hole 1 (highest position)
+        // Define hole configurations - flat layout
+        this.holeConfigs = [
+            // Hole 1
             {
                 holePosition: new THREE.Vector3(0, 0, -8),
                 startPosition: new THREE.Vector3(0, 0, 8),
                 courseWidth: 4,
                 courseLength: 20,
-                par: 3,
-                mesh: null // Store reference to hole mesh
+                par: 3
             },
-            // Hole 2 (below Hole 1)
+            // Hole 2
             {
-                holePosition: new THREE.Vector3(0, -this.VERTICAL_HOLE_SPACING, 8), // Move hole to front
-                startPosition: new THREE.Vector3(0, -this.VERTICAL_HOLE_SPACING, -8), // Start where hole 1 ended
+                holePosition: new THREE.Vector3(0, 0, 8),
+                startPosition: new THREE.Vector3(0, 0, -8),
                 courseWidth: 4,
                 courseLength: 20,
-                par: 3,
-                mesh: null
+                par: 3
             }
         ];
         
@@ -71,54 +66,97 @@ export class BasicCourse extends Course {
             });
         }
         
-        // Multi-hole configuration
-        this.currentHoleIndex = 0;
-        this.totalHoles = 2; // Initially supporting 2 holes
-        
-        // Now that everything is initialized, create the course
+        // Load just the first hole
         this.createCourse();
     }
     
     /**
-     * Create the course with all holes
+     * Create the course with just the current hole
      */
     createCourse() {
-        // Use the existing this.holes array which contains our hole configurations
-        this.holes = this.holes.map((holeConfig, index) => {
-            // Create hole mesh and physics
-            const holeMesh = this.createHole({
-                ...holeConfig,
-                holeIndex: index, // Add the hole index to the config
-                startPosition: new THREE.Vector3(
-                    holeConfig.startPosition.x,
-                    -index * this.VERTICAL_HOLE_SPACING,
-                    holeConfig.startPosition.z
-                ),
-                holePosition: new THREE.Vector3(
-                    holeConfig.holePosition.x,
-                    -index * this.VERTICAL_HOLE_SPACING,
-                    holeConfig.holePosition.z
-                )
-            });
-            
-            return {
-                mesh: holeMesh,
-                par: holeConfig.par,
-                startPosition: new THREE.Vector3(
-                    holeConfig.startPosition.x,
-                    -index * this.VERTICAL_HOLE_SPACING,
-                    holeConfig.startPosition.z
-                ),
-                holePosition: new THREE.Vector3(
-                    holeConfig.holePosition.x,
-                    -index * this.VERTICAL_HOLE_SPACING,
-                    holeConfig.holePosition.z
-                )
-            };
+        // Clear any existing holes
+        this.clearCurrentHole();
+        
+        // Get current hole config
+        const holeConfig = this.holeConfigs[this.currentHoleIndex];
+        if (!holeConfig) {
+            console.error('Invalid hole configuration');
+            return;
+        }
+        
+        // Create just the current hole
+        const holeMesh = this.createHole({
+            ...holeConfig,
+            holeIndex: this.currentHoleIndex
         });
-
-        // Set current hole
-        this.currentHoleIndex = 0;
+        
+        // Store the current hole
+        this.holes = [{
+            mesh: holeMesh,
+            par: holeConfig.par,
+            startPosition: holeConfig.startPosition.clone(),
+            holePosition: holeConfig.holePosition.clone()
+        }];
+    }
+    
+    /**
+     * Clear the current hole and its resources
+     */
+    clearCurrentHole() {
+        // Remove existing hole meshes and dispose of resources
+        this.holes.forEach(hole => {
+            if (hole.mesh) {
+                // Remove all children recursively
+                hole.mesh.traverse((child) => {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) {
+                        if (Array.isArray(child.material)) {
+                            child.material.forEach(mat => mat.dispose());
+                        } else {
+                            child.material.dispose();
+                        }
+                    }
+                });
+                this.scene.remove(hole.mesh);
+            }
+        });
+        
+        // Clear physics bodies
+        this.physicsBodies.forEach(body => {
+            if (this.physicsWorld) {
+                this.physicsWorld.removeBody(body);
+            }
+        });
+        
+        // Clear hole bodies
+        this.holeBodies.forEach(body => {
+            if (this.physicsWorld) {
+                this.physicsWorld.removeBody(body);
+            }
+        });
+        
+        // Clear obstacles
+        this.obstacles.forEach(obstacle => {
+            if (obstacle.mesh) {
+                if (obstacle.mesh.geometry) obstacle.mesh.geometry.dispose();
+                if (obstacle.mesh.material) obstacle.mesh.material.dispose();
+                this.scene.remove(obstacle.mesh);
+            }
+        });
+        
+        // Clear obstacle bodies
+        this.obstacleBodies.forEach(body => {
+            if (this.physicsWorld) {
+                this.physicsWorld.removeBody(body);
+            }
+        });
+        
+        // Clear arrays
+        this.holes = [];
+        this.physicsBodies = [];
+        this.holeBodies = [];
+        this.obstacles = [];
+        this.obstacleBodies = [];
     }
     
     /**
@@ -525,18 +563,28 @@ export class BasicCourse extends Course {
      * @returns {boolean} True if there is a next hole, false otherwise
      */
     hasNextHole() {
-        return this.currentHoleIndex < this.holes.length - 1;
+        return this.currentHoleIndex < this.totalHoles - 1;
     }
     
     /**
      * Load the next hole
+     * @returns {boolean} True if successful, false if no next hole
      */
     loadNextHole() {
-        if (this.hasNextHole()) {
-            this.currentHoleIndex++;
-            return true;
+        if (!this.hasNextHole()) {
+            return false;
         }
-        return false;
+
+        // Increment the hole index
+        this.currentHoleIndex++;
+        
+        // Clear the current hole
+        this.clearCurrentHole();
+        
+        // Create the new hole
+        this.createCourse();
+        
+        return true;
     }
     
     /**
@@ -579,13 +627,13 @@ export class BasicCourse extends Course {
         const index = holeNumber - 1;
         
         // Check if hole exists
-        if (index < 0 || index >= this.holes.length) {
+        if (index < 0 || index >= this.holeConfigs.length) {
             console.warn(`Invalid hole number: ${holeNumber}`);
             return 3; // Default par
         }
         
         // Return the par from the hole configuration
-        return this.holes[index].par;
+        return this.holeConfigs[index].par;
     }
     
     /**
@@ -658,14 +706,12 @@ export class BasicCourse extends Course {
      * @returns {Object} The current hole configuration object
      */
     getCurrentHole() {
-        if (this.currentHoleIndex < 0 || this.currentHoleIndex >= this.holes.length) {
+        if (this.currentHoleIndex < 0 || this.currentHoleIndex >= this.holeConfigs.length) {
             return null;
         }
         return {
-            mesh: this.holes[this.currentHoleIndex].mesh,
-            startPosition: this.holes[this.currentHoleIndex].startPosition.clone(),
-            holePosition: this.holes[this.currentHoleIndex].holePosition.clone(),
-            par: this.holes[this.currentHoleIndex].par
+            ...this.holeConfigs[this.currentHoleIndex],
+            mesh: this.holes[0]?.mesh || null
         };
     }
     
@@ -678,10 +724,8 @@ export class BasicCourse extends Course {
             return null;
         }
         return {
-            mesh: this.holes[this.currentHoleIndex + 1].mesh,
-            startPosition: this.holes[this.currentHoleIndex + 1].startPosition.clone(),
-            holePosition: this.holes[this.currentHoleIndex + 1].holePosition.clone(),
-            par: this.holes[this.currentHoleIndex + 1].par
+            ...this.holeConfigs[this.currentHoleIndex + 1],
+            mesh: null // Next hole isn't loaded yet
         };
     }
 } 

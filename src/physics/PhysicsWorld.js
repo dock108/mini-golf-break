@@ -119,8 +119,54 @@ export class PhysicsWorld {
             }
         }
         
-        // Step the physics world
-        this.world.step(this.fixedTimeStep, dt, this.maxSubSteps);
+        // Step the physics world with safety checks
+        if (this.world) {
+            try {
+                // Wake up all bodies before stepping to ensure they're in a valid state
+                this.world.bodies.forEach(body => {
+                    if (body && typeof body.wakeUp === 'function') {
+                        body.wakeUp();
+                    }
+                });
+
+                // Temporarily remove collision callback if it exists
+                let tempCallback = null;
+                if (this._collisionCallback) {
+                    tempCallback = this._collisionCallback;
+                    this.world.removeEventListener('beginContact', this._collisionCallback);
+                }
+                
+                // Step the world
+                this.world.step(this.fixedTimeStep, dt, this.maxSubSteps);
+                
+                // Re-add collision callback if it was removed
+                if (tempCallback) {
+                    this.world.addEventListener('beginContact', tempCallback);
+                }
+            } catch (error) {
+                console.error('Error in physics update:', error);
+                // If we get an error, try to recover by resetting all bodies
+                this.world.bodies.forEach(body => {
+                    if (body) {
+                        body.velocity.set(0, 0, 0);
+                        body.angularVelocity.set(0, 0, 0);
+                        body.force.set(0, 0, 0);
+                        body.torque.set(0, 0, 0);
+                        if (typeof body.wakeUp === 'function') {
+                            body.wakeUp();
+                        }
+                    }
+                });
+            }
+        }
+    }
+    
+    // Store collision callback for re-adding after reset
+    setCollisionCallback(callback) {
+        this._collisionCallback = callback;
+        if (this.world) {
+            this.world.addEventListener('beginContact', callback);
+        }
     }
     
     addBody(body) {
@@ -128,7 +174,27 @@ export class PhysicsWorld {
     }
     
     removeBody(body) {
-        this.world.removeBody(body);
+        if (this.world && body) {
+            // Wake up the body before removal
+            if (typeof body.wakeUp === 'function') {
+                body.wakeUp();
+            }
+            
+            // Reset all physics properties
+            body.velocity.set(0, 0, 0);
+            body.angularVelocity.set(0, 0, 0);
+            body.force.set(0, 0, 0);
+            body.torque.set(0, 0, 0);
+            
+            // Remove all constraints involving this body first
+            const constraintsToRemove = this.world.constraints.filter(
+                c => c.bodyA === body || c.bodyB === body
+            );
+            constraintsToRemove.forEach(c => this.world.removeConstraint(c));
+            
+            // Finally remove the body
+            this.world.removeBody(body);
+        }
     }
     
     // Helper to create a plane body for ground

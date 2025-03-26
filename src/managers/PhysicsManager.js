@@ -18,6 +18,9 @@ export class PhysicsManager {
         // Debug visualization
         this.debugEnabled = false;
         this.debugMeshes = [];
+
+        // Flag to track if world is being reset
+        this.isResetting = false;
     }
     
     /**
@@ -53,9 +56,13 @@ export class PhysicsManager {
     setupCollisionEvents() {
         if (!this.cannonWorld) return this;
         
-        // Add collision event handlers if needed
-        this.cannonWorld.addEventListener('beginContact', this.handleCollisionStart.bind(this));
-        this.cannonWorld.addEventListener('endContact', this.handleCollisionEnd.bind(this));
+        // Store bound handlers
+        this.boundCollisionStart = this.handleCollisionStart.bind(this);
+        this.boundCollisionEnd = this.handleCollisionEnd.bind(this);
+        
+        // Add collision event handlers and store them in the physics world
+        this.world.setCollisionCallback(this.boundCollisionStart);
+        this.cannonWorld.addEventListener('endContact', this.boundCollisionEnd);
         
         return this;
     }
@@ -91,6 +98,11 @@ export class PhysicsManager {
      * @param {number} deltaTime - Time since last update in seconds
      */
     update(deltaTime) {
+        // Skip update if we're in the middle of resetting
+        if (this.isResetting) {
+            return this;
+        }
+
         // Periodic logging of physics world state
         const debugRate = 0.001; // Log approximately once every 1000 frames
         
@@ -126,7 +138,9 @@ export class PhysicsManager {
         
         // Update the physics world
         try {
-            this.world.update();
+            if (!this.isResetting) {
+                this.world.update();
+            }
         } catch (error) {
             if (this.game && this.game.debugManager) {
                 this.game.debugManager.error(
@@ -141,7 +155,7 @@ export class PhysicsManager {
         }
         
         // Update debug visualization if enabled
-        if (this.debugEnabled) {
+        if (this.debugEnabled && !this.isResetting) {
             this.updateDebugMeshes();
         }
         
@@ -323,12 +337,81 @@ export class PhysicsManager {
         // Clean up physics world
         if (this.cannonWorld) {
             // Remove event listeners
-            this.cannonWorld.removeEventListener('beginContact', this.handleCollisionStart);
-            this.cannonWorld.removeEventListener('endContact', this.handleCollisionEnd);
+            this.cannonWorld.removeEventListener('beginContact', this.boundCollisionStart);
+            this.cannonWorld.removeEventListener('endContact', this.boundCollisionEnd);
         }
         
         this.world = null;
         this.cannonWorld = null;
+        
+        return this;
+    }
+    
+    /**
+     * Remove a body from the physics world
+     * @param {CANNON.Body} body - The physics body to remove
+     */
+    removeBody(body) {
+        if (this.world) {
+            this.world.removeBody(body);
+        }
+    }
+    
+    /**
+     * Reset the physics world to its initial state
+     * This removes all bodies and reinitializes the world
+     * @returns {Promise} A promise that resolves when the world is reset and initialized
+     */
+    async resetWorld() {
+        // Set resetting flag
+        this.isResetting = true;
+
+        try {
+            // First disable debug visualization to prevent stale references
+            this.disableDebug();
+
+            // Clean up existing world
+            if (this.cannonWorld) {
+                // Remove event listeners first to prevent collision callbacks during cleanup
+                if (this.boundCollisionStart) {
+                    this.cannonWorld.removeEventListener('beginContact', this.boundCollisionStart);
+                }
+                if (this.boundCollisionEnd) {
+                    this.cannonWorld.removeEventListener('endContact', this.boundCollisionEnd);
+                }
+
+                // Store all bodies in an array first to avoid modifying the collection while iterating
+                const bodies = [...this.cannonWorld.bodies];
+                
+                // Remove each body carefully using the enhanced removeBody method
+                bodies.forEach(body => {
+                    if (body) {
+                        // Wake up the body before removal
+                        if (typeof body.wakeUp === 'function') {
+                            body.wakeUp();
+                        }
+                        // Remove the body
+                        this.world.removeBody(body);
+                    }
+                });
+            }
+
+            // Clear references
+            this.world = null;
+            this.cannonWorld = null;
+            
+            // Wait a frame to ensure cleanup is complete
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            
+            // Create new physics world
+            this.init();
+            
+            // Wait another frame to ensure initialization is complete
+            await new Promise(resolve => requestAnimationFrame(resolve));
+        } finally {
+            // Clear resetting flag
+            this.isResetting = false;
+        }
         
         return this;
     }

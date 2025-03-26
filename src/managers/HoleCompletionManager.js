@@ -111,18 +111,11 @@ export class HoleCompletionManager {
         const totalStrokes = this.game.scoringSystem.getTotalStrokes();
         const holeNumber = this.game.stateManager.getCurrentHoleNumber();
 
-        // Show completion effects
-        this.showCompletionEffects();
-
         // Update score
         this.updateScore(holeNumber, totalStrokes);
 
-        // Trigger transition to next hole after delay
-        setTimeout(() => {
-            if (this.game.stateManager.isHoleCompleted()) {
-                this.game.holeTransitionManager.transitionToNextHole();
-            }
-        }, this.completionDelay);
+        // Trigger transition to next hole immediately
+        this.game.holeTransitionManager.transitionToNextHole();
     }
 
     /**

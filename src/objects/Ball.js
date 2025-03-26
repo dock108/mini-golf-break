@@ -243,9 +243,9 @@ export class Ball {
             }
 
             // Start transition to next hole after a short delay
-            setTimeout(() => {
+            setTimeout(async () => {
                 if (this.game && this.game.holeTransitionManager) {
-                    this.game.holeTransitionManager.transitionToNextHole();
+                    await this.game.holeTransitionManager.transitionToNextHole();
                 }
             }, 500);
         }

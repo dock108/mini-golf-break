@@ -394,4 +394,34 @@ export class BallManager {
             strokes: this.game.scoringSystem.getTotalStrokes()
         };
     }
+    
+    /**
+     * Remove the current ball and clean up its resources
+     */
+    removeBall() {
+        if (this.ball) {
+            // Remove from physics world
+            if (this.ball.body && this.game.physicsManager) {
+                this.game.physicsManager.removeBody(this.ball.body);
+            }
+
+            // Remove from scene and dispose resources
+            if (this.ball.mesh) {
+                if (this.ball.mesh.geometry) {
+                    this.ball.mesh.geometry.dispose();
+                }
+                if (this.ball.mesh.material) {
+                    if (Array.isArray(this.ball.mesh.material)) {
+                        this.ball.mesh.material.forEach(mat => mat.dispose());
+                    } else {
+                        this.ball.mesh.material.dispose();
+                    }
+                }
+                this.game.scene.remove(this.ball.mesh);
+            }
+
+            // Clear the reference
+            this.ball = null;
+        }
+    }
 } 

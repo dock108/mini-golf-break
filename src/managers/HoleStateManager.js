@@ -46,7 +46,7 @@ export class HoleStateManager {
             this.holeStates.set(i, {
                 completed: false,
                 strokes: 0,
-                par: this.game.course.holes[i].par,
+                par: this.game.course.getHolePar(i + 1),
                 hazards: [],
                 startTime: null,
                 endTime: null
