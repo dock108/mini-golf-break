@@ -103,39 +103,14 @@ export class PhysicsManager {
             return this;
         }
 
-        // Periodic logging of physics world state
-        const debugRate = 0.001; // Log approximately once every 1000 frames
-        
-        if (this.game && this.game.debugManager && this.game.debugManager.enabled && Math.random() < debugRate) {
-            if (this.world) {
-                let bodyCount = 0;
-                if (this.cannonWorld && this.cannonWorld.bodies) {
-                    bodyCount = this.cannonWorld.bodies.length;
-                }
-                this.game.debugManager.info('PhysicsManager.update', `Physics world has ${bodyCount} bodies`);
-            }
-        }
-        
-        // Error handling for missing physics world
-        if (!this.world) {
+        // Safety check for world and bodies
+        if (!this.cannonWorld || !this.cannonWorld.bodies) {
             if (this.game && this.game.debugManager) {
-                // Only log this error once to avoid spamming
-                if (!this._loggedWorldError) {
-                    this.game.debugManager.error(
-                        'PhysicsManager.update', 
-                        'Physics world is null or undefined!', 
-                        null, 
-                        true // Show in UI as this is a critical issue
-                    );
-                    this._loggedWorldError = true;
-                }
-            } else if (!this._loggedWorldError) {
-                console.error("ERROR: PhysicsManager.update: Physics world is null or undefined!");
-                this._loggedWorldError = true;
+                this.game.debugManager.warn('[PhysicsManager] Physics world or bodies not ready');
             }
             return this;
         }
-        
+
         // Update the physics world
         try {
             if (!this.isResetting) {
@@ -152,11 +127,6 @@ export class PhysicsManager {
             } else {
                 console.error("ERROR: PhysicsManager.update: Error updating physics world", error);
             }
-        }
-        
-        // Update debug visualization if enabled
-        if (this.debugEnabled && !this.isResetting) {
-            this.updateDebugMeshes();
         }
         
         return this;
@@ -352,9 +322,20 @@ export class PhysicsManager {
      * @param {CANNON.Body} body - The physics body to remove
      */
     removeBody(body) {
-        if (this.world) {
-            this.world.removeBody(body);
+        if (!this.cannonWorld || !body) return this;
+        
+        // Check if body is still in the world before removing
+        if (this.cannonWorld.bodies.includes(body)) {
+            // Remove from world
+            this.cannonWorld.removeBody(body);
+            
+            // Log removal for debugging
+            if (this.game && this.game.debugManager) {
+                this.game.debugManager.log(`[PhysicsManager] Removed body: ${body.id}`);
+            }
         }
+        
+        return this;
     }
     
     /**

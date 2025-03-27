@@ -1,169 +1,222 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { Course } from './Course';
+import { CoursesManager } from './Course';
 
 /**
  * BasicCourse - A mini golf course in space with support for multiple holes
  */
-export class BasicCourse extends Course {
+export class BasicCourse extends CoursesManager {
     /**
      * Create a new BasicCourse instance
      * @param {object} game - Reference to the main game object
      */
     constructor(game) {
-        // Call the parent constructor
-        super(game.scene, game.physicsManager.getWorld(), { 
+        console.log('[BasicCourse] Initializing new course');
+        
+        // Get physics world from game
+        const physicsWorld = game.physicsManager.getWorld();
+        if (!physicsWorld) {
+            console.error('[BasicCourse] Failed to get physics world from game');
+            throw new Error('Physics world not available');
+        }
+        
+        // Call the parent constructor with autoCreate: false to prevent duplicate creation
+        super(game.scene, physicsWorld, { 
             game: game,
             startPosition: new THREE.Vector3(0, 0, 8),
             autoCreate: false
         });
         
-        // Reference to the main game
+        // Now we can safely set instance properties
         this.game = game;
-        
-        // Get scene from game
         this.scene = game.scene;
+        this.physicsWorld = physicsWorld;
         
-        // Initialize course properties
-        this.holes = [];
-        this.currentHoleIndex = 0;
-        this.totalHoles = 2; // Start with 2 holes for testing
+        // Add hole completion state tracking
+        this.isHoleComplete = false;
+        this.pendingHoleTransition = false;
         
-        // Initialize arrays for tracking objects
-        this.courseObjects = [];
-        this.physicsBodies = [];
-        this.holeBodies = [];
-        this.obstacles = [];
-        this.obstacleBodies = [];
+        // Log physics world state after initialization
+        if (this.physicsWorld) {
+            console.log('[BasicCourse] Physics world initialized:', {
+                exists: true,
+                bodies: this.physicsWorld.bodies ? this.physicsWorld.bodies.length : 0
+            });
+        } else {
+            console.error('[BasicCourse] Physics world not properly initialized');
+        }
         
         // Define hole configurations - flat layout
         this.holeConfigs = [
-            // Hole 1
+            // Hole 1 - Straight shot
             {
                 holePosition: new THREE.Vector3(0, 0, -8),
                 startPosition: new THREE.Vector3(0, 0, 8),
                 courseWidth: 4,
                 courseLength: 20,
-                par: 3
+                par: 3,
+                description: "Straight Shot"
             },
-            // Hole 2
+            // Hole 2 - Dogleg right with sand trap
             {
-                holePosition: new THREE.Vector3(0, 0, 8),
+                holePosition: new THREE.Vector3(4, 0, 8), // Hole is offset to the right
                 startPosition: new THREE.Vector3(0, 0, -8),
-                courseWidth: 4,
-                courseLength: 20,
-                par: 3
+                courseWidth: 6, // Wider course for the dogleg
+                courseLength: 24, // Longer course for the dogleg
+                par: 4, // Harder hole
+                description: "Dogleg Right",
+                hazards: [
+                    {
+                        type: 'sand',
+                        position: new THREE.Vector3(2, 0, 0), // Sand trap in the middle
+                        size: new THREE.Vector3(2, 0.2, 2)
+                    }
+                ]
             }
         ];
         
-        // Initialize hole states
-        this.holeStates = new Map();
-        for (let i = 0; i < this.totalHoles; i++) {
-            this.holeStates.set(i, {
-                completed: false,
-                strokes: 0,
-                par: 3
-            });
-        }
+        // Set total holes from configs
+        this.totalHoles = this.holeConfigs.length;
+        console.log(`[BasicCourse] Configured ${this.totalHoles} holes`);
         
-        // Load just the first hole
-        this.createCourse();
+        // Initialize arrays
+        this.courseObjects = [];
+        this.physicsBodies = [];
+        this.holes = new Array(this.totalHoles); // Initialize with correct size
+        this.holeBodies = [];
+        
+        // Initialize the first hole
+        this.initializeHole(0);
     }
     
     /**
-     * Create the course with just the current hole
+     * Initialize a specific hole
+     * @param {number} holeIndex - The index of the hole to initialize
+     * @private
      */
-    createCourse() {
-        // Clear any existing holes
-        this.clearCurrentHole();
+    initializeHole(holeIndex) {
+        console.log(`[BasicCourse] Initializing hole ${holeIndex + 1}`);
+        
+        // Update current hole index
+        this.currentHoleIndex = holeIndex;
         
         // Get current hole config
         const holeConfig = this.holeConfigs[this.currentHoleIndex];
         if (!holeConfig) {
-            console.error('Invalid hole configuration');
+            console.error('[BasicCourse] Invalid hole configuration');
             return;
         }
         
-        // Create just the current hole
+        console.log(`[BasicCourse] Creating hole ${this.currentHoleIndex + 1}:`, {
+            description: holeConfig.description,
+            par: holeConfig.par,
+            holePosition: holeConfig.holePosition,
+            startPosition: holeConfig.startPosition,
+            hazards: holeConfig.hazards ? holeConfig.hazards.length : 0
+        });
+        
+        // Create the hole
         const holeMesh = this.createHole({
             ...holeConfig,
             holeIndex: this.currentHoleIndex
         });
         
-        // Store the current hole
-        this.holes = [{
+        // Store the hole data at the correct index
+        this.holes[holeIndex] = {
             mesh: holeMesh,
             par: holeConfig.par,
             startPosition: holeConfig.startPosition.clone(),
-            holePosition: holeConfig.holePosition.clone()
-        }];
+            holePosition: holeConfig.holePosition.clone(),
+            config: holeConfig // Store the full config for reference
+        };
+        
+        // Create physics bodies for the hole
+        this.createHolePhysics(holeMesh, holeConfig);
+        
+        // Log the hole data for debugging
+        console.log(`[BasicCourse] Hole ${this.currentHoleIndex + 1} initialized successfully`);
+        console.log(`[BasicCourse] Hole data:`, {
+            index: this.currentHoleIndex,
+            startPosition: this.holes[holeIndex].startPosition,
+            holePosition: this.holes[holeIndex].holePosition,
+            par: this.holes[holeIndex].par
+        });
+        console.log(`[BasicCourse] Total holes in array: ${this.holes.length}`);
+        
+        // Step physics world to ensure bodies are properly initialized
+        if (this.physicsWorld?.step) {
+            for (let i = 0; i < 10; i++) { // Multiple steps to ensure stability
+                this.physicsWorld.step(1/60);
+            }
+            console.log(`[BasicCourse] Physics world stepped after hole initialization`);
+        }
     }
     
     /**
-     * Clear the current hole and its resources
+     * Override parent createCourse to use our initialization
      */
-    clearCurrentHole() {
-        // Remove existing hole meshes and dispose of resources
-        this.holes.forEach(hole => {
-            if (hole.mesh) {
-                // Remove all children recursively
-                hole.mesh.traverse((child) => {
-                    if (child.geometry) child.geometry.dispose();
-                    if (child.material) {
-                        if (Array.isArray(child.material)) {
-                            child.material.forEach(mat => mat.dispose());
-                        } else {
-                            child.material.dispose();
-                        }
-                    }
-                });
-                this.scene.remove(hole.mesh);
-            }
-        });
+    createCourse() {
+        // Clear existing hole resources first
+        this.clearCurrentHole();
         
-        // Clear physics bodies
-        this.physicsBodies.forEach(body => {
-            if (this.physicsWorld) {
-                this.physicsWorld.removeBody(body);
-            }
-        });
+        // Get current hole number from state manager
+        const currentHoleNumber = this.game.stateManager.getCurrentHoleNumber();
+        const holeIndex = currentHoleNumber - 1; // Convert to zero-based index
         
-        // Clear hole bodies
-        this.holeBodies.forEach(body => {
-            if (this.physicsWorld) {
-                this.physicsWorld.removeBody(body);
-            }
-        });
+        // Validate hole index
+        if (holeIndex < 0 || holeIndex >= this.holeConfigs.length) {
+            console.error(`[BasicCourse] Invalid hole index: ${holeIndex} (hole number: ${currentHoleNumber})`);
+            console.error(`[BasicCourse] Available holes: ${this.holeConfigs.length}`);
+            return;
+        }
         
-        // Clear obstacles
-        this.obstacles.forEach(obstacle => {
-            if (obstacle.mesh) {
-                if (obstacle.mesh.geometry) obstacle.mesh.geometry.dispose();
-                if (obstacle.mesh.material) obstacle.mesh.material.dispose();
-                this.scene.remove(obstacle.mesh);
-            }
-        });
+        console.log(`[BasicCourse] Creating hole ${currentHoleNumber} with config:`, this.holeConfigs[holeIndex]);
         
-        // Clear obstacle bodies
-        this.obstacleBodies.forEach(body => {
-            if (this.physicsWorld) {
-                this.physicsWorld.removeBody(body);
-            }
-        });
+        // Update current hole index in both BasicCourse and parent CoursesManager
+        this.currentHoleIndex = holeIndex;
         
-        // Clear arrays
-        this.holes = [];
-        this.physicsBodies = [];
-        this.holeBodies = [];
-        this.obstacles = [];
-        this.obstacleBodies = [];
+        // Initialize the hole
+        this.initializeHole(holeIndex);
+        
+        // Create any hazards for the hole
+        const holeConfig = this.holeConfigs[holeIndex];
+        if (holeConfig.hazards) {
+            console.log(`[BasicCourse] Creating ${holeConfig.hazards.length} hazards for hole ${currentHoleNumber}`);
+            holeConfig.hazards.forEach(hazard => {
+                this.createHazard(hazard);
+            });
+        }
+        
+        // Log the current hole state
+        console.log(`[BasicCourse] Created hole ${currentHoleNumber} with index ${holeIndex}`);
+        console.log(`[BasicCourse] Current hole position:`, this.getHolePosition());
+        console.log(`[BasicCourse] Current hole start position:`, this.getHoleStartPosition());
+        console.log(`[BasicCourse] Total holes configured: ${this.holeConfigs.length}`);
+        console.log(`[BasicCourse] Current hole index: ${this.currentHoleIndex}`);
+        
+        // Step physics world to ensure bodies are properly initialized
+        if (this.physicsWorld?.step) {
+            for (let i = 0; i < 10; i++) { // Multiple steps to ensure stability
+                this.physicsWorld.step(1/60);
+            }
+            console.log(`[BasicCourse] Physics world stepped after hole creation`);
+        }
     }
     
     /**
      * Create a single hole
      * @param {Object} holeConfig - Configuration for the hole
+     * @returns {THREE.Group} The created hole mesh
      */
     createHole(holeConfig) {
+        console.log(`[BasicCourse] Creating hole ${holeConfig.holeIndex + 1}:`, {
+            description: holeConfig.description,
+            par: holeConfig.par,
+            holePosition: holeConfig.holePosition,
+            startPosition: holeConfig.startPosition,
+            hazards: holeConfig.hazards ? holeConfig.hazards.length : 0
+        });
+
         const holeMesh = new THREE.Group();
         
         // Ensure valid dimensions
@@ -172,23 +225,11 @@ export class BasicCourse extends Course {
         const height = 0.2;
         const holeRadius = 0.35;
         
+        // Calculate center position for the hole
+        const centerZ = (holeConfig.startPosition.z + holeConfig.holePosition.z) / 2;
+        const centerX = (holeConfig.startPosition.x + holeConfig.holePosition.x) / 2;
+        
         // Create green surface with hole
-        // First create the outer shape (rectangle)
-        const greenShape = new THREE.Shape();
-        greenShape.moveTo(-width/2, -length/2);
-        greenShape.lineTo(width/2, -length/2);
-        greenShape.lineTo(width/2, length/2);
-        greenShape.lineTo(-width/2, length/2);
-        greenShape.lineTo(-width/2, -length/2);
-
-        // Calculate hole position relative to the green's center
-        const relativeHolePos = new THREE.Vector3(
-            0, // Keep x centered
-            0, // Keep at surface level
-            holeConfig.holePosition.z - ((holeConfig.startPosition.z + holeConfig.holePosition.z) / 2) // Offset from center in z
-        );
-
-        // Create geometry from the shape - no hole cut yet
         const greenGeometry = new THREE.BoxGeometry(width, height, length);
         greenGeometry.translate(0, height/2, 0);
 
@@ -207,73 +248,25 @@ export class BasicCourse extends Course {
         // Store reference to material for fade out
         holeMesh.userData.material = greenMaterial;
         
-        // Calculate center position for the hole
-        const centerZ = (holeConfig.startPosition.z + holeConfig.holePosition.z) / 2;
-        
         // Position the entire hole group at the center
-        holeMesh.position.set(
-            holeConfig.startPosition.x,
-            holeConfig.startPosition.y,
-            centerZ
-        );
+        holeMesh.position.set(centerX, 0, centerZ);
         
-        this.scene.add(holeMesh);
-        this.courseObjects.push(holeMesh);
-
-        // Create physics bodies for the green surface
-        if (this.physicsWorld) {
-            // Create main surface body
-            const greenBody = new CANNON.Body({
-                mass: 0,
-                position: new CANNON.Vec3(
-                    holeMesh.position.x,
-                    holeMesh.position.y,
-                    holeMesh.position.z
-                ),
-                shape: new CANNON.Box(new CANNON.Vec3(width/2, height/2, length/2)),
-                material: this.physicsWorld.groundMaterial || this.physicsWorld.defaultMaterial
-            });
-            
-            // Store hole index in user data
-            greenBody.userData = { holeIndex: holeConfig.holeIndex };
-            
-            this.physicsWorld.addBody(greenBody);
-            this.physicsBodies.push(greenBody);
-
-            // Create a cylinder body for the hole area
-            const holeBody = new CANNON.Body({
-                mass: 0,
-                position: new CANNON.Vec3(
-                    holeMesh.position.x + relativeHolePos.x,
-                    holeMesh.position.y,
-                    holeMesh.position.z + relativeHolePos.z
-                ),
-                shape: new CANNON.Cylinder(holeRadius, holeRadius, height * 2, 16),
-                collisionResponse: false,
-                isTrigger: true
-            });
-
-            holeBody.collisionFilterGroup = 2; // Holes group
-            holeBody.collisionFilterMask = 4;  // Collide with ball group
-            holeBody.userData = { type: 'hole', holeIndex: holeConfig.holeIndex };
-
-            this.physicsWorld.addBody(holeBody);
-            this.physicsBodies.push(holeBody);
-            this.holeBodies.push(holeBody);
-        }
-
-        // Create the hole walls and bottom
-        this.createHoleGeometry(holeMesh, relativeHolePos, holeConfig.holeIndex);
-
-        // Create the start marker (tee)
-        const relativeStartPos = new THREE.Vector3(
-            0, // Keep x centered
+        // Calculate relative positions
+        const relativeHolePos = new THREE.Vector3(
+            holeConfig.holePosition.x - centerX,
             0, // Keep at surface level
-            holeConfig.startPosition.z - centerZ // Offset from center in z
+            holeConfig.holePosition.z - centerZ
         );
-        this.createStartMarker(holeMesh, relativeStartPos, holeConfig.holeIndex);
 
-        // Create boundaries/walls
+        const relativeStartPos = new THREE.Vector3(
+            holeConfig.startPosition.x - centerX,
+            0, // Keep at surface level
+            holeConfig.startPosition.z - centerZ
+        );
+
+        // Create hole components
+        this.createHoleGeometry(holeMesh, relativeHolePos, holeConfig.holeIndex);
+        this.createStartMarker(holeMesh, relativeStartPos, holeConfig.holeIndex);
         this.createCourseBoundaries(
             holeMesh.position,
             width,
@@ -283,7 +276,15 @@ export class BasicCourse extends Course {
             holeConfig.holePosition,
             holeConfig.holeIndex
         );
+
+        // Add to scene and tracking arrays
+        this.scene.add(holeMesh);
+        this.courseObjects.push(holeMesh);
         
+        // Create physics bodies
+        this.createHolePhysics(holeMesh, holeConfig);
+        
+        console.log(`[BasicCourse] Hole ${holeConfig.holeIndex + 1} created successfully`);
         return holeMesh;
     }
     
@@ -548,184 +549,407 @@ export class BasicCourse extends Course {
     }
     
     /**
+     * Update loop for the course. Called every frame.
+     * @param {number} dt - Delta time in seconds
+     */
+    update(dt) {
+        // Handle deferred hole completion
+        if (this.isHoleComplete && !this.pendingHoleTransition) {
+            console.log('[BasicCourse] Processing deferred hole completion');
+            this.pendingHoleTransition = true;
+            
+            // Schedule the transition for the next frame
+            requestAnimationFrame(async () => {
+                try {
+                    await this.loadNextHole();
+                } catch (error) {
+                    console.error('[BasicCourse] Failed to transition to next hole:', error);
+                } finally {
+                    this.isHoleComplete = false;
+                    this.pendingHoleTransition = false;
+                }
+            });
+        }
+    }
+
+    /**
+     * Handle ball entering hole
+     * @param {number} holeIndex - The index of the hole the ball entered
+     */
+    onBallInHole(holeIndex) {
+        console.log(`[BasicCourse] Ball entered hole ${holeIndex + 1}`);
+        
+        // Only process if this is the current hole
+        if (holeIndex === this.currentHoleIndex) {
+            console.log('[BasicCourse] Setting hole completion flag');
+            this.isHoleComplete = true;
+        }
+    }
+
+    /**
+     * Load the next hole
+     * @returns {Promise<void>}
+     */
+    async loadNextHole() {
+        console.log('[BasicCourse] Attempting to load next hole');
+        
+        // Check if we have more holes - using zero-based indexing internally
+        if (this.currentHoleIndex >= this.totalHoles - 1) {
+            console.warn('[BasicCourse] No more holes available');
+            return;
+        }
+        
+        // Store current hole index before incrementing
+        const previousHoleIndex = this.currentHoleIndex;
+        const nextHoleIndex = previousHoleIndex + 1;
+        
+        console.log(`[BasicCourse] Transitioning from hole ${previousHoleIndex + 1} to ${nextHoleIndex + 1}`);
+        
+        try {
+            // Clear current hole and reset physics world
+            console.log('[BasicCourse] Clearing current hole and resetting physics world');
+            
+            // Remove all physics bodies first
+            if (this.physicsWorld) {
+                console.log('[BasicCourse] Removing all physics bodies before clearing hole');
+                this.physicsBodies.forEach(body => {
+                    if (body && body.shapes) {
+                        body.shapes.forEach(shape => {
+                            body.removeShape(shape);
+                        });
+                        this.physicsWorld.removeBody(body);
+                    }
+                });
+                this.physicsBodies = [];
+                this.holeBodies = [];
+            }
+            
+            // Clear course objects but preserve holes array
+            const currentObjects = [...this.courseObjects];
+            currentObjects.forEach(obj => {
+                if (obj.geometry) obj.geometry.dispose();
+                if (obj.material) {
+                    if (Array.isArray(obj.material)) {
+                        obj.material.forEach(mat => mat.dispose());
+                    } else {
+                        obj.material.dispose();
+                    }
+                }
+                this.scene.remove(obj);
+            });
+            this.courseObjects = [];
+            
+            // Wait for a frame to ensure cleanup is complete
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            
+            // Update current hole index
+            this.currentHoleIndex = nextHoleIndex;
+            console.log(`[BasicCourse] Creating hole ${this.currentHoleIndex + 1}`);
+            
+            // Create new hole
+            this.initializeHole(this.currentHoleIndex);
+            
+            // Create hazards for the new hole
+            const currentHoleConfig = this.holeConfigs[this.currentHoleIndex];
+            if (currentHoleConfig && currentHoleConfig.hazards) {
+                console.log(`[BasicCourse] Creating ${currentHoleConfig.hazards.length} hazards for hole ${this.currentHoleIndex + 1}`);
+                currentHoleConfig.hazards.forEach(hazard => {
+                    this.createHazard(hazard);
+                });
+            }
+            
+            console.log(`[BasicCourse] Successfully loaded hole ${this.currentHoleIndex + 1}`);
+        } catch (error) {
+            console.error('[BasicCourse] Failed to load next hole:', error);
+            // Roll back to previous hole index
+            this.currentHoleIndex = previousHoleIndex;
+            throw error;
+        }
+    }
+
+    /**
+     * Get the current hole configuration
+     * @returns {Object} The current hole configuration
+     */
+    getCurrentHoleConfig() {
+        if (this.currentHoleIndex < 0 || this.currentHoleIndex >= this.holeConfigs.length) {
+            console.warn(`[BasicCourse] Invalid hole index: ${this.currentHoleIndex}`);
+            return null;
+        }
+        return this.holeConfigs[this.currentHoleIndex];
+    }
+
+    /**
+     * Create a hazard on the course
+     * @param {Object} hazardConfig - Configuration for the hazard
+     */
+    createHazard(hazardConfig) {
+        console.log(`[BasicCourse] Creating hazard of type: ${hazardConfig.type}`);
+        
+        if (hazardConfig.type === 'sand') {
+            // Create sand trap
+            const sandGeometry = new THREE.BoxGeometry(
+                hazardConfig.size.x,
+                hazardConfig.size.y,
+                hazardConfig.size.z
+            );
+            
+            const sandMaterial = new THREE.MeshStandardMaterial({
+                color: 0xF4A460, // Sandy brown color
+                roughness: 0.8,
+                metalness: 0.1
+            });
+            
+            const sandMesh = new THREE.Mesh(sandGeometry, sandMaterial);
+            sandMesh.position.copy(hazardConfig.position);
+            sandMesh.position.y = hazardConfig.size.y / 2; // Center vertically
+            
+            this.scene.add(sandMesh);
+            this.courseObjects.push(sandMesh);
+            
+            // Add physics body for the sand trap
+            if (this.physicsWorld) {
+                const sandBody = new CANNON.Body({
+                    mass: 0,
+                    position: new CANNON.Vec3(
+                        hazardConfig.position.x,
+                        hazardConfig.position.y + hazardConfig.size.y / 2,
+                        hazardConfig.position.z
+                    ),
+                    shape: new CANNON.Box(new CANNON.Vec3(
+                        hazardConfig.size.x / 2,
+                        hazardConfig.size.y / 2,
+                        hazardConfig.size.z / 2
+                    )),
+                    material: this.physicsWorld.sandMaterial || this.physicsWorld.defaultMaterial
+                });
+                
+                this.physicsWorld.addBody(sandBody);
+                this.physicsBodies.push(sandBody);
+                console.log('[BasicCourse] Added sand trap physics body');
+            }
+        }
+        // Add more hazard types here as needed
+    }
+
+    /**
+     * Clear the current hole and its resources
+     */
+    clearCurrentHole() {
+        console.log('[BasicCourse] Clearing current hole resources');
+        
+        // Log current state
+        console.log(`[BasicCourse] Current state before cleanup:
+            - Course objects: ${this.courseObjects.length}
+            - Physics bodies: ${this.physicsBodies.length}
+            - Holes: ${this.holes.length}
+            - Hole bodies: ${this.holeBodies.length}
+            - Physics world: ${this.physicsWorld ? 'exists' : 'undefined'}`);
+        
+        // Remove existing hole meshes and dispose of resources
+        console.log(`[BasicCourse] Removing ${this.courseObjects.length} course objects`);
+        const currentObjects = [...this.courseObjects];
+        currentObjects.forEach(obj => {
+            if (obj.geometry) obj.geometry.dispose();
+            if (obj.material) {
+                if (Array.isArray(obj.material)) {
+                    obj.material.forEach(mat => mat.dispose());
+                } else {
+                    obj.material.dispose();
+                }
+            }
+            this.scene.remove(obj);
+        });
+        
+        // Clear physics bodies
+        console.log(`[BasicCourse] Removing ${this.physicsBodies.length} physics bodies`);
+        if (this.physicsWorld) {
+            // Remove all physics bodies from the world
+            this.physicsBodies.forEach(body => {
+                if (body && body.shapes) {
+                    // Remove all shapes from the body first
+                    body.shapes.forEach(shape => {
+                        body.removeShape(shape);
+                    });
+                    this.physicsWorld.removeBody(body);
+                }
+            });
+            
+            // Wait for a frame to ensure physics world is updated
+            this.physicsWorld.update();
+        }
+        
+        // Clear arrays but preserve holes array
+        this.courseObjects = [];
+        this.physicsBodies = [];
+        this.holeBodies = [];
+        
+        console.log(`[BasicCourse] Cleanup complete. Current state:
+            - Course objects: ${this.courseObjects.length}
+            - Physics bodies: ${this.physicsBodies.length}
+            - Holes: ${this.holes.length}
+            - Hole bodies: ${this.holeBodies.length}`);
+    }
+
+    /**
+     * Get the current hole number (1-based index)
+     * @returns {number} The current hole number
+     */
+    getCurrentHoleNumber() {
+        return this.currentHoleIndex + 1;
+    }
+
+    /**
      * Get the current hole mesh
      * @returns {THREE.Mesh} The current hole's mesh
      */
     getCurrentHoleMesh() {
         if (this.currentHoleIndex < 0 || this.currentHoleIndex >= this.holes.length) {
+            console.warn(`[BasicCourse] Invalid hole index for mesh: ${this.currentHoleIndex}`);
             return null;
         }
         return this.holes[this.currentHoleIndex].mesh;
     }
-    
+
     /**
      * Check if there is a next hole available
      * @returns {boolean} True if there is a next hole, false otherwise
      */
     hasNextHole() {
-        return this.currentHoleIndex < this.totalHoles - 1;
+        const hasNext = this.currentHoleIndex < this.totalHoles - 1;
+        console.log(`[BasicCourse] Checking for next hole: ${hasNext} (current: ${this.currentHoleIndex + 1}, total: ${this.totalHoles})`);
+        return hasNext;
     }
-    
+
     /**
-     * Load the next hole
-     * @returns {boolean} True if successful, false if no next hole
+     * Create physics bodies for the hole
+     * @param {THREE.Group} holeMesh - The hole mesh group
+     * @param {Object} holeConfig - Configuration for the hole
+     * @private
      */
-    loadNextHole() {
-        if (!this.hasNextHole()) {
-            return false;
+    createHolePhysics(holeMesh, holeConfig) {
+        if (!this.physicsWorld) {
+            console.error('[BasicCourse] Physics world not available for hole physics creation');
+            return;
         }
 
-        // Increment the hole index
-        this.currentHoleIndex++;
+        console.log(`[BasicCourse] Creating physics bodies for hole ${holeConfig.holeIndex + 1}`);
         
-        // Clear the current hole
-        this.clearCurrentHole();
-        
-        // Create the new hole
-        this.createCourse();
-        
-        return true;
-    }
-    
-    /**
-     * Get the distance to the next hole
-     * @returns {number} The vertical distance to the next hole
-     */
-    getDistanceToNextHole() {
-        return this.VERTICAL_HOLE_SPACING;
-    }
-    
-    /**
-     * Get the start position for the current hole
-     * @returns {THREE.Vector3} The start position
-     */
-    getHoleStartPosition() {
-        if (this.currentHoleIndex < 0 || this.currentHoleIndex >= this.holes.length) {
-            return new THREE.Vector3(0, 0, 0);
-        }
-        return this.holes[this.currentHoleIndex].startPosition.clone();
-    }
-    
-    /**
-     * Get the current hole's hole position
-     * @returns {THREE.Vector3} The current hole's position
-     */
-    getHolePosition() {
-        if (this.currentHoleIndex < 0 || this.currentHoleIndex >= this.holes.length) {
-            return new THREE.Vector3(0, 0, 0);
-        }
-        return this.holes[this.currentHoleIndex].holePosition.clone();
-    }
-    
-    /**
-     * Get the par for a specific hole number
-     * @param {number} holeNumber - The hole number (1-based)
-     * @returns {number} The par for the hole
-     */
-    getHolePar(holeNumber) {
-        // Convert to 0-based index
-        const index = holeNumber - 1;
-        
-        // Check if hole exists
-        if (index < 0 || index >= this.holeConfigs.length) {
-            console.warn(`Invalid hole number: ${holeNumber}`);
-            return 3; // Default par
-        }
-        
-        // Return the par from the hole configuration
-        return this.holeConfigs[index].par;
-    }
-    
-    /**
-     * Get current hole number (1-based)
-     */
-    getCurrentHoleNumber() {
-        return this.currentHoleIndex + 1;
-    }
-    
-    /**
-     * Get total number of holes
-     */
-    getTotalHoles() {
-        return this.totalHoles;
-    }
-    
-    /**
-     * Get the tee position for the current hole
-     * @returns {THREE.Vector3} The tee position
-     */
-    getTeePosition() {
-        if (this.currentHoleIndex < 0 || this.currentHoleIndex >= this.holes.length) {
-            return new THREE.Vector3(0, 0, 0);
-        }
-        return this.holes[this.currentHoleIndex].startPosition.clone();
-    }
-    
-    /**
-     * Update loop for the course. Called every frame.
-     * @param {number} dt - Delta time in seconds
-     */
-    update(dt) {
-        // Any per-frame updates for the course can go here
-    }
-    
-    /**
-     * Clean up all resources
-     */
-    cleanup() {
-        // Remove all objects from scene
-        this.courseObjects.forEach(object => {
-            if (object && this.scene) {
-                this.scene.remove(object);
-            }
+        // Safely get current body count
+        const currentBodyCount = this.physicsWorld.bodies ? this.physicsWorld.bodies.length : 0;
+        console.log(`[BasicCourse] Current physics world body count: ${currentBodyCount}`);
+
+        const width = Math.max(1, holeConfig.courseWidth || 4);
+        const length = Math.max(1, holeConfig.courseLength || 20);
+        const height = 0.2;
+        const holeRadius = 0.35;
+
+        // Calculate center position for the hole
+        const centerZ = (holeConfig.startPosition.z + holeConfig.holePosition.z) / 2;
+        const centerX = (holeConfig.startPosition.x + holeConfig.holePosition.x) / 2;
+
+        // Calculate relative positions from center
+        const relativeHolePos = new THREE.Vector3(
+            holeConfig.holePosition.x - centerX,
+            0, // Keep at surface level
+            holeConfig.holePosition.z - centerZ
+        );
+
+        const relativeStartPos = new THREE.Vector3(
+            holeConfig.startPosition.x - centerX,
+            0, // Keep at surface level
+            holeConfig.startPosition.z - centerZ
+        );
+
+        // Create main surface body with proper position
+        const greenBody = new CANNON.Body({
+            mass: 0,
+            type: CANNON.Body.STATIC,
+            position: new CANNON.Vec3(
+                centerX,
+                0, // Position at y=0 and let shapes handle height
+                centerZ
+            ),
+            material: this.physicsWorld.groundMaterial || this.physicsWorld.defaultMaterial,
+            collisionResponse: true
         });
+
+        // Add main surface shape
+        const mainSurface = new CANNON.Box(new CANNON.Vec3(width/2, height/2, length/2));
+        greenBody.addShape(mainSurface, new CANNON.Vec3(0, height/2, 0));
+
+        // Add thicker backup box below to prevent tunneling
+        const backupBox = new CANNON.Box(new CANNON.Vec3(width/2, height, length/2));
+        greenBody.addShape(backupBox, new CANNON.Vec3(0, -height/2, 0));
         
-        // Remove all physics bodies
-        this.physicsBodies.forEach(body => {
-            if (body && this.physicsWorld) {
-                this.physicsWorld.removeBody(body);
-            }
+        // Store hole index in user data
+        greenBody.userData = { 
+            holeIndex: holeConfig.holeIndex,
+            type: 'green'
+        };
+        
+        // Set up collision filters for the green surface
+        greenBody.collisionFilterGroup = 1;
+        greenBody.collisionFilterMask = -1; // Collide with everything
+
+        // Log the green surface body creation
+        console.log('[BasicCourse] Created green surface body:', {
+            position: greenBody.position,
+            dimensions: {
+                width: width,
+                length: length,
+                height: height
+            },
+            collisionGroup: greenBody.collisionFilterGroup,
+            collisionMask: greenBody.collisionFilterMask,
+            shapes: greenBody.shapes.length
         });
-        
-        // Clear all arrays
-        this.courseObjects = [];
-        this.physicsBodies = [];
-        this.holes = [];
-        this.holeBodies = [];
-        this.obstacles = [];
-        this.obstacleBodies = [];
-        
-        // Call parent cleanup if exists
-        if (super.cleanup) {
-            super.cleanup();
-        }
-    }
-    
-    /**
-     * Get the current hole configuration
-     * @returns {Object} The current hole configuration object
-     */
-    getCurrentHole() {
-        if (this.currentHoleIndex < 0 || this.currentHoleIndex >= this.holeConfigs.length) {
-            return null;
-        }
-        return {
-            ...this.holeConfigs[this.currentHoleIndex],
-            mesh: this.holes[0]?.mesh || null
+
+        // Add the green surface body to the physics world
+        this.physicsWorld.addBody(greenBody);
+        this.physicsBodies.push(greenBody);
+        console.log('[PhysicsWorld] Added body of type: green');
+
+        // Create hole trigger body
+        const holeTriggerBody = new CANNON.Body({
+            mass: 0,
+            type: CANNON.Body.STATIC,
+            position: new CANNON.Vec3(
+                holeConfig.holePosition.x,
+                0,
+                holeConfig.holePosition.z
+            ),
+            collisionResponse: false,
+            isTrigger: true
+        });
+
+        // Add hole trigger shape
+        const holeTriggerShape = new CANNON.Cylinder(holeRadius, holeRadius, height, 16);
+        holeTriggerBody.addShape(holeTriggerShape);
+        holeTriggerBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+
+        // Set up collision filters for the hole trigger
+        holeTriggerBody.collisionFilterGroup = 2;
+        holeTriggerBody.collisionFilterMask = 1; // Only collide with the ball
+
+        // Store hole data
+        holeTriggerBody.userData = {
+            type: 'hole',
+            holeIndex: holeConfig.holeIndex
         };
-    }
-    
-    /**
-     * Get the next hole configuration
-     * @returns {Object} The next hole configuration object or null if no next hole
-     */
-    getNextHole() {
-        if (!this.hasNextHole()) {
-            return null;
+
+        // Add the hole trigger to the physics world
+        this.physicsWorld.addBody(holeTriggerBody);
+        this.physicsBodies.push(holeTriggerBody);
+        this.holeBodies.push(holeTriggerBody);
+
+        // Step physics world to ensure bodies are properly initialized
+        if (this.physicsWorld.step) {
+            for (let i = 0; i < 10; i++) { // Multiple steps to ensure stability
+                this.physicsWorld.step(1/60);
+            }
         }
-        return {
-            ...this.holeConfigs[this.currentHoleIndex + 1],
-            mesh: null // Next hole isn't loaded yet
-        };
+
+        console.log(`[BasicCourse] Physics bodies created for hole ${holeConfig.holeIndex + 1}`);
     }
 } 

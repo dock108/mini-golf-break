@@ -197,6 +197,10 @@ export class Game {
         
         starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
         const stars = new THREE.Points(starGeometry, starMaterial);
+        
+        // Add userData to identify this as a starfield object
+        stars.userData.type = 'starfield';
+        
         this.scene.add(stars);
     }
     
@@ -236,9 +240,6 @@ export class Game {
         // Set course reference in camera controller
         this.cameraController.setCourse(this.course);
         
-        // Create the course
-        this.course.createCourse();
-        
         // Set ball at starting position
         if (this.ballManager) {
             this.ballManager.createBall();
@@ -267,20 +268,9 @@ export class Game {
     moveToNextHole() {
         // Try to advance to the next hole in the course
         if (this.course.loadNextHole()) {
-            // Successful move to next hole
-            
-            // Reset ball at the new hole's starting position if it's not already there
-            // (the ball might already be at the tee position if it fell through)
-            if (this.ballManager && this.ballManager.ball) {
-                const startPosition = this.course.getTeePosition();
-                const currentPosition = this.ballManager.ball.getPosition();
-                
-                // Only reset the ball if it's not already close to the start position
-                const distanceToStart = startPosition.distanceTo(currentPosition);
-                if (distanceToStart > 1.0) {
-                    this.ballManager.resetBall(startPosition);
-                }
-            }
+            // Reset ball position to new tee
+            const startPosition = this.course.getHoleStartPosition();
+            this.ballManager.resetBall(startPosition);
             
             // Position camera for the new hole
             this.cameraController.positionCameraForHole();
@@ -300,8 +290,8 @@ export class Game {
             
             return true;
         } else {
-            // All holes completed
-            this.uiManager.showMessage("Course Complete!", 3000);
+            // Game complete
+            this.handleGameComplete();
             return false;
         }
     }

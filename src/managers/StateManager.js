@@ -149,10 +149,35 @@ export class StateManager {
      * Reset state for the next hole
      */
     resetForNextHole() {
+        // Get total holes from course and current hole
+        const totalHoles = this.game.course.getTotalHoles();
+        const currentHole = this.state.currentHoleNumber;
+        
+        console.log(`[StateManager] Current hole: ${currentHole}, Total holes: ${totalHoles}`);
+        
+        // Check if we're PAST the last hole (not AT it)
+        if (currentHole > totalHoles) {
+            console.warn('[StateManager] No more holes available - past last hole');
+            this.setGameState(GameState.GAME_COMPLETED);
+            return this;
+        }
+        
+        // Only increment if we're not at or past the last hole
+        if (currentHole < totalHoles) {
+            this.state.currentHoleNumber++;
+            console.log(`[StateManager] Incremented hole number to ${this.state.currentHoleNumber}`);
+        }
+        
+        // Reset hole state
         this.state.holeCompleted = false;
         this.state.ballInMotion = false;
-        this.state.currentHoleNumber++;
+        
+        // Set game state to aiming
         this.setGameState(GameState.AIMING);
+        
+        // Log the transition
+        console.log(`[StateManager] Reset for hole ${this.state.currentHoleNumber} of ${totalHoles}`);
+        
         return this;
     }
     

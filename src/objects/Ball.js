@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 
 export class Ball {
+    // Constants for ball properties
+    static START_HEIGHT = 0.2; // Reduced to match green surface height
+
     constructor(scene, physicsWorld, game) {
         this.scene = scene;
         this.physicsWorld = physicsWorld;
@@ -12,8 +15,8 @@ export class Ball {
         this.segments = 32;
         this.mass = 0.45; // Updated to match the actual value used in createBody (0.45kg)
         
-        // Add position property to fix the error
-        this.position = new THREE.Vector3(0, this.radius + 0.1, 0);
+        // Position ball at correct height: green height (0.2) + ball radius (0.2)
+        this.position = new THREE.Vector3(0, 0.4, 0);
         
         this.body = null;
         this.mesh = null;
@@ -145,71 +148,57 @@ export class Ball {
             return;
         }
         
-        if (!this.physicsWorld.ballMaterial) {
-            if (this.game && this.game.debugManager) {
-                this.game.debugManager.warn('Ball.createBody', 'Ball material is missing from physics world!');
-            } else {
-                console.warn("WARNING: Ball.createBody: Ball material is missing from physics world!");
-            }
-        }
-        
-        // Check if the world property exists and is a CANNON.World
-        if (!this.physicsWorld.world) {
-            if (this.game && this.game.debugManager) {
-                this.game.debugManager.error('Ball.createBody', 'Physics world doesn\'t have a \'world\' property!');
-            } else {
-                console.error("ERROR: Ball.createBody: Physics world doesn't have a 'world' property!");
-            }
-            return;
-        }
-        
-        // Create physics body for the ball
+        // Create physics body for the ball at the correct height: green height (0.2) + ball radius (0.2)
         this.body = new CANNON.Body({
-            mass: this.mass, // Use the mass property from constructor
-            position: new CANNON.Vec3(0, 0.5, 0),
+            mass: this.mass,
+            position: new CANNON.Vec3(0, 0.4, 0),
             shape: new CANNON.Sphere(this.radius),
-            material: this.physicsWorld.ballMaterial,
-            sleepSpeedLimit: 0.15, // Increased for quicker stopping
-            sleepTimeLimit: 0.2    // Reduced to sleep sooner
+            material: this.physicsWorld.ballMaterial || this.physicsWorld.defaultMaterial,
+            allowSleep: false, // Prevent the ball from sleeping
+            sleepSpeedLimit: 0.1,
+            sleepTimeLimit: 1
         });
         
         // Set body damping (air resistance and friction)
-        this.body.linearDamping = 0.6;  // Increased damping for final roll
-        this.body.angularDamping = 0.6; // Matched with linear damping
+        this.body.linearDamping = 0.3;  // Reduced damping for better physics
+        this.body.angularDamping = 0.3; // Matched with linear damping
         
-        // Set collision groups for the ball
-        this.body.collisionFilterGroup = 4; // Group 4 for the ball
-        this.body.collisionFilterMask = 1 | 2; // Collide with groups 1 (ground/walls) and 2 (hole triggers)
+        // Set collision groups for the ball to collide with everything
+        this.body.collisionFilterGroup = 1;  // Default group
+        this.body.collisionFilterMask = -1;  // Collide with everything
         
         // Add user data to identify this as a ball
         this.body.userData = { type: 'ball' };
         
         // Try to add body to physics world
         try {
-            if (typeof this.physicsWorld.addBody === 'function') {
-                this.physicsWorld.addBody(this.body);
-            } else if (this.physicsWorld.world && typeof this.physicsWorld.world.addBody === 'function') {
+            if (this.physicsWorld.world && typeof this.physicsWorld.world.addBody === 'function') {
                 this.physicsWorld.world.addBody(this.body);
+                console.log('[Ball] Added to physics world:', {
+                    position: this.body.position,
+                    collisionGroup: this.body.collisionFilterGroup,
+                    collisionMask: this.body.collisionFilterMask,
+                    material: this.body.material ? this.body.material.name : 'none'
+                });
             } else {
-                console.error("DEBUG Ball.createBody: Cannot add body to physics world - no valid addBody method found");
+                console.error("[Ball] Cannot add body to physics world - no valid addBody method found");
             }
         } catch (error) {
-            console.error("DEBUG Ball.createBody: Error adding body to physics world:", error);
+            console.error("[Ball] Error adding body to physics world:", error);
         }
         
-        // Explicitly set velocity to zero and put the body to sleep initially
+        // Explicitly set initial state
         this.body.velocity.set(0, 0, 0);
         this.body.angularVelocity.set(0, 0, 0);
-        this.body.sleep();
+        this.body.wakeUp(); // Ensure the body starts awake
         
-        // Register for collision events to handle falling in holes
+        // Register for collision events
         if (this.body.addEventListener) {
             this.body.addEventListener('collide', this.onCollide.bind(this));
         }
         
-        if (this.game && this.game.debugManager) {
-            this.game.debugManager.log("Ball physics body created");
-        }
+        // Force the body to be active
+        this.body.wakeUp();
     }
     
     onCollide(event) {
@@ -278,8 +267,8 @@ export class Ball {
     }
     
     setPosition(x, y, z) {
-        // Make sure y is at least ball radius + small buffer to avoid ground penetration
-        const safeY = Math.max(y, this.radius + 0.05);
+        // Make sure y is at least ball radius + start height to avoid ground penetration
+        const safeY = Math.max(y, this.radius + Ball.START_HEIGHT);
         
         // Set mesh position
         if (this.mesh) {

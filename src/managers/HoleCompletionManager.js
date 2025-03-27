@@ -1,4 +1,5 @@
 import { EventTypes } from '../events/EventTypes';
+import { GameState } from '../states/GameState';
 
 /**
  * HoleCompletionManager - Handles hole completion logic and effects
@@ -7,6 +8,9 @@ export class HoleCompletionManager {
     constructor(game) {
         this.game = game;
         this.completionDelay = 1500; // Delay before showing continue button
+        this.detectionGracePeriod = 2000; // Grace period after hole creation (ms) - increased from 1000
+        this.holeCreationTime = Date.now(); // Track when the hole was created
+        this.isTransitioning = false; // Track if we're currently transitioning
     }
 
     /**
@@ -14,6 +18,7 @@ export class HoleCompletionManager {
      */
     init() {
         this.setupEventListeners();
+        this.resetGracePeriod(); // Reset the grace period on init
         return this;
     }
 
@@ -30,27 +35,83 @@ export class HoleCompletionManager {
     }
 
     /**
+     * Reset the grace period timer
+     */
+    resetGracePeriod() {
+        this.holeCreationTime = Date.now();
+        this.isTransitioning = false;
+        this.game.debugManager.log(`[DEBUG] Hole detection grace period reset at ${this.holeCreationTime}`);
+    }
+
+    /**
      * Check if the ball is in the hole
      * @returns {boolean} Whether the ball went in the hole
      */
     checkBallInHole() {
+        // Skip detection if we're transitioning
+        if (this.isTransitioning) {
+            console.log('[HoleCompletionManager] Skipping hole check - transition in progress');
+            return false;
+        }
+
         // Early exit if conditions aren't met
         if (!this.game.ballManager.ball || !this.game.course || this.game.stateManager.isHoleCompleted()) {
+            return false;
+        }
+
+        // Check if we're still in the grace period
+        const timeSinceCreation = Date.now() - this.holeCreationTime;
+        if (timeSinceCreation < this.detectionGracePeriod) {
+            console.log(`[HoleCompletionManager] In grace period (${timeSinceCreation}ms < ${this.detectionGracePeriod}ms), skipping hole detection`);
             return false;
         }
 
         // Get the current hole position
         const holePosition = this.game.course.getHolePosition();
         if (!holePosition) {
+            console.warn(`[HoleCompletionManager] No hole position found, skipping detection`);
             return false;
         }
 
-        // Update the ball's current hole position reference
-        this.updateBallHoleReference(holePosition);
+        // Get ball position and velocity
+        const ballBody = this.game.ballManager.ball.body;
+        if (!ballBody) {
+            return false;
+        }
 
-        // Check if ball meets hole-in criteria
-        if (this.isBallInHole(holePosition)) {
-            this.game.debugManager.log(`Ball in hole! Success!`);
+        const ballPos = ballBody.position;
+        const ballVel = ballBody.velocity;
+        
+        // Calculate distance to hole
+        const distanceToHole = Math.sqrt(
+            Math.pow(ballPos.x - holePosition.x, 2) +
+            Math.pow(ballPos.z - holePosition.z, 2)
+        );
+
+        // Ball must be:
+        // 1. Close to hole horizontally (within hole radius)
+        // 2. Near ground level
+        // 3. Moving slowly
+        const isNearHole = distanceToHole < 0.35; // Hole radius
+        const isNearGround = ballPos.y < 0.3; // Height threshold
+        const isMovingSlow = Math.sqrt(
+            ballVel.x * ballVel.x +
+            ballVel.y * ballVel.y +
+            ballVel.z * ballVel.z
+        ) < 1.0; // Speed threshold
+
+        // Log detection details
+        console.log(`[HoleCompletionManager] Ball check:`, {
+            distanceToHole,
+            height: ballPos.y,
+            speed: Math.sqrt(ballVel.x * ballVel.x + ballVel.y * ballVel.y + ballVel.z * ballVel.z),
+            isNearHole,
+            isNearGround,
+            isMovingSlow
+        });
+
+        if (isNearHole && isNearGround && isMovingSlow) {
+            console.log(`[HoleCompletionManager] Ball in hole! Success!`);
             this.handleBallInHole();
             return true;
         }
@@ -59,63 +120,52 @@ export class HoleCompletionManager {
     }
 
     /**
-     * Update the ball's reference to the current hole position
-     * @param {THREE.Vector3} holePosition - Current hole position
-     */
-    updateBallHoleReference(holePosition) {
-        const ball = this.game.ballManager.ball;
-        if (!ball) return;
-
-        if (ball.currentHolePosition) {
-            ball.currentHolePosition.copy(holePosition);
-        } else {
-            ball.currentHolePosition = holePosition.clone();
-        }
-    }
-
-    /**
-     * Determines if the ball is in the hole based on position and movement
-     * @param {THREE.Vector3} holePosition - Current hole position
-     * @returns {boolean} Whether the ball is in the hole
-     */
-    isBallInHole(holePosition) {
-        const ball = this.game.ballManager.ball;
-        const ballPosition = ball.mesh.position.clone();
-
-        // Calculate distance from ball to hole center
-        const distanceToHole = ballPosition.distanceTo(holePosition);
-
-        // Check hole entry conditions:
-        // 1. Ball is close enough to hole center
-        const isCloseToHole = distanceToHole < 0.3; // Slightly smaller than hole radius
-
-        // 2. Ball is either stopped or fallen below surface level
-        const isStopped = ball.isStopped();
-        const isBelowSurface = ballPosition.y < holePosition.y - 0.1;
-
-        return (isCloseToHole && (isStopped || isBelowSurface));
-    }
-
-    /**
      * Handle the ball going in the hole
-     * @param {GameEvent} event - Ball in hole event
      */
-    handleBallInHole(event) {
-        const ball = this.game.ballManager.ball;
-        if (!ball) return;
+    handleBallInHole() {
+        // Get current state
+        const currentHoleNumber = this.game.stateManager.getCurrentHoleNumber();
+        const totalHoles = this.game.course.getTotalHoles();
+        
+        console.log(`[HoleCompletionManager] Ball in hole for hole ${currentHoleNumber} of ${totalHoles}`);
+        
+        // Prevent multiple triggers
+        if (this.game.stateManager.isHoleCompleted() || this.isTransitioning) {
+            console.log(`[HoleCompletionManager] Hole already completed or transitioning, ignoring ball in hole event`);
+            return;
+        }
+
+        // Mark that we're starting a transition
+        this.isTransitioning = true;
 
         // Set game state to hole completed
         this.game.stateManager.setHoleCompleted(true);
 
         // Get score data
         const totalStrokes = this.game.scoringSystem.getTotalStrokes();
-        const holeNumber = this.game.stateManager.getCurrentHoleNumber();
 
         // Update score
-        this.updateScore(holeNumber, totalStrokes);
+        this.updateScore(currentHoleNumber, totalStrokes);
 
-        // Trigger transition to next hole immediately
-        this.game.holeTransitionManager.transitionToNextHole();
+        // Check if this was the last hole
+        if (currentHoleNumber >= totalHoles) {
+            console.log(`[HoleCompletionManager] Final hole ${currentHoleNumber} completed`);
+            this.game.stateManager.setGameState(GameState.GAME_COMPLETED);
+            this.isTransitioning = false;
+            return;
+        }
+
+        // Add a delay before transitioning to allow for visual feedback
+        setTimeout(() => {
+            if (!this.isTransitioning) {
+                console.log(`[HoleCompletionManager] Transition already handled, skipping`);
+                return;
+            }
+            
+            console.log(`[HoleCompletionManager] Scheduling transition to next hole`);
+            this.game.holeTransitionManager.transitionToNextHole();
+            this.isTransitioning = false;
+        }, 1500);
     }
 
     /**
@@ -196,5 +246,99 @@ export class HoleCompletionManager {
      */
     cleanup() {
         // Nothing specific to clean up
+    }
+
+    /**
+     * Handle hole transition
+     * @param {number} fromHole - The hole number we're transitioning from
+     * @param {number} toHole - The hole number we're transitioning to
+     */
+    onHoleTransition(fromHole, toHole) {
+        console.log(`[HoleCompletionManager] Handling transition from hole ${fromHole} to ${toHole}`);
+        
+        // Reset completion state
+        this.resetCompletionState();
+        
+        // Update current hole number
+        this.currentHoleNumber = toHole;
+        
+        // Update par for new hole
+        if (this.game.course) {
+            this.currentPar = this.game.course.getHolePar(toHole);
+        }
+        
+        // Update UI
+        if (this.game.uiManager) {
+            this.game.uiManager.updateHoleNumber(toHole);
+            this.game.uiManager.updatePar(this.currentPar);
+        }
+        
+        console.log(`[HoleCompletionManager] Transition to hole ${toHole} complete`);
+    }
+
+    /**
+     * Reset completion state
+     * @private
+     */
+    resetCompletionState() {
+        this.isHoleComplete = false;
+        this.completionTime = 0;
+        this.strokes = 0;
+        this.currentPar = 0;
+    }
+
+    /**
+     * Update loop for the hole completion manager
+     * @param {number} dt - Delta time in seconds
+     */
+    update(dt) {
+        if (!this.game.course || !this.game.ballManager) return;
+        
+        // Check if ball is in hole
+        if (!this.isHoleComplete) {
+            const ball = this.game.ballManager.getBall();
+            const holePosition = this.game.course.getHolePosition();
+            
+            if (ball && holePosition) {
+                const distance = ball.position.distanceTo(holePosition);
+                if (distance < this.holeRadius) {
+                    this.completeHole();
+                }
+            }
+        }
+    }
+
+    /**
+     * Complete the current hole
+     * @private
+     */
+    completeHole() {
+        this.isHoleComplete = true;
+        this.completionTime = performance.now();
+        
+        // Calculate score
+        const score = this.calculateScore();
+        
+        // Update UI
+        if (this.game.uiManager) {
+            this.game.uiManager.updateScore(score);
+        }
+        
+        // Log completion
+        console.log(`[HoleCompletionManager] Hole ${this.currentHoleNumber} completed in ${this.strokes} strokes (Par: ${this.currentPar})`);
+        
+        // Check if there's a next hole
+        if (this.game.course && this.game.course.hasNextHole()) {
+            // Wait a moment before transitioning
+            setTimeout(() => {
+                this.game.course.loadNextHole();
+            }, 2000);
+        } else {
+            // Course complete
+            console.log('[HoleCompletionManager] Course complete!');
+            if (this.game.uiManager) {
+                this.game.uiManager.showCourseComplete();
+            }
+        }
     }
 } 
