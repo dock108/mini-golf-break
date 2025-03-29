@@ -32,7 +32,7 @@
     "webpack-dev-server": "^5.0.2"
   },
   "dependencies": {
-    "three-csg-ts": "^0.2.0"
+    "three-csg-ts": "^3.2.0"
   },
   "directories": {
     "doc": "docs"
