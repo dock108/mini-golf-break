@@ -252,7 +252,7 @@ export class BallManager {
             );
             
             // Update the tee marker at the current ball position
-            this.updateTeeMarker();
+            // this.updateTeeMarker();
         }
         
         // Debug log for ball physics
@@ -403,16 +403,6 @@ export class BallManager {
         
         // Reset ball to safe position
         this.resetBall();
-    }
-    
-    /**
-     * Update tee marker position to current ball position
-     */
-    updateTeeMarker() {
-        if (!this.game.teeMarker || !this.ball) return;
-        
-        const ballPos = this.ball.mesh.position;
-        this.game.teeMarker.setPosition(ballPos.x, ballPos.y, ballPos.z);
     }
     
     /**

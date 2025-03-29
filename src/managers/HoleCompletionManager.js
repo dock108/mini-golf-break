@@ -135,8 +135,31 @@ export class HoleCompletionManager {
             return;
         }
 
-        // Mark that we're starting a transition
+        // Mark that we're starting a transition (or completion)
         this.isTransitioning = true;
+
+        // --- Add Immediate Feedback Actions --- 
+        try {
+            if (this.game.ballManager && this.game.ballManager.ball) {
+                const ball = this.game.ballManager.ball;
+                // Play success sound
+                if (this.game.audioManager) {
+                    this.game.audioManager.playSound('success', 0.7);
+                }
+                // Trigger ball's success effect
+                if (ball.handleHoleSuccess) {
+                    ball.handleHoleSuccess();
+                }
+            }
+             // Show UI message (moved from Game.js)
+            setTimeout(() => {
+                this.game.uiManager.showMessage("Great Shot!", 2000);
+            }, 500); // Small delay still seems appropriate
+
+        } catch (error) {
+            console.error("[HoleCompletionManager] Error during immediate feedback actions:", error);
+        }
+        // --- End Immediate Feedback Actions ---
 
         // Set game state to hole completed
         this.game.stateManager.setHoleCompleted(true);

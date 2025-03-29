@@ -23,26 +23,13 @@ export const EventTypes = {
     HAZARD_WATER: 'hazard:water',
     HAZARD_OUT_OF_BOUNDS: 'hazard:out_of_bounds',
     
-    // Physics events
-    PHYSICS_UPDATED: 'physics:updated',
-    COLLISION_DETECTED: 'physics:collision',
-    
     // UI events
-    UI_ACTION: 'ui:action',
     UI_BUTTON_CLICKED: 'ui:button_clicked',
     
     // Input events
     INPUT_ENABLED: 'input:enabled',
     INPUT_DISABLED: 'input:disabled',
     
-    // Audio events
-    AUDIO_PLAY: 'audio:play',
-    
-    // Visual effects events
-    EFFECT_STARTED: 'effect:started',
-    EFFECT_COMPLETED: 'effect:completed',
-    
     // System events
-    WINDOW_RESIZED: 'system:window_resized',
     ERROR_OCCURRED: 'system:error'
 }; 

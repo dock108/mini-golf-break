@@ -42,10 +42,16 @@
 - [x] Implement scoring system
 - [x] Add vertical hole transitions
 - [x] Create hole disappearing animations
+- [x] Implement multi-hole (2 holes) course structure
+- [x] Add final scorecard display
 
 ## Current Focus
 
 ### Phase 6: Polish and Optimization
+- [x] Implement CSG for hole/hazard geometry cutouts
+- [x] Fix Z-fighting issues on green/hazards
+- [x] Simplify final scorecard UI
+- [x] Remove dead/unused code (events, states, components, methods)
 - [ ] Add level-of-detail (LOD) for complex objects
 - [ ] Optimize render loop for battery efficiency
 - [ ] Implement asset preloading
@@ -59,12 +65,12 @@
 - [ ] Add integration tests for game flow
 - [ ] Test cross-browser compatibility
 - [ ] Verify mobile device support
-- [ ] Performance testing and optimization
+- [ ] Performance testing and optimization (Target: 60 FPS, Physics < 16ms)
 
 ### Phase 8: Documentation
 - [x] Organize documentation structure
 - [x] Create comprehensive development guide
-- [x] Document architecture standards
+- [ ] Document architecture standards (Updating)
 - [x] Update technical specifications
 - [ ] Create API documentation
 - [ ] Write contribution guidelines

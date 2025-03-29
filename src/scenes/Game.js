@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { InputController } from '../controls/InputController';
 import { CameraController } from '../controls/CameraController';
 import { ScoringSystem } from '../game/ScoringSystem';
-import { TeeMarker } from '../objects/TeeMarker';
+// import { TeeMarker } from '../objects/TeeMarker'; // Removed: Using HoleEntity's start marker
 import { BasicCourse } from '../objects/BasicCourse';
 import { EventTypes } from '../events/EventTypes';
 
@@ -57,7 +57,7 @@ export class Game {
         
         // Game objects (these aren't managers but specific game elements)
         this.course = null;
-        this.teeMarker = null;
+        // this.teeMarker = null; // Removed
         
         // Lighting
         this.lights = {
@@ -65,12 +65,12 @@ export class Game {
             directionalLight: null
         };
         
-        // Track last safe position for ball
-        this.lastSafePosition = new THREE.Vector3(0, 0, 0);
-        
         // Performance tracking
         this.clock = new THREE.Clock();
         this.deltaTime = 0;
+
+        // Store bound event handlers
+        this.boundHandleResize = null;
     }
 
     /**
@@ -125,11 +125,6 @@ export class Game {
             this.holeCompletionManager.init();
             this.ballManager.init();
             
-            // Create tee marker
-            if (!this.teeMarker) {
-                this.teeMarker = new TeeMarker(this.scene);
-            }
-            
             // Setup lights
             this.setupLights();
             
@@ -144,7 +139,8 @@ export class Game {
             
             // Add window resize listener
             try {
-                window.addEventListener('resize', this.handleResize.bind(this));
+                this.boundHandleResize = this.handleResize.bind(this); // Store bound function
+                window.addEventListener('resize', this.boundHandleResize);
             } catch (error) {
                 this.debugManager.warn('Game.init', 'Failed to add resize event listener', error);
             }
@@ -300,116 +296,6 @@ export class Game {
     }
     
     /**
-     * Move to the next hole
-     */
-    moveToNextHole() {
-        // Try to advance to the next hole in the course
-        if (this.course.loadNextHole()) {
-            // Reset ball position to new tee
-            const startPosition = this.course.getHoleStartPosition();
-            this.ballManager.resetBall(startPosition);
-            
-            // Position camera for the new hole
-            this.cameraController.positionCameraForHole();
-            
-            // Update UI for new hole
-            this.uiManager.updateHoleInfo();
-            this.uiManager.updateScore();
-            this.uiManager.updateStrokes();
-            
-            // Show hole message
-            const holeNumber = this.course.getCurrentHoleNumber();
-            this.uiManager.showMessage(`Hole ${holeNumber}`, 2000);
-            
-            // Make sure the state is reset 
-            this.stateManager.setHoleCompleted(false);
-            this.stateManager.setBallInMotion(false);
-            
-            return true;
-        } else {
-            // Game complete
-            this.handleGameComplete();
-            return false;
-        }
-    }
-    
-    /**
-     * Handle when ball enters a hole successfully
-     */
-    handleBallInHole() {
-        try {
-            // Make sure ball can fall through the hole by disabling collision with the ground surface
-            if (this.ballManager && this.ballManager.ball) {
-                const ball = this.ballManager.ball;
-                
-                // Play a success sound
-                if (this.audioManager) {
-                    this.audioManager.playSound('success', 0.7);
-                }
-                
-                // Add a visual effect for success (using the ball's handleHoleSuccess method)
-                if (ball.handleHoleSuccess) {
-                    ball.handleHoleSuccess();
-                }
-            }
-            
-            // Mark the current hole as completed, which will disable input
-            this.stateManager.setHoleCompleted(true);
-            
-            // Add small delay before showing a message
-            setTimeout(() => {
-                this.uiManager.showMessage("Great Shot!", 2000);
-            }, 500);
-            
-            // Note: We don't call moveToNextHole() here anymore
-            // The ball's landing pad collision will trigger that after the ball
-            // has fallen through the hole and landed on the tee
-            
-        } catch (error) {
-            console.error("Error in handleBallInHole:", error);
-        }
-    }
-    
-    /**
-     * Reset the current hole
-     */
-    resetHole() {
-        // Set ball back to start position
-        if (this.ballManager && this.ballManager.ball) {
-            const startPosition = this.course.getHoleStartPosition();
-            this.ballManager.ball.setPosition(startPosition.x, startPosition.y, startPosition.z);
-            this.ballManager.ball.resetVelocity();
-            
-            // Update safe position
-            if (this.hazardManager) {
-                this.hazardManager.setLastSafePosition(startPosition);
-            }
-        }
-        
-        // Reset state
-        this.stateManager.setHoleCompleted(false);
-        this.stateManager.setBallInMotion(false);
-        
-        // Position camera directly
-        this.cameraController.positionCameraForHole();
-        
-        // Show the tee marker at the start position
-        if (this.teeMarker) {
-            const safePosition = this.hazardManager ? this.hazardManager.getLastSafePosition() : new THREE.Vector3(0, 0, 0);
-            this.teeMarker.setPosition(safePosition);
-            this.teeMarker.show();
-        }
-        
-        // Enable input
-        if (this.inputController) {
-            this.inputController.enableInput();
-        }
-        
-        // Show welcome message
-        this.uiManager.showMessage("Ready for another round!", 2000);
-    }
-    
-    /**
      * Handle window resize
      */
     handleResize() {
@@ -432,7 +318,10 @@ export class Game {
             }
             
             // Remove event listeners
-            window.removeEventListener('resize', this.handleResize);
+            if (this.boundHandleResize) { // Check if it was successfully added
+                window.removeEventListener('resize', this.boundHandleResize);
+                this.boundHandleResize = null; // Clear reference
+            }
             
             // Clean up managers in reverse order of initialization
             if (this.inputController) this.inputController.cleanup();
@@ -496,12 +385,12 @@ export class Game {
      * Set up event listeners
      */
     setupEventListeners() {
-        // Subscribe to ball in hole events
-        this.eventManager.subscribe(
-            EventTypes.BALL_IN_HOLE,
-            this.handleBallInHole,
-            this
-        );
+        // Subscribe to ball in hole events - REMOVED
+        // this.eventManager.subscribe(
+        //     EventTypes.BALL_IN_HOLE,
+        //     this.handleBallInHole,
+        //     this
+        // );
         
         // Add other event subscriptions as needed
         window.addEventListener('resize', this.handleResize.bind(this));

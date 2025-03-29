@@ -51,7 +51,7 @@ export class StateManager {
         
         // Notify listeners of state change
         this.game.eventManager.publish(
-            EventTypes.GAME_STATE_CHANGED,
+            EventTypes.STATE_CHANGED,
             {
                 oldState: oldState,
                 newState: newState
