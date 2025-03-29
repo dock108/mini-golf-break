@@ -34,3 +34,4 @@ logs/
 .tmp/
 .cache/ 
 coverage/
+.cursor/
