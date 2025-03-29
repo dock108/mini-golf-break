@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
+import { CSG } from 'three-csg-ts';
 
 /**
  * HoleEntity - Encapsulates all resources and physics for a single hole
@@ -53,13 +54,15 @@ export class HoleEntity {
         this.scene.add(this.group);
         this.meshes.push(this.group);
         
-        // Create components
-        this.createGreenSurface();
+        // --- Create Green using CSG --- 
+        this.createCSGGreenSurface();
+        
+        // --- Create other components --- 
         this.createWalls();
-        this.createHoleTrigger();
+        this.createHoleTrigger(); // No longer creates visual, only physics trigger
         this.createStartPosition();
         
-        // Create hazards if any
+        // Create hazards (Sand will now just create its visual mesh)
         if (this.config.hazards) {
             this.config.hazards.forEach(hazard => this.createHazard(hazard));
         }
@@ -74,53 +77,103 @@ export class HoleEntity {
     }
     
     /**
-     * Create the green surface with physics
+     * Create the green surface with cutouts using CSG
      */
-    createGreenSurface() {
-        // Create visual mesh
-        const greenGeometry = new THREE.BoxGeometry(this.width, this.surfaceHeight, this.length);
+    createCSGGreenSurface() {
         const greenMaterial = new THREE.MeshStandardMaterial({
             color: 0x2ecc71,
             roughness: 0.5,
-            metalness: 0.1
+            metalness: 0.1,
+            side: THREE.DoubleSide // Important for CSG results
         });
+
+        // 1. Create base green geometry (centered at origin)
+        // Increase segments for potentially smoother CSG results
+        const greenGeom = new THREE.BoxGeometry(
+            this.width, 
+            this.surfaceHeight, 
+            this.length,
+            10, // widthSegments
+            1,  // heightSegments
+            10  // depthSegments
+            );
+        let greenCSG = CSG.fromGeometry(greenGeom);
+
+        // 2. Subtract Sand Traps (if any)
+        const sandHazards = this.config.hazards?.filter(h => h.type === 'sand') || [];
+        sandHazards.forEach(hazardConfig => {
+            const sandGeom = new THREE.BoxGeometry(
+                hazardConfig.size.x,
+                this.surfaceHeight, // Use surface height for subtraction depth
+                hazardConfig.size.z
+            );
+            // Calculate position relative to the green's center 
+            const localSandPos = hazardConfig.position.clone().sub(this.centerPosition);
+            // Create transformation matrix
+            const sandMatrix = new THREE.Matrix4().makeTranslation(localSandPos.x, 0, localSandPos.z);
+            // Apply matrix to the geometry *before* creating CSG object
+            sandGeom.applyMatrix4(sandMatrix);
+            // Create CSG object from transformed geometry
+            const sandCSG = CSG.fromGeometry(sandGeom);
+
+            // Subtract
+            greenCSG = greenCSG.subtract(sandCSG);
+            console.log('[HoleEntity] Subtracted sand shape from green CSG');
+        });
+
+        // 3. Subtract Hole
+        const holeGeom = new THREE.CylinderGeometry(
+            this.holeRadius,
+            this.holeRadius,
+            this.surfaceHeight * 1.1, // Ensure it cuts through fully
+            16
+        );
+        // Calculate position relative to the green's center
+        const localHolePos = this.config.holePosition.clone().sub(this.centerPosition);
+        // Create transformation matrix
+        const holeMatrix = new THREE.Matrix4().makeTranslation(localHolePos.x, 0, localHolePos.z);
+        // Apply matrix to the geometry *before* creating CSG object
+        holeGeom.applyMatrix4(holeMatrix);
+        // Create CSG object from transformed geometry
+        const holeCSG = CSG.fromGeometry(holeGeom);
         
-        const greenMesh = new THREE.Mesh(greenGeometry, greenMaterial);
-        greenMesh.position.y = this.surfaceHeight / 2;
-        this.group.add(greenMesh);
-        this.meshes.push(greenMesh);
+        // Subtract
+        greenCSG = greenCSG.subtract(holeCSG);
+        console.log('[HoleEntity] Subtracted hole shape from green CSG');
+
+        // 4. Convert final CSG back to Mesh
+        const finalGreenMesh = CSG.toMesh(greenCSG, new THREE.Matrix4(), greenMaterial);
+        finalGreenMesh.position.y = this.surfaceHeight / 2; // Position the final mesh correctly vertically
         
-        // Create physics body
+        // --- Recalculate Normals --- 
+        finalGreenMesh.geometry.computeVertexNormals(); 
+        console.log('[HoleEntity] Recalculated vertex normals for final green mesh');
+        // --- End Recalculate Normals ---
+
+        finalGreenMesh.castShadow = true;
+        finalGreenMesh.receiveShadow = true;
+        this.group.add(finalGreenMesh);
+        this.meshes.push(finalGreenMesh);
+        console.log('[HoleEntity] Created final green mesh from CSG');
+
+        // --- Physics Body (Keep simple box for performance) --- 
         const greenBody = new CANNON.Body({
             mass: 0,
             type: CANNON.Body.STATIC,
             material: this.world.defaultMaterial
         });
-        
-        // Add main surface shape
-        const mainSurface = new CANNON.Box(new CANNON.Vec3(
+        const mainSurfaceShape = new CANNON.Box(new CANNON.Vec3(
             this.width / 2,
             this.surfaceHeight / 2,
             this.length / 2
         ));
-        greenBody.addShape(mainSurface, new CANNON.Vec3(0, this.surfaceHeight / 2, 0));
-        
-        // Add backup box to prevent tunneling
-        const backupBox = new CANNON.Box(new CANNON.Vec3(
-            this.width / 2,
-            this.surfaceHeight,
-            this.length / 2
-        ));
-        greenBody.addShape(backupBox, new CANNON.Vec3(0, -this.surfaceHeight / 2, 0));
-        
-        // Set position and add to world
+        // Position physics relative to world origin, not group origin
+        greenBody.addShape(mainSurfaceShape, new CANNON.Vec3(0, this.surfaceHeight / 2, 0)); 
         greenBody.position.copy(this.centerPosition);
         greenBody.userData = { type: 'green', holeIndex: this.config.index };
-        
         this.world.addBody(greenBody);
         this.bodies.push(greenBody);
-        
-        console.log('[HoleEntity] Created green surface');
+        console.log('[HoleEntity] Created simple green physics body');
     }
     
     /**
@@ -193,64 +246,27 @@ export class HoleEntity {
     }
     
     /**
-     * Create hole trigger for ball detection AND a visual representation
+     * Create hole trigger physics body (Visual removed)
      */
     createHoleTrigger() {
-        // --- Visual Hole --- 
-        const holeVisualGeometry = new THREE.CylinderGeometry(
-            this.holeRadius * 0.95, // Slightly smaller than physics trigger
-            this.holeRadius * 0.95, 
-            this.surfaceHeight * 1.1, // Slightly taller than surface height
-            16
-        );
-        const holeVisualMaterial = new THREE.MeshBasicMaterial({
-            color: 0x111111, // Dark color
-            side: THREE.DoubleSide // Render inside if needed
-        });
-        const holeVisualMesh = new THREE.Mesh(holeVisualGeometry, holeVisualMaterial);
-        
-        // Position the visual hole relative to the group's center
-        const localHolePos = this.config.holePosition.clone().sub(this.centerPosition);
-        holeVisualMesh.position.copy(localHolePos);
-        holeVisualMesh.position.y = this.surfaceHeight * 0.5 - 0.01; // Slightly below the green surface
-        
-        this.group.add(holeVisualMesh);
-        this.meshes.push(holeVisualMesh);
-        console.log('[HoleEntity] Created hole visual mesh');
-        // --- End Visual Hole ---
-
-        // --- Physics Trigger (existing code) ---
+        // --- Physics Trigger (existing code remains) ---
         const holeTrigger = new CANNON.Body({
             mass: 0,
             type: CANNON.Body.STATIC,
             isTrigger: true,
             collisionResponse: false
         });
-        
-        // Add cylinder shape for trigger
-        const triggerShape = new CANNON.Cylinder(
-            this.holeRadius,
-            this.holeRadius,
-            this.surfaceHeight,
-            16
-        );
+        const triggerShape = new CANNON.Cylinder(this.holeRadius, this.holeRadius, this.surfaceHeight, 16);
         holeTrigger.addShape(triggerShape);
-        
-        // Position physics trigger at the absolute hole location (world space)
         holeTrigger.position.copy(this.config.holePosition);
         holeTrigger.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-        
-        // Set up collision filters
-        holeTrigger.collisionFilterGroup = 2;  // Hole group
-        holeTrigger.collisionFilterMask = 4;   // Ball group
-        
+        holeTrigger.collisionFilterGroup = 2;  
+        holeTrigger.collisionFilterMask = 4;   
         holeTrigger.userData = { type: 'hole', holeIndex: this.config.index };
-        
         this.world.addBody(holeTrigger);
         this.bodies.push(holeTrigger);
         this.holeTrigger = holeTrigger;
-        
-        console.log('[HoleEntity] Created hole trigger body');
+        console.log('[HoleEntity] Created hole trigger body (visual is part of green)');
     }
     
     /**
@@ -281,50 +297,47 @@ export class HoleEntity {
      */
     createHazard(hazardConfig) {
         if (hazardConfig.type === 'sand') {
-            // Create visual mesh
+            // --- Create visual mesh to fill the CSG cutout --- 
             const sandGeometry = new THREE.BoxGeometry(
                 hazardConfig.size.x,
-                hazardConfig.size.y,
+                hazardConfig.size.y, // Use actual configured height for visual
                 hazardConfig.size.z
             );
-            
             const sandMaterial = new THREE.MeshStandardMaterial({
-                color: 0xF4A460,
-                roughness: 0.8,
-                metalness: 0.1
+                color: 0xF4A460, 
+                roughness: 0.8, 
+                metalness: 0.1 
             });
-            
             const sandMesh = new THREE.Mesh(sandGeometry, sandMaterial);
-            const localPos = hazardConfig.position.clone().sub(this.centerPosition);
+            const localPos = hazardConfig.position.clone().sub(this.centerPosition); // Position relative to group center
             sandMesh.position.copy(localPos);
-            sandMesh.position.y = hazardConfig.size.y / 2;
-            
+            // Position sand slightly below green surface level
+            sandMesh.position.y = (this.surfaceHeight / 2) - (hazardConfig.size.y / 2) - 0.01;
+            sandMesh.castShadow = true;
+            sandMesh.receiveShadow = true;
             this.group.add(sandMesh);
             this.meshes.push(sandMesh);
-            
-            // Create physics body
+            console.log('[HoleEntity] Created sand visual mesh to fill cutout');
+
+            // --- Physics Body (remains the same, simple box is fine) --- 
             const sandBody = new CANNON.Body({
                 mass: 0,
                 type: CANNON.Body.STATIC,
                 material: this.world.sandMaterial || this.world.defaultMaterial
             });
-            
-            sandBody.addShape(new CANNON.Box(new CANNON.Vec3(
+            const shape = new CANNON.Box(new CANNON.Vec3(
                 hazardConfig.size.x / 2,
                 hazardConfig.size.y / 2,
                 hazardConfig.size.z / 2
-            )));
-            
-            sandBody.position.copy(hazardConfig.position);
-            sandBody.position.y += hazardConfig.size.y / 2;
-            
+            ));
+            sandBody.addShape(shape);
+            sandBody.position.copy(hazardConfig.position); // Use world position for physics
             sandBody.userData = { type: 'sand', holeIndex: this.config.index };
-            
             this.world.addBody(sandBody);
             this.bodies.push(sandBody);
-            
-            console.log('[HoleEntity] Created sand trap');
+            console.log('[HoleEntity] Created sand physics body');
         }
+        // TODO: Add other hazard types if needed
     }
     
     /**
