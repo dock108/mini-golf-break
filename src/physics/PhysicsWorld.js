@@ -38,6 +38,13 @@ export class PhysicsWorld {
         // Last time used for calculating elapsed time
         this.lastCallTime = performance.now() / 1000;
         
+        // Track when physics world was created to prevent immediate collisions
+        this.creationTime = Date.now();
+        this.collisionGracePeriod = 2000; // ms - increased from 500ms
+        
+        // Add collide event listener for hole detection
+        this.setupCollideListener();
+        
         console.log("Physics world initialized");
     }
     
@@ -119,16 +126,171 @@ export class PhysicsWorld {
             }
         }
         
-        // Step the physics world
-        this.world.step(this.fixedTimeStep, dt, this.maxSubSteps);
+        // Step the physics world with safety checks
+        if (this.world) {
+            try {
+                // Wake up all bodies before stepping to ensure they're in a valid state
+                this.world.bodies.forEach(body => {
+                    if (body && typeof body.wakeUp === 'function') {
+                        body.wakeUp();
+                    }
+                });
+
+                // Temporarily remove collision callback if it exists
+                let tempCallback = null;
+                if (this._collisionCallback) {
+                    tempCallback = this._collisionCallback;
+                    this.world.removeEventListener('beginContact', this._collisionCallback);
+                }
+                
+                // Step the world
+                this.world.step(this.fixedTimeStep, dt, this.maxSubSteps);
+                
+                // Re-add collision callback if it was removed
+                if (tempCallback) {
+                    this.world.addEventListener('beginContact', tempCallback);
+                }
+            } catch (error) {
+                console.error('Error in physics update:', error);
+                // If we get an error, try to recover by resetting all bodies
+                this.world.bodies.forEach(body => {
+                    if (body) {
+                        body.velocity.set(0, 0, 0);
+                        body.angularVelocity.set(0, 0, 0);
+                        body.force.set(0, 0, 0);
+                        body.torque.set(0, 0, 0);
+                        if (typeof body.wakeUp === 'function') {
+                            body.wakeUp();
+                        }
+                    }
+                });
+            }
+        }
+    }
+    
+    /**
+     * Set up the collide event listener
+     */
+    setupCollideListener() {
+        // Remove any existing listeners first to avoid duplicates
+        this.world.removeEventListener('collide', this._collideCallback);
+        
+        // Create a new collide callback
+        this._collideCallback = (event) => {
+            // Check if we're still in the grace period
+            const timeSinceCreation = Date.now() - this.creationTime;
+            if (timeSinceCreation < this.collisionGracePeriod) {
+                console.log(`[PhysicsWorld] Ignoring collide event during grace period (${timeSinceCreation}ms < ${this.collisionGracePeriod}ms)`);
+                return;
+            }
+            
+            // Get the bodies involved in the collision
+            const bodyA = event.bodyA;
+            const bodyB = event.bodyB;
+            
+            // Check if one of the bodies is a ball and the other is a hole
+            let ball = null;
+            let hole = null;
+            
+            if (bodyA.userData && bodyA.userData.type === 'ball') {
+                ball = bodyA;
+                if (bodyB.userData && bodyB.userData.type === 'hole') {
+                    hole = bodyB;
+                }
+            } else if (bodyB.userData && bodyB.userData.type === 'ball') {
+                ball = bodyB;
+                if (bodyA.userData && bodyA.userData.type === 'hole') {
+                    hole = bodyA;
+                }
+            }
+            
+            // If we found a ball and hole collision
+            if (ball && hole) {
+                console.log(`[PhysicsWorld] Ball entered hole ${hole.userData.holeIndex + 1}`);
+                
+                // Check if we have a game object with onBallInHole method
+                if (this.game && typeof this.game.onBallInHole === 'function') {
+                    this.game.onBallInHole(hole.userData.holeIndex);
+                }
+            }
+        };
+        
+        // Add the callback to the world
+        this.world.addEventListener('collide', this._collideCallback);
+    }
+    
+    // Store collision callback for re-adding after reset
+    setCollisionCallback(callback) {
+        // Wrap the callback with our own that includes grace period check
+        const wrappedCallback = (event) => {
+            // Check if we're still in the grace period
+            const timeSinceCreation = Date.now() - this.creationTime;
+            if (timeSinceCreation < this.collisionGracePeriod) {
+                console.log(`[PhysicsWorld] Ignoring collision during grace period (${timeSinceCreation}ms < ${this.collisionGracePeriod}ms)`);
+                return;
+            }
+            
+            // Check what objects are colliding
+            const bodyA = event.bodyA;
+            const bodyB = event.bodyB;
+            
+            // Log collision details
+            if (bodyA && bodyA.userData && bodyB && bodyB.userData) {
+                console.log(`[PhysicsWorld] Collision detected between: 
+                    - Type A: ${bodyA.userData.type || 'unknown'}, Index: ${bodyA.userData.holeIndex !== undefined ? bodyA.userData.holeIndex : 'N/A'}
+                    - Type B: ${bodyB.userData.type || 'unknown'}, Index: ${bodyB.userData.holeIndex !== undefined ? bodyB.userData.holeIndex : 'N/A'}`);
+            }
+            
+            // Call the original callback
+            callback(event);
+        };
+        
+        this._collisionCallback = wrappedCallback;
+        if (this.world) {
+            this.world.addEventListener('beginContact', wrappedCallback);
+        }
     }
     
     addBody(body) {
-        this.world.addBody(body);
+        if (body) {
+            // Ensure body is awake when added
+            if (typeof body.wakeUp === 'function') {
+                body.wakeUp();
+            }
+            
+            // Add to world
+            this.world.addBody(body);
+            
+            // Log body addition
+            console.log(`[PhysicsWorld] Added body of type: ${body.userData ? body.userData.type : 'unknown'}`);
+        }
     }
     
     removeBody(body) {
-        this.world.removeBody(body);
+        if (this.world && body) {
+            // Wake up the body before removal
+            if (typeof body.wakeUp === 'function') {
+                body.wakeUp();
+            }
+            
+            // Reset all physics properties
+            body.velocity.set(0, 0, 0);
+            body.angularVelocity.set(0, 0, 0);
+            body.force.set(0, 0, 0);
+            body.torque.set(0, 0, 0);
+            
+            // Remove all constraints involving this body first
+            const constraintsToRemove = this.world.constraints.filter(
+                c => c.bodyA === body || c.bodyB === body
+            );
+            constraintsToRemove.forEach(c => this.world.removeConstraint(c));
+            
+            // Finally remove the body
+            this.world.removeBody(body);
+            
+            // Log body removal
+            console.log(`[PhysicsWorld] Removed body of type: ${body.userData ? body.userData.type : 'unknown'}`);
+        }
     }
     
     // Helper to create a plane body for ground
@@ -202,5 +364,57 @@ export class PhysicsWorld {
         });
         // No rotation needed as the cylinder should be vertical
         return cylinderBody;
+    }
+    
+    /**
+     * Reset the physics world to its initial state
+     */
+    reset() {
+        console.log('[PhysicsWorld] Resetting physics world');
+        
+        // Remove all bodies
+        const bodies = [...this.world.bodies];
+        bodies.forEach(body => {
+            if (body) {
+                // Wake up the body before removal
+                if (typeof body.wakeUp === 'function') {
+                    body.wakeUp();
+                }
+                
+                // Reset all physics properties
+                body.velocity.set(0, 0, 0);
+                body.angularVelocity.set(0, 0, 0);
+                body.force.set(0, 0, 0);
+                body.torque.set(0, 0, 0);
+                
+                // Remove all shapes from the body first
+                body.shapes.forEach(shape => {
+                    body.removeShape(shape);
+                });
+                
+                // Remove the body
+                this.world.removeBody(body);
+            }
+        });
+        
+        // Reset the world's state
+        this.world.gravity.set(0, -9.81, 0);
+        this.world.solver.iterations = 10;
+        this.world.solver.tolerance = 0.0001;
+        this.world.allowSleep = true;
+        this.world.defaultSleepSpeedLimit = 0.15;
+        this.world.defaultSleepTimeLimit = 0.2;
+        
+        // Recreate contact materials
+        this.createContactMaterials();
+        
+        // Reset grace period
+        this.creationTime = Date.now();
+        console.log(`[PhysicsWorld] Reset collision grace period at ${this.creationTime}`);
+        
+        // Reset collision listeners
+        this.setupCollideListener();
+        
+        console.log('[PhysicsWorld] Physics world reset complete');
     }
 } 

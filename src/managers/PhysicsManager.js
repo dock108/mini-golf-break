@@ -18,6 +18,9 @@ export class PhysicsManager {
         // Debug visualization
         this.debugEnabled = false;
         this.debugMeshes = [];
+
+        // Flag to track if world is being reset
+        this.isResetting = false;
     }
     
     /**
@@ -53,9 +56,13 @@ export class PhysicsManager {
     setupCollisionEvents() {
         if (!this.cannonWorld) return this;
         
-        // Add collision event handlers if needed
-        this.cannonWorld.addEventListener('beginContact', this.handleCollisionStart.bind(this));
-        this.cannonWorld.addEventListener('endContact', this.handleCollisionEnd.bind(this));
+        // Store bound handlers
+        this.boundCollisionStart = this.handleCollisionStart.bind(this);
+        this.boundCollisionEnd = this.handleCollisionEnd.bind(this);
+        
+        // Add collision event handlers and store them in the physics world
+        this.world.setCollisionCallback(this.boundCollisionStart);
+        this.cannonWorld.addEventListener('endContact', this.boundCollisionEnd);
         
         return this;
     }
@@ -91,42 +98,24 @@ export class PhysicsManager {
      * @param {number} deltaTime - Time since last update in seconds
      */
     update(deltaTime) {
-        // Periodic logging of physics world state
-        const debugRate = 0.001; // Log approximately once every 1000 frames
-        
-        if (this.game && this.game.debugManager && this.game.debugManager.enabled && Math.random() < debugRate) {
-            if (this.world) {
-                let bodyCount = 0;
-                if (this.cannonWorld && this.cannonWorld.bodies) {
-                    bodyCount = this.cannonWorld.bodies.length;
-                }
-                this.game.debugManager.info('PhysicsManager.update', `Physics world has ${bodyCount} bodies`);
-            }
+        // Skip update if we're in the middle of resetting
+        if (this.isResetting) {
+            return this;
         }
-        
-        // Error handling for missing physics world
-        if (!this.world) {
+
+        // Safety check for world and bodies
+        if (!this.cannonWorld || !this.cannonWorld.bodies) {
             if (this.game && this.game.debugManager) {
-                // Only log this error once to avoid spamming
-                if (!this._loggedWorldError) {
-                    this.game.debugManager.error(
-                        'PhysicsManager.update', 
-                        'Physics world is null or undefined!', 
-                        null, 
-                        true // Show in UI as this is a critical issue
-                    );
-                    this._loggedWorldError = true;
-                }
-            } else if (!this._loggedWorldError) {
-                console.error("ERROR: PhysicsManager.update: Physics world is null or undefined!");
-                this._loggedWorldError = true;
+                this.game.debugManager.warn('[PhysicsManager] Physics world or bodies not ready');
             }
             return this;
         }
-        
+
         // Update the physics world
         try {
-            this.world.update();
+            if (!this.isResetting) {
+                this.world.update();
+            }
         } catch (error) {
             if (this.game && this.game.debugManager) {
                 this.game.debugManager.error(
@@ -138,11 +127,6 @@ export class PhysicsManager {
             } else {
                 console.error("ERROR: PhysicsManager.update: Error updating physics world", error);
             }
-        }
-        
-        // Update debug visualization if enabled
-        if (this.debugEnabled) {
-            this.updateDebugMeshes();
         }
         
         return this;
@@ -323,13 +307,107 @@ export class PhysicsManager {
         // Clean up physics world
         if (this.cannonWorld) {
             // Remove event listeners
-            this.cannonWorld.removeEventListener('beginContact', this.handleCollisionStart);
-            this.cannonWorld.removeEventListener('endContact', this.handleCollisionEnd);
+            this.cannonWorld.removeEventListener('beginContact', this.boundCollisionStart);
+            this.cannonWorld.removeEventListener('endContact', this.boundCollisionEnd);
         }
         
         this.world = null;
         this.cannonWorld = null;
         
         return this;
+    }
+    
+    /**
+     * Remove a body from the physics world
+     * @param {CANNON.Body} body - The physics body to remove
+     */
+    removeBody(body) {
+        if (!this.cannonWorld || !body) return this;
+        
+        // Check if body is still in the world before removing
+        if (this.cannonWorld.bodies.includes(body)) {
+            // Remove from world
+            this.cannonWorld.removeBody(body);
+            
+            // Log removal for debugging
+            if (this.game && this.game.debugManager) {
+                this.game.debugManager.log(`[PhysicsManager] Removed body: ${body.id}`);
+            }
+        }
+        
+        return this;
+    }
+    
+    /**
+     * Reset the physics world to its initial state
+     * This removes all bodies and reinitializes the world
+     * @returns {Promise} A promise that resolves when the world is reset and initialized
+     */
+    async resetWorld() {
+        console.log('[PhysicsManager] Starting physics world reset');
+        
+        // Set resetting flag
+        this.isResetting = true;
+        
+        try {
+            // Store existing materials before cleanup
+            const oldMaterials = {
+                defaultMaterial: this.world?.defaultMaterial,
+                groundMaterial: this.world?.groundMaterial,
+                wallMaterial: this.world?.wallMaterial,
+                sandMaterial: this.world?.sandMaterial
+            };
+            
+            // Log current state
+            console.log('[PhysicsManager] Current world state:', {
+                hasWorld: !!this.world,
+                hasCannonWorld: !!this.cannonWorld,
+                bodyCount: this.cannonWorld?.bodies?.length || 0
+            });
+            
+            // Clean up existing world
+            if (this.world) {
+                // Remove event listeners
+                if (this.boundCollisionStart) {
+                    this.cannonWorld.removeEventListener('beginContact', this.boundCollisionStart);
+                }
+                if (this.boundCollisionEnd) {
+                    this.cannonWorld.removeEventListener('endContact', this.boundCollisionEnd);
+                }
+            }
+            
+            // Create new PhysicsWorld instance
+            this.world = new PhysicsWorld();
+            this.cannonWorld = this.world.world;
+            
+            // Verify the new world was created properly
+            if (!this.world || !this.cannonWorld || !(this.cannonWorld instanceof CANNON.World)) {
+                throw new Error('Failed to create new physics world');
+            }
+            
+            // Restore materials
+            if (oldMaterials.defaultMaterial) this.world.defaultMaterial = oldMaterials.defaultMaterial;
+            if (oldMaterials.groundMaterial) this.world.groundMaterial = oldMaterials.groundMaterial;
+            if (oldMaterials.wallMaterial) this.world.wallMaterial = oldMaterials.wallMaterial;
+            if (oldMaterials.sandMaterial) this.world.sandMaterial = oldMaterials.sandMaterial;
+            
+            // Set up collision events for new world
+            this.setupCollisionEvents();
+            
+            // Log new world state
+            console.log('[PhysicsManager] New world created:', {
+                hasWorld: !!this.world,
+                hasCannonWorld: !!this.cannonWorld,
+                hasStep: !!this.cannonWorld?.step,
+                bodyCount: this.cannonWorld?.bodies?.length || 0
+            });
+            
+            return this.world;
+        } catch (error) {
+            console.error('[PhysicsManager] Error resetting physics world:', error);
+            throw error;
+        } finally {
+            this.isResetting = false;
+        }
     }
 } 

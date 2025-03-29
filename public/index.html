@@ -7,30 +7,29 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="game-container"></div>
-    <div id="menu-screen">
-        <div class="menu-content">
-            <h1>Mini Golf Break</h1>
-            <p>A fun, casual offline mini-golf experience in space</p>
-            <button id="play-course">Play Space Course</button>
-            <div class="menu-instructions">
-                <h3>How to Play:</h3>
-                <ul>
-                    <li>Click and drag backwards from the ball to set direction and power</li>
-                    <li>Release to hit the ball</li>
-                    <li>Use right-click drag to rotate the camera</li>
-                    <li>Scroll to zoom in/out</li>
-                    <li>Get the ball into the hole with as few strokes as possible</li>
-                    <li>Press 'd' to toggle debug mode</li>
-                </ul>
+    <div id="game-container">
+        <!-- Menu Screen -->
+        <div id="menu-screen">
+            <div class="menu-content">
+                <h1>Mini Golf Break</h1>
+                <div class="menu-instructions">
+                    <h2>How to Play</h2>
+                    <ul>
+                        <li>Click and drag to aim</li>
+                        <li>Hold to increase power</li>
+                        <li>Release to shoot</li>
+                        <li>Get the ball in the hole</li>
+                        <li>Try to use as few strokes as possible!</li>
+                    </ul>
+                </div>
+                <button id="play-course">Play Course</button>
             </div>
         </div>
     </div>
     <div id="ui-overlay">
-        <div id="score">Score: <span id="score-value">0</span></div>
         <div id="power-indicator"></div>
         <div id="ready-indicator">Ready</div>
-        <button id="pause-button">Pause</button>
     </div>
+    <script type="module" src="../src/main.js"></script>
 </body>
 </html> 

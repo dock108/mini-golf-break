@@ -1,3 +1,6 @@
+import { GameState } from '../states/GameState';
+import { EventTypes } from '../events/EventTypes';
+
 /**
  * StateManager - Handles game state and provides a central point for state changes
  * Extracts state management from Game.js to improve modularity
@@ -20,6 +23,7 @@ export class StateManager {
             resetBall: false,
             gameOver: false,
             gameStarted: false,
+            currentGameState: GameState.INITIALIZING,
             
             // UI state
             showingMessage: false,
@@ -38,178 +42,181 @@ export class StateManager {
     }
     
     /**
-     * Reset the game state to default values
+     * Set the current game state
+     * @param {GameState} newState - The new game state to set
      */
-    resetState() {
-        this.state.ballInMotion = false;
-        this.state.holeCompleted = false;
-        this.state.resetBall = false;
-        this.state.gameOver = false;
+    setGameState(newState) {
+        const oldState = this.state.currentGameState;
+        this.state.currentGameState = newState;
         
-        this._notifyStateChange();
+        // Notify listeners of state change
+        this.game.eventManager.publish(
+            EventTypes.STATE_CHANGED,
+            {
+                oldState: oldState,
+                newState: newState
+            },
+            this
+        );
+        
         return this;
     }
     
     /**
-     * Set a specific state property
-     * @param {string} property - The property to set
-     * @param {any} value - The value to set
+     * Get the current game state
+     * @returns {GameState} The current game state
      */
-    setState(property, value) {
-        if (this.state.hasOwnProperty(property)) {
-            const oldValue = this.state[property];
-            this.state[property] = value;
-            
-            // Notify listeners if value changed
-            if (oldValue !== value) {
-                this._notifyStateChange(property, value, oldValue);
-            }
-        }
-        return this;
+    getGameState() {
+        return this.state.currentGameState;
     }
     
     /**
-     * Get a specific state property
-     * @param {string} property - The property to get
-     * @returns {any} The value of the property
+     * Check if the game is in a specific state
+     * @param {GameState} state - The state to check
+     * @returns {boolean} Whether the game is in the specified state
      */
-    getState(property) {
-        return this.state[property];
+    isInState(state) {
+        return this.state.currentGameState === state;
     }
     
     /**
-     * Mark the ball as in motion
+     * Set whether the ball is in motion
+     * @param {boolean} isMoving - Whether the ball is moving
      */
     setBallInMotion(isMoving) {
-        const wasMoving = this.state.ballInMotion;
         this.state.ballInMotion = isMoving;
-        
-        // If ball just stopped moving and hole is not completed
-        if (wasMoving && !isMoving) {
-            this._notifyBallStopped();
-        }
-        
-        return this;
-    }
-    
-    /**
-     * Mark the current hole as completed
-     */
-    setHoleCompleted() {
-        this.state.holeCompleted = true;
-        this._notifyHoleCompleted();
         return this;
     }
     
     /**
      * Check if the ball is in motion
+     * @returns {boolean} Whether the ball is moving
      */
     isBallInMotion() {
         return this.state.ballInMotion;
     }
     
     /**
-     * Check if the hole is completed
+     * Set whether the current hole is completed
+     * @param {boolean} isCompleted - Whether the hole is completed
+     */
+    setHoleCompleted(isCompleted) {
+        this.state.holeCompleted = isCompleted;
+        if (isCompleted) {
+            this.setGameState(GameState.HOLE_COMPLETED);
+            this._notifyHoleCompleted();
+        }
+        return this;
+    }
+    
+    /**
+     * Check if the current hole is completed
+     * @returns {boolean} Whether the hole is completed
      */
     isHoleCompleted() {
         return this.state.holeCompleted;
     }
     
     /**
-     * Register callback for hole completed event
-     * @param {Function} callback - Function to call when hole is completed
-     */
-    onHoleCompleted(callback) {
-        this.eventCallbacks.onHoleCompleted.push(callback);
-        return this;
-    }
-    
-    /**
-     * Register callback for ball stopped event
-     * @param {Function} callback - Function to call when ball stops moving
-     */
-    onBallStopped(callback) {
-        this.eventCallbacks.onBallStopped.push(callback);
-        return this;
-    }
-    
-    /**
-     * Register callback for ball hit event
-     * @param {Function} callback - Function to call when ball is hit
-     */
-    onBallHit(callback) {
-        this.eventCallbacks.onBallHit.push(callback);
-        return this;
-    }
-    
-    /**
-     * Register callback for general state changes
-     * @param {Function} callback - Function to call when state changes
-     */
-    onStateChange(callback) {
-        this.eventCallbacks.onStateChange.push(callback);
-        return this;
-    }
-    
-    /**
-     * Notify listeners that ball has stopped
-     * @private
-     */
-    _notifyBallStopped() {
-        this.eventCallbacks.onBallStopped.forEach(callback => callback());
-    }
-    
-    /**
-     * Notify listeners that hole has been completed
-     * @private
-     */
-    _notifyHoleCompleted() {
-        this.eventCallbacks.onHoleCompleted.forEach(callback => callback());
-    }
-    
-    /**
-     * Notify listeners that ball has been hit
-     * @private
-     */
-    _notifyBallHit() {
-        this.eventCallbacks.onBallHit.forEach(callback => callback());
-    }
-    
-    /**
-     * Notify listeners that state has changed
-     * @private
-     */
-    _notifyStateChange(property = null, newValue = null, oldValue = null) {
-        this.eventCallbacks.onStateChange.forEach(callback => 
-            callback(property, newValue, oldValue)
-        );
-    }
-    
-    /**
      * Get the current hole number
-     * @returns {number} Current hole number (1-based index)
+     * @returns {number} The current hole number
      */
     getCurrentHoleNumber() {
         return this.state.currentHoleNumber;
     }
     
     /**
-     * Increment the hole number
-     * @returns {StateManager} this for chaining
+     * Set the game as over
+     * @param {boolean} isOver - Whether the game is over
      */
-    incrementHoleNumber() {
-        this.state.currentHoleNumber++;
-        this._notifyStateChange('currentHoleNumber', this.state.currentHoleNumber);
+    setGameOver(isOver) {
+        this.state.gameOver = isOver;
+        if (isOver) {
+            this.setGameState(GameState.GAME_COMPLETED);
+        }
         return this;
     }
     
     /**
-     * Reset the hole number to 1
-     * @returns {StateManager} this for chaining
+     * Check if the game is over
+     * @returns {boolean} Whether the game is over
      */
-    resetHoleNumber() {
-        this.state.currentHoleNumber = 1;
-        this._notifyStateChange('currentHoleNumber', this.state.currentHoleNumber);
+    isGameOver() {
+        return this.state.gameOver;
+    }
+    
+    /**
+     * Reset state for the next hole
+     */
+    resetForNextHole() {
+        // Get total holes from course and current hole
+        const totalHoles = this.game.course.getTotalHoles();
+        const currentHole = this.state.currentHoleNumber;
+        
+        console.log(`[StateManager] Current hole: ${currentHole}, Total holes: ${totalHoles}`);
+        
+        // Check if we're PAST the last hole (not AT it)
+        if (currentHole > totalHoles) {
+            console.warn('[StateManager] No more holes available - past last hole');
+            this.setGameState(GameState.GAME_COMPLETED);
+            return this;
+        }
+        
+        // Only increment if we're not at or past the last hole
+        if (currentHole < totalHoles) {
+            this.state.currentHoleNumber++;
+            console.log(`[StateManager] Incremented hole number to ${this.state.currentHoleNumber}`);
+        }
+        
+        // Reset hole state
+        this.state.holeCompleted = false;
+        this.state.ballInMotion = false;
+        
+        // Set game state to aiming
+        this.setGameState(GameState.AIMING);
+        
+        // Log the transition
+        console.log(`[StateManager] Reset for hole ${this.state.currentHoleNumber} of ${totalHoles}`);
+        
         return this;
+    }
+    
+    /**
+     * Reset all game state to initial values
+     */
+    resetState() {
+        // Reset ball state
+        this.state.ballInMotion = false;
+        
+        // Reset hole state
+        this.state.holeCompleted = false;
+        this.state.currentHoleNumber = 1;
+        
+        // Reset game flow
+        this.state.resetBall = false;
+        this.state.gameOver = false;
+        this.state.gameStarted = false;
+        
+        // Set initial game state
+        this.setGameState(GameState.INITIALIZING);
+        
+        // Reset UI state
+        this.state.showingMessage = false;
+        
+        return this;
+    }
+    
+    /**
+     * Notify listeners that a hole was completed
+     * @private
+     */
+    _notifyHoleCompleted() {
+        this.eventCallbacks.onHoleCompleted.forEach(callback => {
+            try {
+                callback();
+            } catch (error) {
+                console.error('Error in hole completed callback:', error);
+            }
+        });
     }
 } 

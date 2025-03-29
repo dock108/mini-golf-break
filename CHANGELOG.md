@@ -2,6 +2,48 @@
 
 All notable changes to the Mini Golf Break project will be documented in this file.
 
+## [0.9.1] - Code Cleanup and CSG Implementation
+
+### Features & Fixes
+- Implemented Constructive Solid Geometry (CSG) using `three-csg-ts` to create realistic cutouts for holes and sand traps in the green surface.
+- Fixed Z-fighting issues between green, hole visuals, and sand traps.
+- Corrected vertex normal calculations on CSG-generated meshes to resolve lighting artifacts.
+- Simplified the final scorecard UI to show only total strokes.
+
+### Refactoring & Cleanup
+- Removed dead code, including unused event types (`PHYSICS_UPDATED`, `COLLISION_DETECTED`, `UI_ACTION`, `AUDIO_PLAY`, `EFFECT_STARTED`, `EFFECT_COMPLETED`, `WINDOW_RESIZED`) and unused game states (`BALL_IN_MOTION`, `TRANSITIONING`, `PAUSED`).
+- Removed unused `ScorecardComponent.js` file and logic.
+- Removed redundant `TeeMarker.js` file and logic, relying solely on markers created by `HoleEntity`.
+- Removed legacy/unused methods from `Game.js` (`moveToNextHole`, `resetHole`).
+- Consolidated `BALL_IN_HOLE` event handling logic into `HoleCompletionManager`.
+- Corrected typo `GAME_STATE_CHANGED` to `STATE_CHANGED` in `StateManager.js`.
+- Removed potentially unused CSS rules (`.power-indicator-active`, `.debug-info`).
+- Ensured proper cleanup of the `resize` event listener in `Game.js`.
+
+## [0.9.0] - Hole Management System Refactor
+
+### Architecture Improvements
+- Split monolithic HoleManager into specialized components:
+  - HoleStateManager for state tracking
+  - HoleTransitionManager for hole transitions
+  - HoleCompletionManager for completion logic
+- Implemented vertical hole stacking with disappearing completed holes
+- Added ball fall animation between holes
+- Enhanced hole completion with fade-out animation
+
+### Visual Enhancements
+- Added hole disappearing animation with fade-out and scale
+- Improved hole transition visuals with ball fall effect
+- Enhanced visual feedback for hole completion
+- Updated camera behavior for vertical course layout
+
+### Technical Improvements
+- Improved event system integration for hole management
+- Enhanced state tracking with dedicated managers
+- Added proper cleanup for completed holes
+- Implemented better error handling in managers
+- Updated documentation structure and organization
+
 ## [0.8.5] - Course Surface Visualization Fix
 
 ### Visual Improvements

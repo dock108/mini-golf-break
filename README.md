@@ -1,17 +1,18 @@
 # Mini Golf Break
 
-A minimalist mini-golf experience built for quick relaxation breaks. Navigate your ball through a perfectly crafted hole with intuitive controls and satisfying physics.
+A minimalist mini-golf experience built for quick relaxation breaks. Navigate your ball through perfectly crafted holes with intuitive controls and satisfying physics.
 
 ## Features
 - **Clean Visual Design**: Play mini-golf in a beautiful, atmospheric setting with proper lighting and a minimalist environment
-- **Quick Gameplay Session**: Designed specifically for short, relaxing rounds lasting just 1-2 minutes—perfect for a mental break
-- **Drag-and-Release Controls**: Simple, intuitive controls that mimic pulling back and releasing a pool cue, making gameplay accessible
-- **Realistic Physics**: Powered by Cannon-es physics engine with finely-tuned parameters for authentic ball movement
-- **Visual Feedback**: Satisfying glow and particle effects when the ball drops in the hole
-- **Animated Scorecard**: Celebratory scorecard appears when you complete the hole, showing your score with a counter animation
-- **Sound Effects**: Audio feedback for hitting the ball and completing the hole enhances the experience
-- **Intelligent Camera**: Camera consistently positions behind the ball looking toward the hole for optimal aiming
-- **Replayable Experience**: After completing the hole, easily replay with a single click for another quick round
+- **Vertical Course Design**: Holes are stacked vertically in space, with completed holes disappearing as you progress
+- **Satisfying Transitions**: Watch your ball fall through space to the next hole after completion
+- **Quick Gameplay Sessions**: Each hole is designed for 1-2 minutes of focused play—perfect for a mental break
+- **Drag-and-Release Controls**: Simple, intuitive controls that mimic pulling back and releasing a pool cue
+- **Realistic Physics**: Powered by Cannon-es physics engine with finely-tuned parameters
+- **Visual Feedback**: Holes fade out and disappear when completed, with satisfying animations
+- **Animated Scorecard**: Celebratory scorecard appears after each hole
+- **Sound Effects**: Audio feedback for hitting the ball and completing holes
+- **Intelligent Camera**: Camera consistently positions behind the ball looking toward the hole
 
 ## Installation
 
@@ -31,74 +32,77 @@ npm run dev
 
 ## Gameplay Instructions
 
-- **Controls**: Click and drag backwards from the ball to set direction and power, then release to hit
-- **Power Indicator**: A visual bar shows the strength of your shot based on how far you drag
-- **Camera**: Use right-click drag to rotate the camera around the ball, scroll to zoom in/out
-- **Objective**: Get the ball into the hole with as few strokes as possible
-- **Scoring**: A beautiful animated scorecard appears when you complete the hole
-- **Replaying**: After completing the hole, click anywhere to play again
+1. **Controls**: 
+   - Click and drag backwards from the ball to set direction and power
+   - Release to hit the ball
+   - Right-click drag to rotate camera
+   - Scroll to zoom in/out
 
-## Development Status
+2. **Objective**: 
+   - Complete each hole with as few strokes as possible
+   - Watch the hole disappear when completed
+   - Your ball will fall to the next hole below
 
-This project is currently a focused single-hole experience, concentrating on perfecting the core gameplay mechanics:
+3. **Scoring**:
+   - Each stroke is counted
+   - Par values are set for each hole
+   - A scorecard appears after completing each hole
 
-- Clean, minimalist course design with appropriate lighting
-- Enhanced ball-hole interaction with realistic physics
-- Satisfying visual and audio feedback when completing the hole
-- Animated scorecard showing your score
-- Smooth restart flow to encourage multiple plays
-- Refined ball physics for satisfying movement
+## Architecture Overview
 
-Check the [CHANGELOG.md](./CHANGELOG.md) for detailed development history and the [PROJECT_CHECKLIST.md](./PROJECT_CHECKLIST.md) for current progress and upcoming features.
+The game uses a modular architecture with these key components:
 
-## Technical Highlights
+### Core Managers
+- **HoleStateManager**: Tracks state and progress for each hole
+- **HoleTransitionManager**: Handles transitions between holes
+- **HoleCompletionManager**: Manages hole completion and animations
+- **StateManager**: Central game state coordination
+- **EventManager**: Event-driven communication between components
 
 ### Physics System
-- Optimized ball physics with 0.45kg mass for ideal control
-- Enhanced friction and damping for natural rolling behavior
-- Progressive damping system for smooth deceleration
-- High-precision solver with 30 iterations and 8 substeps
-- Carefully tuned material properties for different surfaces
+- Optimized ball physics (0.45kg mass)
+- Enhanced friction and damping
+- Progressive damping system
+- High-precision solver (30 iterations)
+- Carefully tuned material properties
 
-### Visual Feedback
-- Particle effects and color change when the ball enters the hole
-- Animated scorecard with counting animation for score display
-- Subtle ball glow to maintain visibility in the environment
-- Camera positioning for optimal view of both ball and hole
+### Visual Systems
+- Particle effects for success
+- Hole fade-out animations
+- Animated scorecard
+- Subtle ball glow
+- Atmospheric lighting
 
 ## Project Structure
 
 ```
 mini-golf-break/
-├── src/                      # Source code for the game
-│   ├── controls/             # Input handling
-│   ├── objects/              # Game objects (ball, course)
-│   ├── physics/              # Physics engine integration
-│   ├── scenes/               # Game scene management
-│   ├── game/                 # Game logic and scoring
-│   └── utils/                # Utility functions
-├── public/                   # Static assets and bundled output
-├── docs/                     # Documentation
-└── assets/                   # Game assets (textures, models)
+├── src/
+│   ├── managers/        # Game system managers
+│   ├── objects/         # Game objects (ball, course)
+│   ├── physics/         # Physics engine integration
+│   ├── scenes/          # Game scene management
+│   ├── events/          # Event system
+│   └── utils/          # Utility functions
+├── docs/               # Documentation
+│   ├── technical/      # Technical specifications
+│   ├── design/         # Design documents
+│   └── guides/         # User and developer guides
+└── assets/            # Game assets
 ```
+
+## Documentation
+
+- [Development Guide](docs/guides/development-guide.md) - Detailed guide for developers
+- [Architecture Standards](docs/technical/architecture-standards.md) - Coding standards and patterns
+- [Physics Specifications](docs/technical/physics-specs.md) - Physics system details
+- [Event System](docs/technical/event-system.md) - Event-driven architecture details
 
 ## Built With
 - [Three.js](https://threejs.org/) - 3D rendering
 - [Cannon-es](https://github.com/pmndrs/cannon-es) - Physics simulation
 - [Webpack](https://webpack.js.org/) - Module bundling
 
-## Roadmap
-- Additional visual elements in the environment
-- Expanded sound effects library
-- Mobile touch controls optimization
-- Multiple hole options with different layouts
-- Local high scores tracking
-
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-- Three.js community for excellent documentation and examples
-- Cannon-es physics engine contributors
-- All early testers who provided valuable feedback

@@ -33,3 +33,4 @@ logs/
 *.tmp
 .tmp/
 .cache/ 
+coverage/

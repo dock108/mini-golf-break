@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { InputController } from '../controls/InputController';
 import { CameraController } from '../controls/CameraController';
 import { ScoringSystem } from '../game/ScoringSystem';
-import { TeeMarker } from '../objects/TeeMarker';
+// import { TeeMarker } from '../objects/TeeMarker'; // Removed: Using HoleEntity's start marker
 import { BasicCourse } from '../objects/BasicCourse';
 import { EventTypes } from '../events/EventTypes';
 
@@ -15,7 +15,9 @@ import { AudioManager } from '../managers/AudioManager';
 import { VisualEffectsManager } from '../managers/VisualEffectsManager';
 import { BallManager } from '../managers/BallManager';
 import { HazardManager } from '../managers/HazardManager';
-import { HoleManager } from '../managers/HoleManager';
+import { HoleStateManager } from '../managers/HoleStateManager';
+import { HoleTransitionManager } from '../managers/HoleTransitionManager';
+import { HoleCompletionManager } from '../managers/HoleCompletionManager';
 import { GameLoopManager } from '../managers/GameLoopManager';
 import { EventManager } from '../managers/EventManager';
 import { PerformanceManager } from '../managers/PerformanceManager';
@@ -41,7 +43,9 @@ export class Game {
         this.visualEffectsManager = new VisualEffectsManager(this);
         this.ballManager = new BallManager(this);
         this.hazardManager = new HazardManager(this);
-        this.holeManager = new HoleManager(this);
+        this.holeStateManager = new HoleStateManager(this);
+        this.holeTransitionManager = new HoleTransitionManager(this);
+        this.holeCompletionManager = new HoleCompletionManager(this);
         this.gameLoopManager = new GameLoopManager(this);
         
         // Create camera controller
@@ -53,7 +57,7 @@ export class Game {
         
         // Game objects (these aren't managers but specific game elements)
         this.course = null;
-        this.teeMarker = null;
+        // this.teeMarker = null; // Removed
         
         // Lighting
         this.lights = {
@@ -61,18 +65,18 @@ export class Game {
             directionalLight: null
         };
         
-        // Track last safe position for ball
-        this.lastSafePosition = new THREE.Vector3(0, 0, 0);
-        
         // Performance tracking
         this.clock = new THREE.Clock();
         this.deltaTime = 0;
+
+        // Store bound event handlers
+        this.boundHandleResize = null;
     }
 
     /**
      * Initialize the game
      */
-    init() {
+    async init() {
         try {
             // Setup renderer first
             this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -110,29 +114,33 @@ export class Game {
             this.physicsManager.init();
             this.audioManager.init();
             
+            console.log('[Game.init] Awaiting createCourse...');
+            await this.createCourse();
+            console.log('[Game.init] createCourse finished.');
+            
             // Fourth tier - Game object managers that depend on physics and scene
             this.hazardManager.init();
-            this.holeManager.init();
-            this.ballManager.init();  // Ball depends on physics and scene
-            
-            // Create tee marker
-            if (!this.teeMarker) {
-                this.teeMarker = new TeeMarker(this.scene);
-            }
+            this.holeStateManager.init();
+            this.holeTransitionManager.init();
+            this.holeCompletionManager.init();
+            this.ballManager.init();
             
             // Setup lights
             this.setupLights();
-            
-            // Create course 
-            this.createCourse();
             
             // Create input controller - depends on camera and ball
             this.inputController = new InputController(this);
             this.inputController.init();
             
+            // Update UI with initial state
+            this.uiManager.updateHoleInfo();
+            this.uiManager.updateScore();
+            this.uiManager.updateStrokes();
+            
             // Add window resize listener
             try {
-                window.addEventListener('resize', this.handleResize.bind(this));
+                this.boundHandleResize = this.handleResize.bind(this); // Store bound function
+                window.addEventListener('resize', this.boundHandleResize);
             } catch (error) {
                 this.debugManager.warn('Game.init', 'Failed to add resize event listener', error);
             }
@@ -186,6 +194,10 @@ export class Game {
         
         starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
         const stars = new THREE.Points(starGeometry, starMaterial);
+        
+        // Add userData to identify this as a starfield object
+        stars.userData.type = 'starfield';
+        
         this.scene.add(stars);
     }
     
@@ -216,156 +228,71 @@ export class Game {
     }
     
     /**
-     * Create the course and necessary game objects
+     * Create the course
      */
-    createCourse() {
-        // Create the golf course
-        this.course = new BasicCourse(this.scene, this.physicsManager.getWorld(), this);
-        
-        // Set course reference in camera controller
-        this.cameraController.setCourse(this.course);
-        
-        // Set ball at starting position
-        if (this.ballManager) {
-            this.ballManager.createBall();
-        }
-        
-        // Enable input
-        if (this.inputController) {
-            this.inputController.enableInput();
-        }
-        
-        // Position camera to view the hole
-        this.cameraController.positionCameraForHole();
-        
-        // Show hole number
-        this.uiManager.updateHoleNumber();
-        
-        // Update UI
-        this.uiManager.updateScore();
-        
-        // Show welcome message
-        this.uiManager.showMessage("Welcome to Mini Golf Break!", 2000);
-    }
-    
-    /**
-     * Move to the next hole
-     */
-    moveToNextHole() {
-        // Try to advance to the next hole in the course
-        if (this.course.nextHole()) {
-            // Successful move to next hole
-            
-            // Reset ball at the new hole's starting position if it's not already there
-            // (the ball might already be at the tee position if it fell through)
-            if (this.ballManager && this.ballManager.ball) {
-                const startPosition = this.course.getTeePosition();
-                const currentPosition = this.ballManager.ball.getPosition();
-                
-                // Only reset the ball if it's not already close to the start position
-                const distanceToStart = startPosition.distanceTo(currentPosition);
-                if (distanceToStart > 1.0) {
-                    this.ballManager.resetBall(startPosition);
-                }
-            }
-            
-            // Position camera for the new hole
-            this.cameraController.positionCameraForHole();
-            
-            // Update UI for new hole
-            this.uiManager.updateHoleNumber();
-            this.uiManager.updateScore();
-            
-            // Show hole message
-            const holeNumber = this.course.getCurrentHoleNumber();
-            this.uiManager.showMessage(`Hole ${holeNumber}`, 2000);
-            
-            // Make sure the state is reset 
-            this.stateManager.setHoleCompleted(false);
-            this.stateManager.setBallInMotion(false);
-            
-            return true;
-        } else {
-            // All holes completed
-            this.uiManager.showMessage("Course Complete!", 3000);
-            return false;
-        }
-    }
-    
-    /**
-     * Handle when ball enters a hole successfully
-     */
-    handleBallInHole() {
+    async createCourse() {
+        console.log('[Game.createCourse] Starting...');
         try {
-            // Make sure ball can fall through the hole by disabling collision with the ground surface
-            if (this.ballManager && this.ballManager.ball) {
-                const ball = this.ballManager.ball;
-                
-                // Play a success sound
-                if (this.audioManager) {
-                    this.audioManager.playSound('success', 0.7);
+            // Create course using the static async method
+            console.log('[Game.createCourse] Awaiting BasicCourse.create()...');
+            this.course = await BasicCourse.create(this);
+            console.log('[Game.createCourse] BasicCourse.create() finished. Course object:', this.course);
+
+            // --- VALIDATION --- Check if course and start position are valid after creation
+            if (!this.course || !this.course.startPosition) {
+                console.error('[Game.createCourse] Failed to create course or course has no start position!');
+                throw new Error('Course creation failed or start position missing.');
+            }
+            console.log('[Game.createCourse] Course created successfully. Start position:', this.course.startPosition);
+            // --- END VALIDATION ---
+
+            // Set course reference in camera controller
+            console.log('[Game.createCourse] Setting course reference in CameraController...');
+            this.cameraController.setCourse(this.course);
+            console.log('[Game.createCourse] CameraController course set.');
+
+            // Set ball at starting position *after* course is confirmed ready
+            console.log('[Game.createCourse] Calling ballManager.createBall with start position...');
+            if (this.ballManager) {
+                // Pass the confirmed start position from the created course
+                const ballCreated = this.ballManager.createBall(this.course.startPosition);
+                if (!ballCreated) {
+                    console.error('[Game.createCourse] ballManager.createBall failed!');
+                    // Consider throwing an error if ball creation is critical for game start
+                } else {
+                    console.log('[Game.createCourse] ballManager.createBall seems successful.');
                 }
-                
-                // Add a visual effect for success (using the ball's handleHoleSuccess method)
-                if (ball.handleHoleSuccess) {
-                    ball.handleHoleSuccess();
-                }
+            } else {
+                console.error('[Game.createCourse] BallManager not available when trying to create ball!');
             }
             
-            // Mark the current hole as completed, which will disable input
-            this.stateManager.setHoleCompleted(true);
-            
-            // Add small delay before showing a message
-            setTimeout(() => {
-                this.uiManager.showMessage("Great Shot!", 2000);
-            }, 500);
-            
-            // Note: We don't call moveToNextHole() here anymore
-            // The ball's landing pad collision will trigger that after the ball
-            // has fallen through the hole and landed on the tee
-            
+            // Enable input (can happen after course/ball creation)
+            console.log('[Game.createCourse] Enabling input...');
+            if (this.inputController) {
+                this.inputController.enableInput();
+                console.log('[Game.createCourse] Input enabled.');
+            } else {
+                console.warn('[Game.createCourse] InputController not available to enable input.');
+            }
+
+            // Setup initial camera position now that course is ready
+            console.log('[Game.createCourse] Setting up initial camera position...');
+            this.cameraController.setupInitialCameraPosition();
+            console.log('[Game.createCourse] Initial camera position setup finished.');
+
+            // Setup initial UI now that course is ready
+            console.log('[Game.createCourse] Setting up initial UI...');
+            this.uiManager.setupInitialUI();
+            console.log('[Game.createCourse] Initial UI setup finished.');
+
+            console.log('[Game.createCourse] Finished successfully.');
+
         } catch (error) {
-            console.error("Error in handleBallInHole:", error);
+            console.error('[Game.createCourse] Failed:', error);
+            this.debugManager.error('Game.createCourse', 'Failed during course creation', error, true);
+            // Handle or re-throw the error as appropriate for the init process
+            throw error; // Re-throw so the calling context (init) can handle it
         }
-    }
-    
-    /**
-     * Reset the current hole
-     */
-    resetHole() {
-        // Set ball back to start position
-        if (this.ballManager && this.ballManager.ball) {
-            const startPosition = this.course.getHoleStartPosition();
-            this.ballManager.ball.setPosition(startPosition.x, startPosition.y, startPosition.z);
-            this.ballManager.ball.resetVelocity();
-            
-            // Update safe position
-            if (this.hazardManager) {
-                this.hazardManager.setLastSafePosition(startPosition);
-            }
-        }
-        
-        // Reset state
-        this.stateManager.setHoleCompleted(false);
-        this.stateManager.setBallInMotion(false);
-        
-        // Position camera directly
-        this.cameraController.positionCameraForHole();
-        
-        // Show the tee marker at the start position
-        if (this.teeMarker) {
-            const safePosition = this.hazardManager ? this.hazardManager.getLastSafePosition() : new THREE.Vector3(0, 0, 0);
-            this.teeMarker.setPosition(safePosition);
-            this.teeMarker.show();
-        }
-        
-        // Enable input
-        if (this.inputController) {
-            this.inputController.enableInput();
-        }
-        
-        // Show welcome message
-        this.uiManager.showMessage("Ready for another round!", 2000);
     }
     
     /**
@@ -391,12 +318,17 @@ export class Game {
             }
             
             // Remove event listeners
-            window.removeEventListener('resize', this.handleResize);
+            if (this.boundHandleResize) { // Check if it was successfully added
+                window.removeEventListener('resize', this.boundHandleResize);
+                this.boundHandleResize = null; // Clear reference
+            }
             
             // Clean up managers in reverse order of initialization
             if (this.inputController) this.inputController.cleanup();
             if (this.ballManager) this.ballManager.cleanup();
-            if (this.holeManager) this.holeManager.cleanup();
+            if (this.holeCompletionManager) this.holeCompletionManager.cleanup();
+            if (this.holeTransitionManager) this.holeTransitionManager.cleanup();
+            if (this.holeStateManager) this.holeStateManager.cleanup();
             if (this.hazardManager) this.hazardManager.cleanup();
             if (this.audioManager) this.audioManager.cleanup();
             if (this.physicsManager) this.physicsManager.cleanup();
@@ -453,12 +385,12 @@ export class Game {
      * Set up event listeners
      */
     setupEventListeners() {
-        // Subscribe to ball in hole events
-        this.eventManager.subscribe(
-            EventTypes.BALL_IN_HOLE,
-            this.handleBallInHole,
-            this
-        );
+        // Subscribe to ball in hole events - REMOVED
+        // this.eventManager.subscribe(
+        //     EventTypes.BALL_IN_HOLE,
+        //     this.handleBallInHole,
+        //     this
+        // );
         
         // Add other event subscriptions as needed
         window.addEventListener('resize', this.handleResize.bind(this));

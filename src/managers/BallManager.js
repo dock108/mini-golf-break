@@ -24,28 +24,22 @@ export class BallManager {
      * @returns {BallManager} this instance for chaining
      */
     init() {
+        console.log('[BallManager.init] Starting...');
         try {
             if (this.isInitialized) {
-                if (this.game.debugManager) {
-                    this.game.debugManager.warn('BallManager.init', 'Already initialized');
-                }
+                console.warn('[BallManager.init] Already initialized, skipping.');
                 return this;
             }
             
-            this.createBall();
+            // Don't create ball here - it will be created by Game.createCourse()
+            console.log('[BallManager.init] Setting up event listeners...');
             this.setupEventListeners();
+            console.log('[BallManager.init] Event listeners setup finished.');
             
             this.isInitialized = true;
-            
-            if (this.game.debugManager) {
-                this.game.debugManager.log('BallManager initialized');
-            }
+            console.log('[BallManager.init] Finished.');
         } catch (error) {
-            if (this.game.debugManager) {
-                this.game.debugManager.error('BallManager.init', 'Failed to initialize ball manager', error);
-            } else {
-                console.error('Failed to initialize ball manager:', error);
-            }
+             console.error('[BallManager.init] Failed:', error);
         }
         
         return this;
@@ -55,40 +49,32 @@ export class BallManager {
      * Set up event subscriptions
      */
     setupEventListeners() {
+        console.log('[BallManager.setupEventListeners] Starting...');
         if (!this.game.eventManager) {
-            if (this.game.debugManager) {
-                this.game.debugManager.warn('BallManager.setupEventListeners', 'EventManager not available, skipping event subscriptions');
-            }
+             console.warn('[BallManager.setupEventListeners] EventManager not available, skipping.');
             return;
         }
         
         try {
-            // Store subscription functions to simplify cleanup
-            this.eventSubscriptions = [
-                // Listen for hazard events to reset ball
-                this.game.eventManager.subscribe(
-                    EventTypes.HAZARD_DETECTED,
-                    this.handleHazardDetected,
-                    this
-                ),
+            this.eventSubscriptions = []; // Initialize as empty array
+
+            console.log('[BallManager.setupEventListeners] Subscribing to HAZARD_DETECTED...');
+            this.eventSubscriptions.push(this.game.eventManager.subscribe(
+                EventTypes.HAZARD_DETECTED,
+                this.handleHazardDetected,
+                this
+            ));
                 
-                // Listen for game state changes
-                this.game.eventManager.subscribe(
-                    EventTypes.HOLE_STARTED,
-                    this.handleHoleStarted,
-                    this
-                )
-            ];
+            console.log('[BallManager.setupEventListeners] Subscribing to HOLE_STARTED...');
+            this.eventSubscriptions.push(this.game.eventManager.subscribe(
+                EventTypes.HOLE_STARTED,
+                this.handleHoleStarted,
+                this
+            ));
             
-            if (this.game.debugManager) {
-                this.game.debugManager.log('BallManager event listeners initialized');
-            }
+            console.log('[BallManager.setupEventListeners] Finished.');
         } catch (error) {
-            if (this.game.debugManager) {
-                this.game.debugManager.error('BallManager.setupEventListeners', 'Failed to set up event listeners', error);
-            } else {
-                console.error('Failed to set up event listeners:', error);
-            }
+             console.error('[BallManager.setupEventListeners] Failed:', error);
         }
     }
     
@@ -97,10 +83,12 @@ export class BallManager {
      * @param {GameEvent} event - The hole started event
      */
     handleHoleStarted(event) {
+        console.log(`[BallManager.handleHoleStarted] Event received. isInitialized: ${this.isInitialized}, game initialized?: ${this.game.isInitialized}`); // Add game init check if available
         try {
             // Reset ball position at the start of a new hole
             const startPosition = this.getStartPosition();
             if (this.ball && startPosition) {
+                console.log('[BallManager.handleHoleStarted] Resetting existing ball position.');
                 this.ball.setPosition(startPosition.x, startPosition.y, startPosition.z);
                 this.ball.resetVelocity();
                 
@@ -112,78 +100,121 @@ export class BallManager {
                         this
                     );
                 }
+            } else {
+                 console.log('[BallManager.handleHoleStarted] No ball exists yet or startPosition invalid.');
             }
         } catch (error) {
-            if (this.game.debugManager) {
-                this.game.debugManager.error('BallManager.handleHoleStarted', 'Error handling hole started event', error);
-            }
+             console.error('[BallManager.handleHoleStarted] Failed:', error);
         }
     }
     
     /**
-     * Create a new ball at the starting position
-     * @returns {Ball} The created ball
+     * Create a new ball at the specified start position
+     * @param {THREE.Vector3} startPosition - The position where the ball should be created
+     * @private
      */
-    createBall() {
-        try {
-            // Clean up existing ball if present
-            if (this.ball) {
-                this.cleanup();
-            }
-            
-            // Create new ball
-            this.ball = new Ball(this.game.scene, this.game.physicsManager.world, this.game);
-            
-            // Position the ball at the starting position
-            const startPosition = this.getStartPosition();
-            if (startPosition) {
-                this.ball.setPosition(startPosition.x, startPosition.y, startPosition.z);
-            } else if (this.game.debugManager) {
-                this.game.debugManager.warn('BallManager.createBall', 'No valid start position found, using default');
-            }
-            
-            // Initial reset of velocity
-            this.ball.resetVelocity();
-            
-            // Store initial safe position
-            this.lastBallPosition.copy(this.ball.mesh.position);
-            
-            // Publish the ball created event
-            if (this.game.eventManager) {
-                this.game.eventManager.publish(
-                    EventTypes.BALL_CREATED, 
-                    { ball: this.ball, position: this.ball.mesh.position.clone() },
-                    this
-                );
-            }
-            
-            // Update camera to follow new ball
-            if (this.game.cameraController) {
-                this.game.cameraController.setBall(this.ball);
-            }
-            
-            return this.ball;
-        } catch (error) {
-            if (this.game.debugManager) {
-                this.game.debugManager.error('BallManager.createBall', 'Failed to create ball', error);
-            } else {
-                console.error('Failed to create ball:', error);
-            }
+    createBall(startPosition) {
+        // --- GUARD CLAUSE --- 
+        // Prevent creation if the course/hole isn't ready yet.
+        if (!this.game || !this.game.course || !this.game.course.currentHole || !this.game.course.startPosition) {
+            console.warn('[BallManager.createBall] Aborting: Course, current hole, or start position not ready. This might indicate a premature call.');
             return null;
         }
+        // --- END GUARD CLAUSE ---
+
+        console.log('[BallManager] Creating new ball (Course seems ready)');
+
+        // Validate start position (passed argument)
+        if (!startPosition || !(startPosition instanceof THREE.Vector3)) {
+            console.error('[BallManager] Invalid startPosition argument provided for ball creation:', startPosition);
+            // Use course's start position as a fallback IF the argument is bad but course is ready
+            startPosition = this.game.course.startPosition;
+            console.warn('[BallManager] Using course startPosition as fallback due to invalid argument.');
+            // If even the course fallback is invalid, use absolute default
+            if (!startPosition || !(startPosition instanceof THREE.Vector3)) {
+                startPosition = new THREE.Vector3(0, Ball.START_HEIGHT, 0);
+                 console.error('[BallManager] Course startPosition fallback also invalid! Using absolute default.');
+            }
+        } else {
+            console.log('[BallManager] Ball start position argument verified:', startPosition);
+        }
+
+        // Clean up existing ball if any
+        this.removeBall();
+
+        // Get physics world
+        const physicsWorld = this.game.physicsManager.getWorld();
+        if (!physicsWorld) {
+            console.error('[BallManager] Physics world not available for ball creation.');
+            return null; // Cannot create ball without physics world
+        }
+
+        // Create the Ball instance (which includes mesh and body)
+        // Ensure 'this.game' is passed correctly here
+        this.ball = new Ball(this.game.scene, physicsWorld, this.game);
+
+        // Position the ball at the start position, slightly elevated
+        const finalPosition = new THREE.Vector3(startPosition.x, startPosition.y + Ball.START_HEIGHT, startPosition.z);
+        this.ball.setPosition(finalPosition.x, finalPosition.y, finalPosition.z);
+
+        console.log('[BallManager] Ball positioned at:', this.ball.mesh.position);
+
+        // Get hole position for distance calculation (optional, for logging)
+        const holePosition = this.game.course ? this.game.course.getHolePosition() : null;
+        if (holePosition) {
+            const distance = this.ball.mesh.position.distanceTo(holePosition);
+            console.log(`[BallManager] Ball created at distance ${distance.toFixed(2)} from hole`);
+        }
+
+        // Wake up the ball's physics body
+        if (this.ball.body) {
+            this.ball.body.wakeUp();
+            console.log('[BallManager] Ball body woken up with position:', this.ball.body.position);
+        } else {
+            console.error('[BallManager] Ball body not created or available after instantiation.');
+            this.removeBall(); // Clean up partial creation
+            return null;
+        }
+
+        // Store initial safe position
+        this.lastBallPosition.copy(this.ball.mesh.position);
+
+        // Publish the ball created event
+        if (this.game.eventManager) {
+            this.game.eventManager.publish(
+                EventTypes.BALL_CREATED,
+                { ball: this.ball, position: this.ball.mesh.position.clone() },
+                this
+            );
+        }
+
+        // Update camera to follow new ball
+        if (this.game.cameraController) {
+            this.game.cameraController.setBall(this.ball);
+        }
+
+        return this.ball;
     }
     
     /**
-     * Get the starting position for the current hole
+     * Get the starting position for the current hole - Used primarily for resets/fallbacks
      */
     getStartPosition() {
-        // If we have a course with a specific tee position, use that
-        if (this.game.course) {
-            return this.game.course.getTeePosition();
+        // Try getting position from the currently active course
+        if (this.game.course && typeof this.game.course.getHoleStartPosition === 'function') {
+            const startPos = this.game.course.getHoleStartPosition();
+            if (startPos) {
+                if (this.game.debugManager) this.game.debugManager.log(`[BallManager] Getting start position from course: (${startPos.x.toFixed(2)}, ${startPos.y.toFixed(2)}, ${startPos.z.toFixed(2)})`);
+                return startPos;
+            } else {
+                 if (this.game.debugManager) this.game.debugManager.warn(`[BallManager] Course returned null start position`);
+            }
         }
-        
-        // Default starting position
-        return new THREE.Vector3(0, 0.5, 0);
+
+        // Default starting position as a fallback
+        const defaultPos = new THREE.Vector3(0, Ball.START_HEIGHT, 0);
+        if (this.game.debugManager) this.game.debugManager.log(`[BallManager] Using default start position: (0, ${Ball.START_HEIGHT}, 0)`);
+        return defaultPos;
     }
     
     /**
@@ -221,7 +252,7 @@ export class BallManager {
             );
             
             // Update the tee marker at the current ball position
-            this.updateTeeMarker();
+            // this.updateTeeMarker();
         }
         
         // Debug log for ball physics
@@ -237,10 +268,57 @@ export class BallManager {
     update() {
         if (!this.ball) return;
         
-        // Update the ball
-        this.ball.update();
+        // Update ball physics and rendering
+        this.ball.update(this.game.deltaTime);
         
-        // Update state based on ball motion
+        // Check if ball has fallen below the course
+        const outOfBoundYThreshold = -5; // Consider anything below -5 as out of bounds
+        if (this.ball.mesh.position.y < outOfBoundYThreshold) {
+            console.log(`[BallManager] Ball out of bounds at y=${this.ball.mesh.position.y.toFixed(2)}, resetting to start position`);
+            
+            // Reset ball to last safe position or start position
+            this.resetBall();
+            
+            // Publish out of bounds event
+            if (this.game.eventManager) {
+                this.game.eventManager.publish(
+                    EventTypes.BALL_OUT_OF_BOUNDS,
+                    { position: this.ball.mesh.position.clone() },
+                    this
+                );
+            }
+            
+            // Play sound for out of bounds
+            if (this.game.audioManager) {
+                this.game.audioManager.playSound('outOfBounds', 0.5);
+            }
+            
+            return; // Skip remaining update after reset
+        }
+        
+        // Store last position if ball is safely on the course
+        if (this.ball.mesh.position.y > 0) {
+            this.lastBallPosition.copy(this.ball.mesh.position);
+            
+            // If ball is close to the ground and not in a hazard or falling,
+            // store the position as safe
+            if (this.ball.mesh.position.y < 0.5) {
+                // Store safe position locally
+                this.lastSafePosition = this.ball.mesh.position.clone();
+                
+                // If hazard manager exists and has the method, update it too
+                if (this.game.hazardManager && typeof this.game.hazardManager.setLastSafePosition === 'function') {
+                    this.game.hazardManager.setLastSafePosition(this.ball.mesh.position.clone());
+                }
+            }
+        }
+        
+        // Update UI stroke counter if game is in putting state
+        if (this.game.uiManager) {
+            this.game.uiManager.updateStrokes();
+        }
+        
+        // Update ball motion state (moving or stopped)
         this.updateBallState();
     }
     
@@ -285,26 +363,32 @@ export class BallManager {
     
     /**
      * Reset the ball to a specific position
-     * @param {THREE.Vector3} position - Position to reset the ball to
+     * @param {THREE.Vector3} [position] - Optional position to reset the ball to. If not provided, uses last safe position or start position.
      */
     resetBall(position) {
         if (!this.ball) return;
         
+        // If no position provided, use last safe position or get new start position
+        const resetPosition = position || this.lastSafePosition || this.getStartPosition();
+        
         // Reset ball position
-        this.ball.setPosition(position.x, position.y, position.z);
+        this.ball.setPosition(resetPosition.x, resetPosition.y, resetPosition.z);
         this.ball.resetVelocity();
         
         // Update last ball position
-        this.lastBallPosition.copy(position);
+        this.lastBallPosition.copy(resetPosition);
         
         // Publish ball reset event
         if (this.game.eventManager) {
             this.game.eventManager.publish(
                 EventTypes.BALL_RESET,
-                { position: position.clone() },
+                { position: resetPosition.clone() },
                 this
             );
         }
+        
+        // Log the reset
+        console.log(`[BallManager] Ball reset to position:`, resetPosition);
     }
     
     /**
@@ -319,16 +403,6 @@ export class BallManager {
         
         // Reset ball to safe position
         this.resetBall();
-    }
-    
-    /**
-     * Update tee marker position to current ball position
-     */
-    updateTeeMarker() {
-        if (!this.game.teeMarker || !this.ball) return;
-        
-        const ballPos = this.ball.mesh.position;
-        this.game.teeMarker.setPosition(ballPos.x, ballPos.y, ballPos.z);
     }
     
     /**
@@ -393,5 +467,46 @@ export class BallManager {
         return {
             strokes: this.game.scoringSystem.getTotalStrokes()
         };
+    }
+    
+    /**
+     * Remove the current ball and clean up its resources
+     */
+    removeBall() {
+        if (this.ball) {
+            // Remove from physics world
+            if (this.ball.body && this.game.physicsManager) {
+                this.game.physicsManager.removeBody(this.ball.body);
+            }
+
+            // Remove from scene and dispose resources
+            if (this.ball.mesh) {
+                if (this.ball.mesh.geometry) {
+                    this.ball.mesh.geometry.dispose();
+                }
+                if (this.ball.mesh.material) {
+                    if (Array.isArray(this.ball.mesh.material)) {
+                        this.ball.mesh.material.forEach(mat => mat.dispose());
+                    } else {
+                        this.ball.mesh.material.dispose();
+                    }
+                }
+                this.game.scene.remove(this.ball.mesh);
+            }
+
+            // --- REMOVE BALL LIGHT --- 
+            if (this.ball.ballLight) {
+                this.game.scene.remove(this.ball.ballLight);
+                // No need to dispose PointLight geometry/material usually
+                console.log('[BallManager] Removed ballLight from scene');
+            }
+            // --- END REMOVE BALL LIGHT --- 
+
+            // Clear the reference
+            this.ball = null;
+            console.log('[BallManager] Ball removed and cleaned up'); // Add log
+        } else {
+            console.log('[BallManager] No ball to remove.'); // Add log
+        }
     }
 } 

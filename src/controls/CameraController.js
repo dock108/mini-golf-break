@@ -25,6 +25,8 @@ export class CameraController {
         
         // Initialization state tracking
         this.isInitialized = false;
+        
+        this.isTransitioning = false;
     }
     
     /**
@@ -40,83 +42,48 @@ export class CameraController {
      * Initialize camera and controls
      */
     init() {
+        console.log('[CameraController.init] Starting...');
         try {
             // Guard against multiple initialization
             if (this.isInitialized) {
-                if (this.game.debugManager) {
-                    this.game.debugManager.warn('CameraController.init', 'Already initialized');
-                }
+                 console.warn('[CameraController.init] Already initialized, skipping.');
                 return this;
             }
             
-            // Ensure we have a renderer
-            if (!this.renderer) {
-                if (this.game.debugManager) {
-                    this.game.debugManager.warn('CameraController.init', 'Initialized without renderer, orbit controls will be disabled');
-                } else {
-                    console.warn("CameraController initialized without renderer, orbit controls will be disabled");
-                }
-            }
+            // Setup camera
+            console.log('[CameraController.init] Setting up camera...');
+            this.setupCamera();
+            console.log('[CameraController.init] Camera setup finished.');
             
-            // Setup camera initial position - higher up for better space view
-            this.camera.position.set(0, 15, 15);
-            this.camera.lookAt(0, 0, 0);
-            
-            // Initialize orbit controls if we have a renderer
+            // Setup controls if renderer is available
             if (this.renderer) {
-                try {
-                    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-                    
-                    // Configure controls
-                    this.controls.enableDamping = true;
-                    this.controls.dampingFactor = 0.1;
-                    this.controls.rotateSpeed = 0.7;
-                    this.controls.zoomSpeed = 1.2;
-                    this.controls.minDistance = 2;
-                    this.controls.maxDistance = 30;
-                    this.controls.maxPolarAngle = Math.PI / 2; // Limit vertical rotation
-                    
-                    // Enable target movement with middle mouse
-                    this.controls.enablePan = true;
-                    this.controls.panSpeed = 0.8;
-                    this.controls.screenSpacePanning = true;
-                } catch (error) {
-                    if (this.game.debugManager) {
-                        this.game.debugManager.error('CameraController.init', 'Failed to initialize orbit controls', error);
-                    } else {
-                        console.error("Failed to initialize orbit controls:", error);
-                    }
-                }
-            } else if (this.game.debugManager) {
-                this.game.debugManager.warn('CameraController.init', 'Orbit controls disabled - no renderer available');
-            }
-            
-            // Set up resize event listener
-            try {
-                // Use a bound method for the event handler
-                this.handleResize = this.handleResize.bind(this);
-                window.addEventListener('resize', this.handleResize);
-            } catch (error) {
-                if (this.game.debugManager) {
-                    this.game.debugManager.warn('CameraController.init', 'Failed to add resize listener', error);
-                }
+                 console.log('[CameraController.init] Setting up controls...');
+                this.setupControls();
+                 console.log('[CameraController.init] Controls setup finished.');
+            } else {
+                 console.warn('[CameraController.init] Initialized without renderer, orbit controls will be disabled');
             }
             
             // Set up event listeners
+             console.log('[CameraController.init] Setting up event listeners...');
             this.setupEventListeners();
+             console.log('[CameraController.init] Event listeners setup finished.');
+            
+            // Set up resize event listener
+            try {
+                 console.log('[CameraController.init] Adding resize listener...');
+                this.handleResize = this.handleResize.bind(this);
+                window.addEventListener('resize', this.handleResize);
+                 console.log('[CameraController.init] Resize listener added.');
+            } catch (error) {
+                 console.warn('[CameraController.init] Failed to add resize listener:', error);
+            }
             
             // Mark as initialized
             this.isInitialized = true;
-            
-            if (this.game.debugManager) {
-                this.game.debugManager.log('CameraController initialized');
-            }
+             console.log('[CameraController.init] Finished.');
         } catch (error) {
-            if (this.game.debugManager) {
-                this.game.debugManager.error('CameraController.init', 'Failed to initialize camera controller', error);
-            } else {
-                console.error('Failed to initialize camera controller:', error);
-            }
+             console.error('[CameraController.init] Failed:', error);
         }
         
         return this;
@@ -126,50 +93,27 @@ export class CameraController {
      * Set up event listeners
      */
     setupEventListeners() {
+         console.log('[CameraController.setupEventListeners] Starting...');
         if (!this.game.eventManager) {
-            if (this.game.debugManager) {
-                this.game.debugManager.warn('CameraController.setupEventListeners', 'EventManager not available, skipping event subscriptions');
-            }
+             console.warn('[CameraController.setupEventListeners] EventManager not available, skipping.');
             return;
         }
         
         try {
-            // Initialize event subscriptions array if not already created
             this.eventSubscriptions = this.eventSubscriptions || [];
+
+            console.log('[CameraController.setupEventListeners] Subscribing to BALL_MOVED...');
+            this.eventSubscriptions.push(this.game.eventManager.subscribe(EventTypes.BALL_MOVED, this.handleBallMoved, this));
+
+            console.log('[CameraController.setupEventListeners] Subscribing to HOLE_STARTED...');
+            this.eventSubscriptions.push(this.game.eventManager.subscribe(EventTypes.HOLE_STARTED, this.handleHoleStarted, this));
+
+            console.log('[CameraController.setupEventListeners] Subscribing to BALL_CREATED...');
+            this.eventSubscriptions.push(this.game.eventManager.subscribe(EventTypes.BALL_CREATED, this.handleBallCreated, this));
             
-            // Store subscription functions to simplify cleanup
-            this.eventSubscriptions = [
-                // Listen for ball movement to follow with camera
-                this.game.eventManager.subscribe(
-                    EventTypes.BALL_MOVED,
-                    this.handleBallMoved,
-                    this
-                ),
-                
-                // Listen for hole started events
-                this.game.eventManager.subscribe(
-                    EventTypes.HOLE_STARTED,
-                    this.handleHoleStarted,
-                    this
-                ),
-                
-                // Listen for ball creation events
-                this.game.eventManager.subscribe(
-                    EventTypes.BALL_CREATED,
-                    this.handleBallCreated,
-                    this
-                )
-            ];
-            
-            if (this.game.debugManager) {
-                this.game.debugManager.log('CameraController event listeners initialized');
-            }
+            console.log('[CameraController.setupEventListeners] Finished.');
         } catch (error) {
-            if (this.game.debugManager) {
-                this.game.debugManager.error('CameraController.setupEventListeners', 'Failed to set up event listeners', error);
-            } else {
-                console.error('Failed to set up event listeners:', error);
-            }
+             console.error('[CameraController.setupEventListeners] Failed:', error);
         }
     }
     
@@ -182,12 +126,15 @@ export class CameraController {
     }
     
     /**
-     * Handle hole started events
+     * Handle hole started events - Defer initial positioning
      * @param {GameEvent} event - The hole started event
      */
     handleHoleStarted(event) {
-        // Position camera for the new hole
-        this.positionCameraForHole();
+        console.log(`[CameraController.handleHoleStarted] Event received. isInitialized: ${this.isInitialized}, game initialized?: ${this.game.isInitialized}`);
+        // We no longer position the camera immediately on HOLE_STARTED
+        // during initial load. Subsequent hole starts might trigger positioning,
+        // but initial setup is handled after course creation.
+        console.log('[CameraController.handleHoleStarted] Initial positioning deferred.');
     }
     
     /**
@@ -323,6 +270,14 @@ export class CameraController {
     }
     
     /**
+     * Set transition mode for camera
+     * @param {boolean} enabled - Whether transition mode should be enabled
+     */
+    setTransitionMode(enabled) {
+        this.isTransitioning = enabled;
+    }
+
+    /**
      * Update camera position to follow the ball
      */
     updateCameraFollowBall() {
@@ -332,6 +287,20 @@ export class CameraController {
         
         // Get the ball's position
         const ballPosition = ball.mesh.position.clone();
+        
+        // During transition, follow the ball more closely
+        if (this.isTransitioning) {
+            // Position camera slightly above and behind ball
+            const cameraPosition = ballPosition.clone().add(new THREE.Vector3(2, 4, 2));
+            this.camera.position.lerp(cameraPosition, 0.1);
+            this.camera.lookAt(ballPosition);
+            
+            if (this.controls) {
+                this.controls.target.copy(ballPosition);
+                this.controls.update();
+            }
+            return;
+        }
         
         // Only follow the ball if it's moving
         if (this.game.stateManager && this.game.stateManager.isBallInMotion()) {
@@ -427,5 +396,75 @@ export class CameraController {
                 console.error('Error during CameraController cleanup:', error);
             }
         }
+    }
+
+    /**
+     * Set up the camera with initial configuration
+     */
+    setupCamera() {
+        try {
+            // Setup camera initial position - higher up for better space view
+            this.camera.position.set(0, 15, 15);
+            this.camera.lookAt(0, 0, 0);
+            
+            if (this.game.debugManager) {
+                this.game.debugManager.log('Camera setup complete');
+            }
+        } catch (error) {
+            if (this.game.debugManager) {
+                this.game.debugManager.error('CameraController.setupCamera', 'Failed to setup camera', error);
+            } else {
+                console.error('Failed to setup camera:', error);
+            }
+        }
+    }
+
+    /**
+     * Set up the orbit controls
+     */
+    setupControls() {
+        try {
+            if (!this.renderer) {
+                if (this.game.debugManager) {
+                    this.game.debugManager.warn('CameraController.setupControls', 'No renderer available, skipping controls setup');
+                }
+                return;
+            }
+
+            this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+            
+            // Configure controls
+            this.controls.enableDamping = true;
+            this.controls.dampingFactor = 0.1;
+            this.controls.rotateSpeed = 0.7;
+            this.controls.zoomSpeed = 1.2;
+            this.controls.minDistance = 2;
+            this.controls.maxDistance = 30;
+            this.controls.maxPolarAngle = Math.PI / 2; // Limit vertical rotation
+            
+            // Enable target movement with middle mouse
+            this.controls.enablePan = true;
+            this.controls.panSpeed = 0.8;
+            this.controls.screenSpacePanning = true;
+
+            if (this.game.debugManager) {
+                this.game.debugManager.log('Controls setup complete');
+            }
+        } catch (error) {
+            if (this.game.debugManager) {
+                this.game.debugManager.error('CameraController.setupControls', 'Failed to setup controls', error);
+            } else {
+                console.error('Failed to setup controls:', error);
+            }
+        }
+    }
+
+    /**
+     * Sets the initial camera position after the first hole is confirmed ready.
+     */
+    setupInitialCameraPosition() {
+        console.log('[CameraController] Setting up initial camera position.');
+        // Now it's safe to position the camera for the initial hole
+        this.positionCameraForHole(); 
     }
 } 

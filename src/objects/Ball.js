@@ -2,19 +2,22 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 
 export class Ball {
+    // Constants for ball properties
+    static START_HEIGHT = 0.2; // Reduced to match green surface height
+
     constructor(scene, physicsWorld, game) {
         this.scene = scene;
+        this.game = game;
         this.physicsWorld = physicsWorld;
-        this.game = game; // Store reference to game for accessing managers
         
-        // Ball properties
+        if (!this.physicsWorld) {
+            throw new Error('[Ball] Physics world not available');
+        }
+        
+        // Initialize ball properties
         this.radius = 0.2;
         this.segments = 32;
-        this.mass = 0.45; // Updated to match the actual value used in createBody (0.45kg)
-        
-        // Add position property to fix the error
-        this.position = new THREE.Vector3(0, this.radius + 0.1, 0);
-        
+        this.mass = 1;
         this.body = null;
         this.mesh = null;
         this.isBallActive = true;
@@ -42,21 +45,22 @@ export class Ball {
             emissiveIntensity: 0.8 // Brighter glow for success
         });
         
-        // Create the visual mesh with dimples
+        // Create the ball
         this.createMesh();
+        this.createPhysicsBody();
         
-        // Create the physics body
-        this.createBody();
-        
-        console.log("Ball created");
+        console.log('[Ball] Initialized with physics world:', {
+            exists: !!this.physicsWorld,
+            bodyAdded: !!this.body
+        });
     }
     
     createMesh() {
         // Create golf ball with dimples
         this.createGolfBallWithDimples();
         
-        // Set initial position
-        this.mesh.position.copy(this.position);
+        // Set initial position - REMOVED - Position is set by BallManager after creation
+        // this.mesh.position.copy(this.position);
         
         // Enable shadows
         this.mesh.castShadow = true;
@@ -69,7 +73,8 @@ export class Ball {
         
         // Add a small light to the ball to make it stand out
         this.ballLight = new THREE.PointLight(0xFFFFFF, 0.4, 3);
-        this.ballLight.position.copy(this.position);
+        // Set initial position - REMOVED - Position is set by BallManager after creation
+        // this.ballLight.position.copy(this.position);
         if (this.scene) {
             this.scene.add(this.ballLight);
         }
@@ -134,82 +139,34 @@ export class Ball {
         this.successMaterial.needsUpdate = true;
     }
     
-    createBody() {
-        // Check for required dependencies with proper error handling
+    createPhysicsBody() {
         if (!this.physicsWorld) {
-            if (this.game && this.game.debugManager) {
-                this.game.debugManager.error('Ball.createBody', 'Physics world is null or undefined!', null, true);
-            } else {
-                console.error("ERROR: Ball.createBody: Physics world is null or undefined!");
-            }
+            console.error('[Ball] Cannot create physics body: physics world not available');
             return;
         }
         
-        if (!this.physicsWorld.ballMaterial) {
-            if (this.game && this.game.debugManager) {
-                this.game.debugManager.warn('Ball.createBody', 'Ball material is missing from physics world!');
-            } else {
-                console.warn("WARNING: Ball.createBody: Ball material is missing from physics world!");
-            }
-        }
-        
-        // Check if the world property exists and is a CANNON.World
-        if (!this.physicsWorld.world) {
-            if (this.game && this.game.debugManager) {
-                this.game.debugManager.error('Ball.createBody', 'Physics world doesn\'t have a \'world\' property!');
-            } else {
-                console.error("ERROR: Ball.createBody: Physics world doesn't have a 'world' property!");
-            }
-            return;
-        }
-        
-        // Create physics body for the ball
+        // Create the physics body
         this.body = new CANNON.Body({
-            mass: this.mass, // Use the mass property from constructor
-            position: new CANNON.Vec3(0, 0.5, 0),
+            mass: this.mass,
             shape: new CANNON.Sphere(this.radius),
-            material: this.physicsWorld.ballMaterial,
-            sleepSpeedLimit: 0.15, // Increased for quicker stopping
-            sleepTimeLimit: 0.2    // Reduced to sleep sooner
+            material: this.game.physicsManager.ballMaterial || this.physicsWorld.defaultMaterial,
+            linearDamping: 0.3,
+            angularDamping: 0.3,
+            collisionFilterGroup: 4,
+            collisionFilterMask: -1
         });
         
-        // Set body damping (air resistance and friction)
-        this.body.linearDamping = 0.6;  // Increased damping for final roll
-        this.body.angularDamping = 0.6; // Matched with linear damping
-        
-        // Set collision groups for the ball
-        this.body.collisionFilterGroup = 4; // Group 4 for the ball
-        this.body.collisionFilterMask = 1 | 2; // Collide with groups 1 (ground/walls) and 2 (hole triggers)
-        
-        // Add user data to identify this as a ball
-        this.body.userData = { type: 'ball' };
-        
-        // Try to add body to physics world
-        try {
-            if (typeof this.physicsWorld.addBody === 'function') {
-                this.physicsWorld.addBody(this.body);
-            } else if (this.physicsWorld.world && typeof this.physicsWorld.world.addBody === 'function') {
-                this.physicsWorld.world.addBody(this.body);
-            } else {
-                console.error("DEBUG Ball.createBody: Cannot add body to physics world - no valid addBody method found");
-            }
-        } catch (error) {
-            console.error("DEBUG Ball.createBody: Error adding body to physics world:", error);
-        }
-        
-        // Explicitly set velocity to zero and put the body to sleep initially
-        this.body.velocity.set(0, 0, 0);
-        this.body.angularVelocity.set(0, 0, 0);
-        this.body.sleep();
-        
-        // Register for collision events to handle falling in holes
-        if (this.body.addEventListener) {
+        // Add event listener
+        if (this.body) {
             this.body.addEventListener('collide', this.onCollide.bind(this));
+            console.log('[Ball] Added collide event listener');
+        } else {
+            console.error('[Ball] Failed to add collide listener: body not created.');
         }
         
-        if (this.game && this.game.debugManager) {
-            this.game.debugManager.log("Ball physics body created");
-        }
+        // Add body to physics world
+        this.physicsWorld.addBody(this.body);
+        console.log('[Ball] Added physics body to world');
     }
     
     onCollide(event) {
@@ -229,41 +186,8 @@ export class Ball {
         
         // Check if the ball collided with a hole
         if (event.body.userData && event.body.userData.type === 'hole') {
-            // Log the collision for debugging
-            console.log(`HOLE COLLISION: Ball at ${this.body.position.x.toFixed(2)}, ${this.body.position.y.toFixed(2)}, ${this.body.position.z.toFixed(2)} hit hole at ${event.body.position.x.toFixed(2)}, ${event.body.position.y.toFixed(2)}, ${event.body.position.z.toFixed(2)}`);
-            
-            // Stop the ball's current movement and suck it into the hole
+            // Stop the ball's movement
             this.resetVelocity();
-            
-            // Center the ball over the hole and start the sucking effect
-            if (this.body) {
-                // Get hole position
-                const holeX = event.body.position.x;
-                const holeZ = event.body.position.z;
-                
-                // Immediately position ball directly over hole (horizontal centering)
-                this.body.position.x = holeX;
-                this.body.position.z = holeZ;
-                
-                // Disable physics interactions with everything but triggers
-                this.body.collisionFilterMask = 2; // Only collide with hole triggers (group 2)
-                
-                // Create a "sucking" animation effect
-                this.isSuckedIntoHole = true;
-                this.holePosition = new THREE.Vector3(holeX, event.body.position.y - 0.5, holeZ);
-                
-                // Apply downward force to simulate sucking
-                if (this.body.gravity) {
-                    this.body.gravity.set(0, -30, 0);
-                }
-                
-                // Apply small downward velocity
-                this.body.velocity.set(0, -2, 0);
-                this.body.angularVelocity.set(0, 2, 0); // Add a small spin for effect
-                
-                // Keep the ball awake to ensure it keeps moving
-                this.body.wakeUp();
-            }
             
             // Trigger the ball in hole event
             if (this.game && this.game.eventManager) {
@@ -274,47 +198,13 @@ export class Ball {
                     holeIndex: event.body.userData.holeIndex
                 });
             }
-        }
-        
-        // Check if ball collided with a landing pad (at the second hole's tee)
-        if (event.body.userData && event.body.userData.type === 'landing_pad') {
-            console.log(`LANDING PAD COLLISION: Ball reached tee of hole ${event.body.userData.holeIndex + 1}`);
-            
-            // Reset ball physics to normal state
-            this.body.collisionFilterMask = 1 | 2; // Collide with ground and triggers again
-            
-            if (this.body && this.body.gravity) {
-                this.body.gravity.set(0, -9.81, 0); // Reset to normal gravity
-            }
-            
-            // Stop the ball's motion completely
-            this.resetVelocity();
-            
-            // Get the tee position for the second hole
-            if (this.game && this.game.course) {
-                const holeIndex = event.body.userData.holeIndex;
-                const teePosition = this.game.course.holes[holeIndex].startPosition.clone();
-                
-                // Reset the sucking effect
-                this.resetSuckingEffect();
-                
-                // Set ball position precisely at the tee
-                this.setPosition(teePosition.x, teePosition.y, teePosition.z);
-                
-                // Force the ball to stay still
-                this.body.sleep();
-                
-                // Make sure the ball's internal state recognizes it's at rest
-                this.isMoving = false;
-                this.hasBeenHit = false;
-                
-                // Wait a brief moment and then trigger hole transition
-                setTimeout(() => {
-                    if (this.game && this.game.moveToNextHole) {
-                        this.game.moveToNextHole();
-                    }
-                }, 1000);
-            }
+
+            // Start transition to next hole after a short delay
+            setTimeout(async () => {
+                if (this.game && this.game.holeTransitionManager) {
+                    await this.game.holeTransitionManager.transitionToNextHole();
+                }
+            }, 500);
         }
     }
     
@@ -336,30 +226,6 @@ export class Ball {
                 this.ballLight.position.copy(this.mesh.position);
             }
             
-            // Handle sucking animation when ball is in hole
-            if (this.isSuckedIntoHole && this.holePosition) {
-                // Calculate how close we are to the target position (sucked fully into hole)
-                const distanceToTarget = this.body.position.y - this.holePosition.y;
-                
-                // If we're still being sucked in
-                if (distanceToTarget > 0.05) {
-                    // Make sure ball stays centered over hole
-                    this.body.position.x = this.holePosition.x;
-                    this.body.position.z = this.holePosition.z;
-                    
-                    // Keep the ball moving down with a spin
-                    this.body.velocity.set(0, -2, 0); 
-                    this.body.angularVelocity.set(0, 2, 0);
-                    
-                    // Gradually shrink the ball as it gets sucked in (visual effect)
-                    const shrinkFactor = Math.max(0.5, distanceToTarget * 2);
-                    this.mesh.scale.set(shrinkFactor, shrinkFactor, shrinkFactor);
-                    
-                    // Keep ball awake
-                    this.body.wakeUp();
-                }
-            }
-            
             // Check if ball is out of bounds (fell off course) and reset if needed
             const outOfBoundsThreshold = -50; // Consider ball out of bounds if it falls below this Y position
             if (this.body.position.y < outOfBoundsThreshold) {
@@ -369,8 +235,8 @@ export class Ball {
     }
     
     setPosition(x, y, z) {
-        // Make sure y is at least ball radius + small buffer to avoid ground penetration
-        const safeY = Math.max(y, this.radius + 0.05);
+        // Make sure y is at least ball radius + start height to avoid ground penetration
+        const safeY = Math.max(y, this.radius + Ball.START_HEIGHT);
         
         // Set mesh position
         if (this.mesh) {
@@ -560,84 +426,19 @@ export class Ball {
      * Clean up resources
      */
     cleanup() {
-        try {
-            // Remove ball from scene
-            if (this.scene && this.mesh) {
-                this.scene.remove(this.mesh);
-            } else if (this.mesh && !this.scene) {
-                if (this.game && this.game.debugManager) {
-                    this.game.debugManager.warn('Ball.cleanup', 'Could not remove mesh from scene: scene is null');
-                }
-            }
-            
-            // Remove ball light from scene
-            if (this.scene && this.ballLight) {
-                this.scene.remove(this.ballLight);
-            } else if (this.ballLight && !this.scene) {
-                if (this.game && this.game.debugManager) {
-                    this.game.debugManager.warn('Ball.cleanup', 'Could not remove ball light from scene: scene is null');
-                }
-            }
-            
-            // Remove physics body
-            if (this.physicsWorld && this.body) {
-                try {
-                    this.physicsWorld.removeBody(this.body);
-                } catch (error) {
-                    if (this.game && this.game.debugManager) {
-                        this.game.debugManager.error('Ball.cleanup', 'Error removing physics body', error);
-                    } else {
-                        console.error('ERROR: Ball.cleanup: Error removing physics body', error);
-                    }
-                }
-            } else if (this.body && !this.physicsWorld) {
-                if (this.game && this.game.debugManager) {
-                    this.game.debugManager.warn('Ball.cleanup', 'Could not remove physics body: physicsWorld is null');
-                }
-            }
-            
-            // Dispose of geometries and materials
-            if (this.mesh) {
-                if (this.mesh.geometry) {
-                    this.mesh.geometry.dispose();
-                }
-                
-                if (this.mesh.material) {
-                    if (this.mesh.material.map) this.mesh.material.map.dispose();
-                    if (this.mesh.material.bumpMap) this.mesh.material.bumpMap.dispose();
-                    this.mesh.material.dispose();
-                }
-            }
-            
-            if (this.successMaterial) {
-                if (this.successMaterial.map) this.successMaterial.map.dispose();
-                if (this.successMaterial.bumpMap) this.successMaterial.bumpMap.dispose();
-                this.successMaterial.dispose();
-            }
-            
-            if (this.defaultMaterial) {
-                if (this.defaultMaterial.map) this.defaultMaterial.map.dispose();
-                if (this.defaultMaterial.bumpMap) this.defaultMaterial.bumpMap.dispose();
-                this.defaultMaterial.dispose();
-            }
-            
-            // Clear references
-            this.mesh = null;
+        if (this.physicsWorld && this.body) {
+            console.log('[Ball] Removing physics body');
+            this.physicsWorld.removeBody(this.body);
             this.body = null;
-            this.ballLight = null;
-            this.successMaterial = null;
-            this.defaultMaterial = null;
-            
-            if (this.game && this.game.debugManager) {
-                this.game.debugManager.info('Ball.cleanup', 'Ball resources successfully cleaned up');
-            }
-        } catch (error) {
-            if (this.game && this.game.debugManager) {
-                this.game.debugManager.error('Ball.cleanup', 'Unexpected error during cleanup', error, true);
-            } else {
-                console.error('ERROR: Ball.cleanup: Unexpected error during cleanup', error);
-            }
+        } else if (this.body && !this.physicsWorld) {
+            console.warn('[Ball] Could not remove physics body: physicsWorld is null');
         }
+        
+        if (this.mesh && this.mesh.parent) {
+            this.mesh.parent.remove(this.mesh);
+        }
+        
+        console.log('[Ball] Cleanup complete');
     }
     
     /**
