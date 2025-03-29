@@ -1,5 +1,5 @@
 /**
- * Initialize the physics manager
+ * Initialize the physics system
  */
 init() {
     console.log('[PhysicsManager] Initializing physics system');
@@ -8,6 +8,18 @@ init() {
     this.world = new CANNON.World({
         gravity: new CANNON.Vec3(0, -9.82, 0)
     });
+    
+    // Set solver parameters
+    this.world.solver.iterations = 10;
+    this.world.solver.tolerance = 0.0001;
+    
+    // Use SAPBroadphase for better performance
+    this.world.broadphase = new CANNON.SAPBroadphase(this.world);
+    
+    // Allow sleeping bodies for better performance
+    this.world.allowSleep = true;
+    this.world.sleepSpeedLimit = 0.15;
+    this.world.sleepTimeLimit = 0.2;
     
     // Create materials
     this.defaultMaterial = new CANNON.Material('default');
@@ -19,7 +31,22 @@ init() {
     // Create contact materials
     this.createContactMaterials();
     
-    console.log('[PhysicsManager] Physics world initialized with materials');
+    // Log initialization state
+    console.log('[PhysicsManager] Physics world initialized:', {
+        bodies: this.world.bodies.length,
+        materials: {
+            default: !!this.defaultMaterial,
+            ball: !!this.ballMaterial,
+            ground: !!this.groundMaterial,
+            wall: !!this.wallMaterial,
+            sand: !!this.sandMaterial
+        },
+        solver: {
+            iterations: this.world.solver.iterations,
+            tolerance: this.world.solver.tolerance
+        }
+    });
+    
     return this;
 }
 
@@ -67,20 +94,68 @@ createContactMaterials() {
 }
 
 /**
- * Reset the physics world
+ * Reset the physics world to its initial state
+ * This removes all bodies and reinitializes the world
  */
-reset() {
-    console.log('[PhysicsManager] Resetting physics world');
+async resetWorld() {
+    console.log('[PhysicsManager] Starting world reset');
     
-    // Remove all bodies
-    this.world.bodies.forEach(body => {
-        this.world.removeBody(body);
-    });
+    // Set resetting flag
+    this.isResetting = true;
     
-    // Recreate contact materials
-    this.createContactMaterials();
+    try {
+        // First disable debug visualization
+        this.disableDebug();
+        
+        // Store all bodies in an array first
+        const bodies = this.world ? [...this.world.bodies] : [];
+        console.log(`[PhysicsManager] Removing ${bodies.length} bodies`);
+        
+        // Remove each body
+        bodies.forEach(body => {
+            if (body) {
+                // Wake up the body before removal
+                if (typeof body.wakeUp === 'function') {
+                    body.wakeUp();
+                }
+                // Reset physics properties
+                body.velocity.set(0, 0, 0);
+                body.angularVelocity.set(0, 0, 0);
+                body.force.set(0, 0, 0);
+                body.torque.set(0, 0, 0);
+                // Remove the body
+                this.world.removeBody(body);
+            }
+        });
+        
+        // Clear references
+        this.world = null;
+        
+        // Wait a frame to ensure cleanup is complete
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        
+        // Create new physics world
+        this.init();
+        
+        // Step the world a few times to ensure stability
+        for (let i = 0; i < 5; i++) {
+            this.world.step(1/60);
+        }
+        
+        console.log('[PhysicsManager] World reset complete:', {
+            bodies: this.world.bodies.length,
+            gravity: this.world.gravity.toString(),
+            solver: {
+                iterations: this.world.solver.iterations,
+                tolerance: this.world.solver.tolerance
+            }
+        });
+    } finally {
+        // Clear resetting flag
+        this.isResetting = false;
+    }
     
-    console.log('[PhysicsManager] Physics world reset complete');
+    return this;
 }
 
 /**
@@ -95,4 +170,25 @@ update(dt) {
     if (this.game.debugManager.isDebugMode()) {
         console.log(`[PhysicsManager] Physics step: ${dt.toFixed(3)}s, Bodies: ${this.world.bodies.length}`);
     }
+}
+
+/**
+ * Get the CANNON.World instance.
+ * This is the preferred way to access the physics world.
+ * @returns {CANNON.World} The physics world instance
+ */
+getWorld() {
+    if (!this.world) {
+        console.error('[PhysicsManager] Physics world not initialized');
+        return null;
+    }
+    return this.world;
+}
+
+/**
+ * @deprecated Use getWorld() instead
+ */
+get cannonWorld() {
+    console.warn('[PhysicsManager] Direct cannonWorld access is deprecated. Use getWorld() instead');
+    return this.world;
 } 

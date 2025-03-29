@@ -29,8 +29,18 @@ export class UIManager {
      * Initialize the UI manager
      */
     init() {
-        this.createUI();
-        this.setupEventListeners();
+        console.log('[UIManager.init] Starting...');
+        try {
+            console.log('[UIManager.init] Creating UI elements...');
+            this.createUI();
+            console.log('[UIManager.init] UI elements created.');
+            console.log('[UIManager.init] Setting up event listeners...');
+            this.setupEventListeners();
+            console.log('[UIManager.init] Event listeners setup finished.');
+            console.log('[UIManager.init] Finished.');
+        } catch (error) {
+            console.error('[UIManager.init] Failed:', error);
+        }
         return this;
     }
     
@@ -38,53 +48,43 @@ export class UIManager {
      * Set up event listeners
      */
     setupEventListeners() {
-        // Listen for hole completed events
-        this.game.eventManager.subscribe(
-            EventTypes.HOLE_COMPLETED,
-            this.handleHoleCompleted,
-            this
-        );
-        
-        // Listen for hole started events
-        this.game.eventManager.subscribe(
-            EventTypes.HOLE_STARTED,
-            this.handleHoleStarted,
-            this
-        );
-        
-        // Listen for game completed events
-        this.game.eventManager.subscribe(
-            EventTypes.GAME_COMPLETED,
-            this.handleGameCompleted,
-            this
-        );
-        
-        // Listen for ball hit events to update strokes
-        this.game.eventManager.subscribe(
-            EventTypes.BALL_HIT,
-            this.handleBallHit,
-            this
-        );
-        
-        // Listen for ball in hole events
-        this.game.eventManager.subscribe(
-            EventTypes.BALL_IN_HOLE,
-            this.handleBallInHole,
-            this
-        );
-        
-        // Listen for hazard events
-        this.game.eventManager.subscribe(
-            EventTypes.HAZARD_DETECTED,
-            this.handleHazardDetected,
-            this
-        );
+        console.log('[UIManager.setupEventListeners] Starting...');
+        if (!this.game.eventManager) {
+             console.warn('[UIManager.setupEventListeners] EventManager not available, skipping.');
+            return;
+        }
+        try {
+            this.eventSubscriptions = []; // Initialize as empty array
+
+            console.log('[UIManager.setupEventListeners] Subscribing to HOLE_COMPLETED...');
+            this.eventSubscriptions.push(this.game.eventManager.subscribe(EventTypes.HOLE_COMPLETED, this.handleHoleCompleted, this));
+
+            console.log('[UIManager.setupEventListeners] Subscribing to HOLE_STARTED...');
+            this.eventSubscriptions.push(this.game.eventManager.subscribe(EventTypes.HOLE_STARTED, this.handleHoleStarted, this));
+
+            console.log('[UIManager.setupEventListeners] Subscribing to GAME_COMPLETED...');
+            this.eventSubscriptions.push(this.game.eventManager.subscribe(EventTypes.GAME_COMPLETED, this.handleGameCompleted, this));
+
+            console.log('[UIManager.setupEventListeners] Subscribing to BALL_HIT...');
+            this.eventSubscriptions.push(this.game.eventManager.subscribe(EventTypes.BALL_HIT, this.handleBallHit, this));
+
+            console.log('[UIManager.setupEventListeners] Subscribing to BALL_IN_HOLE...');
+            this.eventSubscriptions.push(this.game.eventManager.subscribe(EventTypes.BALL_IN_HOLE, this.handleBallInHole, this));
+
+            console.log('[UIManager.setupEventListeners] Subscribing to HAZARD_DETECTED...');
+            this.eventSubscriptions.push(this.game.eventManager.subscribe(EventTypes.HAZARD_DETECTED, this.handleHazardDetected, this));
+
+            console.log('[UIManager.setupEventListeners] Finished.');
+        } catch (error) {
+             console.error('[UIManager.setupEventListeners] Failed:', error);
+        }
     }
     
     /**
      * Create UI elements
      */
     createUI() {
+        console.log('[UIManager.createUI] Starting...');
         // Clean up any existing UI elements first
         this.cleanup();
         
@@ -163,9 +163,10 @@ export class UIManager {
         `;
         this.uiContainer.appendChild(this.messageElement);
         
-        // Initial UI updates
+        console.log('[UIManager.createUI] Calling initial UI updates...');
         this.updateScore();
         this.updateStrokes();
+        console.log('[UIManager.createUI] Finished.');
     }
     
     /**
@@ -191,15 +192,19 @@ export class UIManager {
      * @param {GameEvent} event - Hole started event
      */
     handleHoleStarted(event) {
+        console.log(`[UIManager.handleHoleStarted] Event received. isInitialized: ${this.isInitialized}, game initialized?: ${this.game.isInitialized}`);
         const holeNumber = event.get('holeNumber');
         
         // Show message
+        console.log(`[UIManager.handleHoleStarted] Showing message for hole ${holeNumber}`);
         this.showMessage(`Hole ${holeNumber}`, 2000);
         
         // Update all UI elements
+        console.log(`[UIManager.handleHoleStarted] Updating UI elements...`);
         this.updateHoleInfo();
         this.updateScorecard();
         this.updateScore();
+        console.log(`[UIManager.handleHoleStarted] Finished.`);
     }
     
     /**
@@ -207,14 +212,10 @@ export class UIManager {
      * @param {GameEvent} event - Game completed event
      */
     handleGameCompleted(event) {
-        const totalStrokes = event.get('totalStrokes');
-        
-        // Show message
-        const message = `Game completed! Final score: ${totalStrokes}`;
-        this.showMessage(message, 5000);
-        
-        // Show final score screen
-        this.showFinalScore(totalStrokes);
+        console.log(`[UIManager.handleGameCompleted] Event received. isInitialized: ${this.isInitialized}`);
+        // Show a final message and the scorecard
+        this.showMessage("Course Completed!", 5000); 
+        this.showFinalScorecard();
     }
     
     /**
@@ -376,18 +377,106 @@ export class UIManager {
     }
     
     /**
-     * Show final score screen
-     * @param {number} score - Final score
+     * Creates and displays the final scorecard overlay.
      */
-    showFinalScore(score) {
-        if (!this.scoreScreen) return;
+    showFinalScorecard() {
+        console.log('[UIManager] Showing final scorecard...');
         
-        const finalScoreElement = this.scoreScreen.querySelector('#final-score');
-        if (finalScoreElement) {
-            finalScoreElement.textContent = `Final Score: ${score}`;
+        // --- Get Score Data --- 
+        if (!this.game.scoringSystem) {
+            console.error('[UIManager] ScoringSystem not available!');
+            return;
         }
-        
-        this.scoreScreen.style.display = 'flex';
+        // We only need the total strokes for the simplified card
+        const totalStrokes = this.game.scoringSystem.getTotalStrokes();
+
+        // --- Check for existing scorecard, remove if present ---
+        const existingScorecard = document.getElementById('final-scorecard-overlay');
+        if (existingScorecard) {
+            existingScorecard.remove();
+        }
+
+        // --- Create Overlay Element --- 
+        const overlay = document.createElement('div');
+        overlay.id = 'final-scorecard-overlay';
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        overlay.style.color = 'white';
+        overlay.style.display = 'flex';
+        overlay.style.flexDirection = 'column';
+        overlay.style.justifyContent = 'center';
+        overlay.style.alignItems = 'center';
+        overlay.style.zIndex = '1000'; // Ensure it's on top
+        overlay.style.fontFamily = 'monospace, sans-serif';
+
+        // --- Create Content Container --- 
+        const container = document.createElement('div');
+        container.style.padding = '40px'; // Increased padding
+        container.style.background = 'rgba(50, 50, 50, 0.9)';
+        container.style.borderRadius = '10px';
+        container.style.textAlign = 'center';
+        container.style.minWidth = '300px'; // Ensure minimum width
+        overlay.appendChild(container);
+
+        // --- Title --- 
+        const title = document.createElement('h2');
+        title.textContent = 'Course Complete!';
+        title.style.marginBottom = '30px'; // Increased margin
+        title.style.fontSize = '2em'; // Larger title
+        container.appendChild(title);
+
+        // --- Total Strokes Display --- 
+        const totalStrokesEl = document.createElement('p');
+        totalStrokesEl.textContent = `Total Strokes: ${totalStrokes}`;
+        totalStrokesEl.style.fontSize = '1.5em'; // Larger score text
+        totalStrokesEl.style.margin = '20px 0';
+        container.appendChild(totalStrokesEl);
+
+        // --- Back Button --- 
+        const backButton = document.createElement('button');
+        backButton.textContent = 'Back to Main Menu';
+        backButton.style.marginTop = '30px'; // Increased margin
+        backButton.style.padding = '12px 24px'; // Larger button
+        backButton.style.fontSize = '1.1em';
+        backButton.style.cursor = 'pointer';
+        backButton.style.backgroundColor = '#337ab7';
+        backButton.style.color = 'white';
+        backButton.style.border = 'none';
+        backButton.style.borderRadius = '5px';
+        backButton.onclick = this.handleBackToMenuClick.bind(this); // Bind the handler
+        container.appendChild(backButton);
+
+        // --- Add Overlay to DOM --- 
+        document.body.appendChild(overlay);
+        this.finalScorecardElement = overlay; // Store reference for hiding
+        console.log('[UIManager] Simplified final scorecard displayed.');
+    }
+
+    /**
+     * Hides the final scorecard overlay.
+     */
+    hideFinalScorecard() {
+        console.log('[UIManager] Hiding final scorecard...');
+        if (this.finalScorecardElement) {
+            this.finalScorecardElement.remove();
+            this.finalScorecardElement = null;
+        }
+    }
+
+    /**
+     * Handles the click event for the "Back to Main Menu" button.
+     */
+    handleBackToMenuClick() {
+        console.log('[UIManager] Back to Main Menu clicked.');
+        this.hideFinalScorecard();
+        // TODO: Call the method on the App instance to return to the menu
+        // Example: this.game.app.showMainMenu(); (Requires game to have app ref)
+        // Or: window.location.reload(); // Simple page reload as a fallback
+        window.location.reload(); // Using reload for simplicity for now
     }
     
     /**
@@ -438,5 +527,20 @@ export class UIManager {
         this.isShowingMessage = false;
         
         return this;
+    }
+
+    /**
+     * Sets up the initial UI state after the first hole is confirmed ready.
+     */
+    setupInitialUI() {
+        console.log('[UIManager.setupInitialUI] Starting...');
+        try {
+            // Now it's safe to update UI elements that depend on the course/hole state
+            this.updateHoleInfo(); // Example: Update hole number, par display
+            this.updateScorecard(); // Example: Display initial scorecard
+            console.log('[UIManager.setupInitialUI] Finished.');
+        } catch (error) {
+            console.error('[UIManager.setupInitialUI] Failed:', error);
+        }
     }
 } 

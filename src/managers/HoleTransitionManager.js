@@ -25,18 +25,32 @@ export class HoleTransitionManager {
         // Get current hole number from state manager BEFORE unloading
         const currentHoleNumber = this.game.stateManager.getCurrentHoleNumber();
         const totalHoles = this.game.course.getTotalHoles();
+        const targetHoleNumber = currentHoleNumber + 1;
         
-        console.log(`[HoleTransitionManager] Checking transition from hole ${currentHoleNumber} (Total holes: ${totalHoles})`);
+        console.log(`[HoleTransitionManager] Checking transition from hole ${currentHoleNumber} to ${targetHoleNumber} (Total holes: ${totalHoles})`);
         
-        // Check if we have more holes - using zero-based indexing internally
-        // Only check if we're PAST the last hole, not AT it
+        // Check if the current hole number is the last hole or beyond
         if (currentHoleNumber >= totalHoles) {
             console.warn(`[HoleTransitionManager] No more holes available (current: ${currentHoleNumber}, total: ${totalHoles})`);
-            this.game.stateManager.setGameState(GameState.GAME_COMPLETED);
-            return false;
+            
+            // --- PUBLISH GAME COMPLETED EVENT --- 
+            if (this.game.eventManager) {
+                // Publish event - UIManager will fetch scores directly
+                const eventData = { timestamp: Date.now() }; // Simple payload
+                console.log('[HoleTransitionManager] Publishing GAME_COMPLETED event.', eventData);
+                this.game.eventManager.publish(EventTypes.GAME_COMPLETED, eventData, this);
+            } else {
+                console.error('[HoleTransitionManager] EventManager not available to publish GAME_COMPLETED.');
+            }
+            // --- END PUBLISH --- 
+            
+            // Optionally set game state if needed, but event should trigger UI
+            // this.game.stateManager.setGameState(GameState.GAME_COMPLETED);
+            
+            return false; // Stop the transition process
         }
 
-        console.log(`[HoleTransitionManager] Starting transition to hole ${currentHoleNumber + 1} of ${totalHoles}`);
+        console.log(`[HoleTransitionManager] Starting transition to hole ${targetHoleNumber} of ${totalHoles}`);
 
         try {
             // First clean up the current hole completely
@@ -50,10 +64,22 @@ export class HoleTransitionManager {
                 console.warn('[HoleTransitionManager] Physics world reset not available');
             }
             
-            // Load the new hole BEFORE updating state
-            await this.loadNewHole();
+            // Load the new hole - pass the target hole number explicitly
+            const success = await this.loadNewHole(targetHoleNumber);
+            if (!success) {
+                console.error(`[HoleTransitionManager] Failed to load hole ${targetHoleNumber}`);
+                return false;
+            }
             
-            // Verify hole was created successfully
+            // Update state after successful hole load
+            // This updates the state manager's internal hole number to match the loaded hole
+            this.game.stateManager.resetForNextHole();
+            
+            // Log the actual hole number after state update
+            const newHoleNumber = this.game.stateManager.getCurrentHoleNumber();
+            console.log(`[HoleTransitionManager] Successfully transitioned to hole ${newHoleNumber} of ${totalHoles}`);
+            
+            // Get hole positions for verification
             const holePosition = this.game.course.getHolePosition();
             const startPosition = this.game.course.getHoleStartPosition();
             
@@ -62,21 +88,34 @@ export class HoleTransitionManager {
                 return false;
             }
             
-            // Only update state after successful hole load
-            this.game.stateManager.resetForNextHole();
-            
-            // Log the actual hole number after state update
-            const newHoleNumber = this.game.stateManager.getCurrentHoleNumber();
-            console.log(`[HoleTransitionManager] Successfully transitioned to hole ${newHoleNumber} of ${totalHoles}`);
             console.log(`[HoleTransitionManager] New hole position:`, holePosition);
             console.log(`[HoleTransitionManager] New start position:`, startPosition);
             
-            // Step physics world after hole creation (if available)
-            if (this.game.physicsManager?.world?.step) {
-                this.game.physicsManager.world.step(1/60);
-                console.log('[HoleTransitionManager] Physics world stepped after hole creation');
+            // --- CREATE BALL FOR NEW HOLE --- 
+            console.log('[HoleTransitionManager] Creating ball for the new hole...');
+            if (this.game.ballManager) {
+                const ballCreated = this.game.ballManager.createBall(startPosition);
+                if (!ballCreated) {
+                    console.error('[HoleTransitionManager] Failed to create ball for new hole!');
+                    // Maybe return false or throw error?
+                } else {
+                    console.log('[HoleTransitionManager] Ball created successfully for new hole.');
+                }
+            } else {
+                console.error('[HoleTransitionManager] BallManager not available to create ball for new hole.');
             }
-            
+            // --- END CREATE BALL --- 
+
+            // --- ENABLE INPUT FOR NEW HOLE --- 
+            console.log('[HoleTransitionManager] Enabling input controller for new hole...');
+            if (this.game.inputController) {
+                this.game.inputController.enableInput();
+                console.log('[HoleTransitionManager] Input controller enabled.');
+            } else {
+                console.warn('[HoleTransitionManager] InputController not available to enable for new hole.');
+            }
+            // --- END ENABLE INPUT --- 
+
             // Preserve debug mode state
             const debugMode = this.game.stateManager.state.debugMode;
             if (debugMode) {
@@ -114,86 +153,64 @@ export class HoleTransitionManager {
     }
 
     /**
-     * Load the new hole
-     * @private
+     * Load a new hole
+     * @param {number} targetHoleNumber - The hole number to load (1-based)
+     * @returns {Promise<boolean>} - True if successful, false otherwise
      */
-    async loadNewHole() {
-        console.log('[HoleTransitionManager] Loading new hole');
+    async loadNewHole(targetHoleNumber) {
+        console.log(`[HoleTransitionManager] Loading hole #${targetHoleNumber}`);
         
-        // Get the next hole number (1-based)
-        const currentHoleNumber = this.game.stateManager.getCurrentHoleNumber();
-        console.log(`[HoleTransitionManager] Loading hole ${currentHoleNumber + 1}`);
-        
-        // Reset hole completion state
-        this.game.stateManager.setHoleCompleted(false);
-        this.game.stateManager.setGameState(GameState.AIMING);
-        this.isTransitioning = false; // Reset transition flag
-
-        // Create the new hole through the course manager
-        if (!this.game.course) {
-            console.error('[HoleTransitionManager] Course not available');
+        // Verify game and course are available
+        if (!this.game || !this.game.course) {
+            console.error('[HoleTransitionManager] Game or course not available');
             return false;
         }
-
-        // Ensure physics world exists before creating the hole
-        if (!this.game.physicsManager?.world) {
-            console.error('[HoleTransitionManager] Physics world not available');
+        
+        // Verify physics world exists and is properly initialized
+        if (!this.verifyPhysicsWorld()) {
+            console.error('[HoleTransitionManager] Physics world verification failed');
             return false;
         }
-
-        // Create the new hole
+        
         try {
-            await this.game.course.createCourse();
-            console.log(`[HoleTransitionManager] Course created successfully for hole ${currentHoleNumber + 1}`);
+            // Wait for physics world to stabilize
+            await new Promise(resolve => setTimeout(resolve, 100));
             
-            // Verify physics bodies were created
-            if (this.game.physicsManager?.world?.bodies) {
-                const bodyCount = this.game.physicsManager.world.bodies.length;
-                console.log(`[HoleTransitionManager] Physics world contains ${bodyCount} bodies after hole creation`);
+            // Create the new hole
+            const success = await this.game.course.createCourse(targetHoleNumber);
+            if (!success) {
+                console.error(`[HoleTransitionManager] Failed to create hole #${targetHoleNumber}`);
+                return false;
             }
-        } catch (error) {
-            console.error(`[HoleTransitionManager] Error creating course:`, error);
-            throw error;
-        }
-
-        // Create a new ball at the start position
-        try {
-            const ball = await this.game.ballManager.createBall();
-            if (!ball) {
-                console.error(`[HoleTransitionManager] Failed to create ball`);
-            } else {
-                console.log(`[HoleTransitionManager] Ball created successfully`);
+            
+            // Wait for a frame to ensure physics bodies are created
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            
+            // Reset grace period in HoleCompletionManager
+            if (this.game.holeCompletionManager) {
+                this.game.holeCompletionManager.resetGracePeriod();
             }
+            
+            // Update UI with new hole information
+            if (this.game.uiManager) {
+                this.game.uiManager.updateHoleInfo(targetHoleNumber);
+                this.game.uiManager.showMessage(`Hole ${targetHoleNumber}`);
+            }
+            
+            // Log success
+            console.log(`[HoleTransitionManager] Successfully loaded hole #${targetHoleNumber}`);
+            
+            // Verify physics world state after loading
+            if (!this.verifyPhysicsWorld()) {
+                console.error('[HoleTransitionManager] Physics world verification failed after loading hole');
+                return false;
+            }
+            
+            return true;
         } catch (error) {
-            console.error(`[HoleTransitionManager] Error creating ball:`, error);
-            throw error;
+            console.error('[HoleTransitionManager] Error loading new hole:', error);
+            return false;
         }
-
-        // Position camera
-        try {
-            this.game.cameraController.positionCameraForHole();
-            console.log(`[HoleTransitionManager] Camera positioned successfully`);
-        } catch (error) {
-            console.error(`[HoleTransitionManager] Error positioning camera:`, error);
-            throw error;
-        }
-
-        // Update UI
-        this.game.uiManager.updateHoleInfo();
-        this.game.uiManager.updateScore();
-        this.game.uiManager.updateStrokes();
-
-        // Reset hole detection grace period
-        if (this.game.holeCompletionManager?.resetGracePeriod) {
-            this.game.holeCompletionManager.resetGracePeriod();
-            console.log(`[HoleTransitionManager] Reset hole detection grace period`);
-        }
-
-        // Add a small delay to ensure everything is properly initialized
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        console.log(`[HoleTransitionManager] Hole ${currentHoleNumber + 1} loaded successfully`);
-        return true;
     }
 
     /**
@@ -324,4 +341,76 @@ export class HoleTransitionManager {
             }
         }
     }
+
+    // Verify physics world exists and is properly initialized
+    verifyPhysicsWorld = () => {
+        if (!this.game.physicsManager?.world) {
+            console.error('[HoleTransitionManager] Physics world not available');
+            return false;
+        }
+        
+        // Get the actual CANNON.World instance
+        const cannonWorld = this.game.physicsManager.world.world;
+        if (!cannonWorld) {
+            console.error('[HoleTransitionManager] CANNON.World instance not available');
+            return false;
+        }
+        
+        // Verify the world has all required methods and properties
+        const requiredMethods = ['step', 'addBody', 'removeBody'];
+        for (const method of requiredMethods) {
+            if (typeof cannonWorld[method] !== 'function') {
+                console.error(`[HoleTransitionManager] Physics world missing required method: ${method}`);
+                return false;
+            }
+        }
+        
+        // Verify essential properties
+        if (!cannonWorld.bodies || !Array.isArray(cannonWorld.bodies)) {
+            console.error('[HoleTransitionManager] Physics world missing bodies array');
+            return false;
+        }
+        
+        // Verify solver configuration
+        if (!cannonWorld.solver) {
+            console.error('[HoleTransitionManager] Physics world missing solver');
+            return false;
+        }
+        
+        // Verify gravity
+        if (!cannonWorld.gravity || typeof cannonWorld.gravity.y !== 'number') {
+            console.error('[HoleTransitionManager] Physics world has invalid gravity');
+            return false;
+        }
+        
+        // Log current physics world state
+        console.log('[HoleTransitionManager] Physics world state:', {
+            bodies: cannonWorld.bodies.length,
+            gravity: cannonWorld.gravity.toString(),
+            solver: {
+                iterations: cannonWorld.solver.iterations,
+                tolerance: cannonWorld.solver.tolerance
+            },
+            materials: {
+                default: !!this.game.physicsManager.defaultMaterial,
+                ball: !!this.game.physicsManager.ballMaterial,
+                ground: !!this.game.physicsManager.groundMaterial,
+                wall: !!this.game.physicsManager.wallMaterial,
+                sand: !!this.game.physicsManager.sandMaterial
+            }
+        });
+        
+        // Log all physics bodies for debugging
+        if (cannonWorld.bodies.length > 0) {
+            console.log('[HoleTransitionManager] Physics bodies:', cannonWorld.bodies.map(body => ({
+                type: body.userData?.type || 'unknown',
+                position: body.position.toString(),
+                sleeping: body.sleeping,
+                mass: body.mass,
+                material: body.material?.name || 'none'
+            })));
+        }
+        
+        return true;
+    };
 } 

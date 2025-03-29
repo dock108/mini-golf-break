@@ -53,38 +53,68 @@ export class CoursesManager {
 
     /**
      * Get the current hole position
-     * @returns {THREE.Vector3} The current hole's position
+     * @returns {THREE.Vector3} The current hole's position or null if unavailable
      */
     getHolePosition() {
-        if (this.currentHoleIndex < 0 || this.currentHoleIndex >= this.holes.length) {
-            console.warn(`[CoursesManager] Invalid hole index for position: ${this.currentHoleIndex}`);
+        if (this.holes.length === 0) {
+            console.warn(`[CoursesManager] getHolePosition called when holes array is empty.`);
             return null;
         }
-        return this.holes[this.currentHoleIndex].holePosition;
+        if (this.currentHoleIndex < 0 || this.currentHoleIndex >= this.holes.length) {
+            console.warn(`[CoursesManager] Invalid hole index (${this.currentHoleIndex}) for getting position.`);
+            return null;
+        }
+        // Ensure the hole object itself and the position exist
+        const holeData = this.holes[this.currentHoleIndex];
+        if (!holeData || !holeData.holePosition) {
+            console.warn(`[CoursesManager] Hole data or position missing for index ${this.currentHoleIndex}.`);
+            return null;
+        }
+        return holeData.holePosition;
     }
 
     /**
      * Get the current hole's start position
-     * @returns {THREE.Vector3} The current hole's start position
+     * @returns {THREE.Vector3} The current hole's start position or null if unavailable
      */
     getHoleStartPosition() {
-        if (this.currentHoleIndex < 0 || this.currentHoleIndex >= this.holes.length) {
-            console.warn(`[CoursesManager] Invalid hole index for start position: ${this.currentHoleIndex}`);
+        if (this.holes.length === 0) {
+            console.warn(`[CoursesManager] getHoleStartPosition called when holes array is empty.`);
             return null;
         }
-        return this.holes[this.currentHoleIndex].startPosition;
+        if (this.currentHoleIndex < 0 || this.currentHoleIndex >= this.holes.length) {
+            console.warn(`[CoursesManager] Invalid hole index (${this.currentHoleIndex}) for getting start position.`);
+            return null;
+        }
+        // Ensure the hole object itself and the position exist
+        const holeData = this.holes[this.currentHoleIndex];
+         if (!holeData || !holeData.startPosition) {
+            console.warn(`[CoursesManager] Hole data or startPosition missing for index ${this.currentHoleIndex}.`);
+            return null;
+        }
+        return holeData.startPosition;
     }
 
     /**
      * Get the current hole's par
-     * @returns {number} The current hole's par
+     * @returns {number} The current hole's par or 0 if unavailable
      */
     getHolePar() {
-        if (this.currentHoleIndex < 0 || this.currentHoleIndex >= this.holes.length) {
-            console.warn(`[CoursesManager] Invalid hole index for par: ${this.currentHoleIndex}`);
+        if (this.holes.length === 0) {
+            console.warn(`[CoursesManager] getHolePar called when holes array is empty.`);
             return 0;
         }
-        return this.holes[this.currentHoleIndex].par;
+        if (this.currentHoleIndex < 0 || this.currentHoleIndex >= this.holes.length) {
+            console.warn(`[CoursesManager] Invalid hole index (${this.currentHoleIndex}) for getting par.`);
+            return 0;
+        }
+        // Ensure the hole object itself and par exist
+        const holeData = this.holes[this.currentHoleIndex];
+         if (!holeData || typeof holeData.par !== 'number') {
+            console.warn(`[CoursesManager] Hole data or par missing/invalid for index ${this.currentHoleIndex}.`);
+            return 0;
+        }
+        return holeData.par;
     }
 
     /**

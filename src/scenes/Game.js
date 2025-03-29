@@ -76,7 +76,7 @@ export class Game {
     /**
      * Initialize the game
      */
-    init() {
+    async init() {
         try {
             // Setup renderer first
             this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -114,8 +114,9 @@ export class Game {
             this.physicsManager.init();
             this.audioManager.init();
             
-            // Create course first, before initializing hole managers
-            this.createCourse();
+            console.log('[Game.init] Awaiting createCourse...');
+            await this.createCourse();
+            console.log('[Game.init] createCourse finished.');
             
             // Fourth tier - Game object managers that depend on physics and scene
             this.hazardManager.init();
@@ -233,33 +234,69 @@ export class Game {
     /**
      * Create the course
      */
-    createCourse() {
-        // Create course with game reference
-        this.course = new BasicCourse(this);
-        
-        // Set course reference in camera controller
-        this.cameraController.setCourse(this.course);
-        
-        // Set ball at starting position
-        if (this.ballManager) {
-            this.ballManager.createBall();
+    async createCourse() {
+        console.log('[Game.createCourse] Starting...');
+        try {
+            // Create course using the static async method
+            console.log('[Game.createCourse] Awaiting BasicCourse.create()...');
+            this.course = await BasicCourse.create(this);
+            console.log('[Game.createCourse] BasicCourse.create() finished. Course object:', this.course);
+
+            // --- VALIDATION --- Check if course and start position are valid after creation
+            if (!this.course || !this.course.startPosition) {
+                console.error('[Game.createCourse] Failed to create course or course has no start position!');
+                throw new Error('Course creation failed or start position missing.');
+            }
+            console.log('[Game.createCourse] Course created successfully. Start position:', this.course.startPosition);
+            // --- END VALIDATION ---
+
+            // Set course reference in camera controller
+            console.log('[Game.createCourse] Setting course reference in CameraController...');
+            this.cameraController.setCourse(this.course);
+            console.log('[Game.createCourse] CameraController course set.');
+
+            // Set ball at starting position *after* course is confirmed ready
+            console.log('[Game.createCourse] Calling ballManager.createBall with start position...');
+            if (this.ballManager) {
+                // Pass the confirmed start position from the created course
+                const ballCreated = this.ballManager.createBall(this.course.startPosition);
+                if (!ballCreated) {
+                    console.error('[Game.createCourse] ballManager.createBall failed!');
+                    // Consider throwing an error if ball creation is critical for game start
+                } else {
+                    console.log('[Game.createCourse] ballManager.createBall seems successful.');
+                }
+            } else {
+                console.error('[Game.createCourse] BallManager not available when trying to create ball!');
+            }
+            
+            // Enable input (can happen after course/ball creation)
+            console.log('[Game.createCourse] Enabling input...');
+            if (this.inputController) {
+                this.inputController.enableInput();
+                console.log('[Game.createCourse] Input enabled.');
+            } else {
+                console.warn('[Game.createCourse] InputController not available to enable input.');
+            }
+
+            // Setup initial camera position now that course is ready
+            console.log('[Game.createCourse] Setting up initial camera position...');
+            this.cameraController.setupInitialCameraPosition();
+            console.log('[Game.createCourse] Initial camera position setup finished.');
+
+            // Setup initial UI now that course is ready
+            console.log('[Game.createCourse] Setting up initial UI...');
+            this.uiManager.setupInitialUI();
+            console.log('[Game.createCourse] Initial UI setup finished.');
+
+            console.log('[Game.createCourse] Finished successfully.');
+
+        } catch (error) {
+            console.error('[Game.createCourse] Failed:', error);
+            this.debugManager.error('Game.createCourse', 'Failed during course creation', error, true);
+            // Handle or re-throw the error as appropriate for the init process
+            throw error; // Re-throw so the calling context (init) can handle it
         }
-        
-        // Enable input
-        if (this.inputController) {
-            this.inputController.enableInput();
-        }
-        
-        // Position camera to view the hole
-        this.cameraController.positionCameraForHole();
-        
-        // Update UI with initial state
-        this.uiManager.updateHoleInfo();
-        this.uiManager.updateScore();
-        this.uiManager.updateStrokes();
-        
-        // Show welcome message
-        this.uiManager.showMessage("Welcome to Mini Golf Break!", 2000);
     }
     
     /**

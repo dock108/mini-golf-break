@@ -92,10 +92,26 @@ update(dt) {
 }
 
 /**
+ * Create the course
+ */
+async createCourse() {
+    console.log('[Game] Creating course');
+    try {
+        // Create the course instance using the static factory method
+        this.course = await BasicCourse.create(this);
+        console.log('[Game] Course created successfully');
+    } catch (error) {
+        console.error('[Game] Failed to create course:', error);
+        throw error;
+    }
+}
+
+/**
  * Initialize the game
  */
-init() {
+async init() {
     try {
+        console.log('[Game.init] Starting initialization...');
         // Initialize managers
         this.physicsManager = new PhysicsManager(this);
         this.ballManager = new BallManager(this);
@@ -107,24 +123,46 @@ init() {
         this.scoringSystem = new ScoringSystem(this);
         this.eventManager = new EventManager(this);
         this.debugManager = new DebugManager(this);
+        console.log('[Game.init] Managers instantiated.');
 
-        // Initialize managers
-        this.physicsManager.init();
+        // Initialize managers in order
+        console.log('[Game.init] Initializing PhysicsManager...');
+        await this.physicsManager.init();
+        console.log('[Game.init] Initializing BallManager...');
         this.ballManager.init();
+        console.log('[Game.init] Initializing CameraController...');
         this.cameraController.init();
+        console.log('[Game.init] Initializing UIManager...');
         this.uiManager.init();
+        console.log('[Game.init] Initializing HoleCompletionManager...');
         this.holeCompletionManager.init();
+        console.log('[Game.init] Initializing HoleTransitionManager...');
         this.holeTransitionManager.init();
+        console.log('[Game.init] Initializing StateManager...');
         this.stateManager.init();
+        console.log('[Game.init] Initializing ScoringSystem...');
         this.scoringSystem.init();
+        console.log('[Game.init] Initializing EventManager...');
         this.eventManager.init();
+        console.log('[Game.init] Initializing DebugManager...');
         this.debugManager.init();
+        console.log('[Game.init] Managers initialized.');
 
-        // Create course
-        this.createCourse();
+        // Create course (which initializes hole 0 and creates ball)
+        console.log('[Game.init] Creating course...');
+        await this.createCourse();
+        console.log('[Game.init] Course created.');
 
-        // Reset transition state
+        // --- Setup AFTER course/hole 0 is ready --- 
+        console.log('[Game.init] Setting up initial camera position...');
+        this.cameraController.setupInitialCameraPosition();
+        console.log('[Game.init] Setting up initial UI...');
+        this.uiManager.setupInitialUI(); // Assuming a similar method needed for UI
+        // --- End setup ---
+
+        console.log('[Game.init] Resetting transition state...');
         this.resetTransitionState();
+        console.log('[Game.init] Initialization complete.');
 
         return this;
     } catch (error) {

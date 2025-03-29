@@ -344,56 +344,70 @@ export class PhysicsManager {
      * @returns {Promise} A promise that resolves when the world is reset and initialized
      */
     async resetWorld() {
+        console.log('[PhysicsManager] Starting physics world reset');
+        
         // Set resetting flag
         this.isResetting = true;
-
+        
         try {
-            // First disable debug visualization to prevent stale references
-            this.disableDebug();
-
+            // Store existing materials before cleanup
+            const oldMaterials = {
+                defaultMaterial: this.world?.defaultMaterial,
+                groundMaterial: this.world?.groundMaterial,
+                wallMaterial: this.world?.wallMaterial,
+                sandMaterial: this.world?.sandMaterial
+            };
+            
+            // Log current state
+            console.log('[PhysicsManager] Current world state:', {
+                hasWorld: !!this.world,
+                hasCannonWorld: !!this.cannonWorld,
+                bodyCount: this.cannonWorld?.bodies?.length || 0
+            });
+            
             // Clean up existing world
-            if (this.cannonWorld) {
-                // Remove event listeners first to prevent collision callbacks during cleanup
+            if (this.world) {
+                // Remove event listeners
                 if (this.boundCollisionStart) {
                     this.cannonWorld.removeEventListener('beginContact', this.boundCollisionStart);
                 }
                 if (this.boundCollisionEnd) {
                     this.cannonWorld.removeEventListener('endContact', this.boundCollisionEnd);
                 }
-
-                // Store all bodies in an array first to avoid modifying the collection while iterating
-                const bodies = [...this.cannonWorld.bodies];
-                
-                // Remove each body carefully using the enhanced removeBody method
-                bodies.forEach(body => {
-                    if (body) {
-                        // Wake up the body before removal
-                        if (typeof body.wakeUp === 'function') {
-                            body.wakeUp();
-                        }
-                        // Remove the body
-                        this.world.removeBody(body);
-                    }
-                });
             }
-
-            // Clear references
-            this.world = null;
-            this.cannonWorld = null;
             
-            // Wait a frame to ensure cleanup is complete
-            await new Promise(resolve => requestAnimationFrame(resolve));
+            // Create new PhysicsWorld instance
+            this.world = new PhysicsWorld();
+            this.cannonWorld = this.world.world;
             
-            // Create new physics world
-            this.init();
+            // Verify the new world was created properly
+            if (!this.world || !this.cannonWorld || !(this.cannonWorld instanceof CANNON.World)) {
+                throw new Error('Failed to create new physics world');
+            }
             
-            // Wait another frame to ensure initialization is complete
-            await new Promise(resolve => requestAnimationFrame(resolve));
+            // Restore materials
+            if (oldMaterials.defaultMaterial) this.world.defaultMaterial = oldMaterials.defaultMaterial;
+            if (oldMaterials.groundMaterial) this.world.groundMaterial = oldMaterials.groundMaterial;
+            if (oldMaterials.wallMaterial) this.world.wallMaterial = oldMaterials.wallMaterial;
+            if (oldMaterials.sandMaterial) this.world.sandMaterial = oldMaterials.sandMaterial;
+            
+            // Set up collision events for new world
+            this.setupCollisionEvents();
+            
+            // Log new world state
+            console.log('[PhysicsManager] New world created:', {
+                hasWorld: !!this.world,
+                hasCannonWorld: !!this.cannonWorld,
+                hasStep: !!this.cannonWorld?.step,
+                bodyCount: this.cannonWorld?.bodies?.length || 0
+            });
+            
+            return this.world;
+        } catch (error) {
+            console.error('[PhysicsManager] Error resetting physics world:', error);
+            throw error;
         } finally {
-            // Clear resetting flag
             this.isResetting = false;
         }
-        
-        return this;
     }
 } 
