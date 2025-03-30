@@ -243,24 +243,24 @@ export class CameraController {
         // Calculate midpoint between tee and hole
         const midpoint = new THREE.Vector3().addVectors(startPosition, holePosition).multiplyScalar(0.5);
         
-        // Calculate direction from tee to hole
+        // --- REVERT TO ANGLED VIEW, ADJUSTED FOR SCREENSHOT --- 
         const direction = new THREE.Vector3().subVectors(holePosition, startPosition).normalize();
-        
-        // Position camera at an angle to see both tee and hole
         const distance = startPosition.distanceTo(holePosition);
+
+        // Calculate offset for a high-angle view looking down the hole
         const cameraOffset = new THREE.Vector3(
-            direction.z * distance * 0.7, // Offset perpendicular to hole direction
-            distance * 0.8,               // Height based on distance
-            -direction.x * distance * 0.7  // Offset perpendicular to hole direction
+            direction.z * distance * 0.5,  // Smaller perpendicular offset
+            distance * 1.0,                // Increased height offset (was ~0.7-0.8)
+            -direction.x * distance * 0.5 // Smaller perpendicular offset
         );
-        
-        // Set camera position relative to midpoint
+
+        // Set camera position relative to midpoint using the calculated offset
         this.camera.position.copy(midpoint.clone().add(cameraOffset));
         
-        // Look at midpoint
+        // Look down towards the midpoint
         this.camera.lookAt(midpoint);
         
-        // Update orbit controls target if they exist
+        // Update orbit controls target to the midpoint
         if (this.controls) {
             this.controls.target.copy(midpoint);
             this.controls.update();
@@ -305,14 +305,46 @@ export class CameraController {
         // Only follow the ball if it's moving
         if (this.game.stateManager && this.game.stateManager.isBallInMotion()) {
             if (this.controls) {
-                // Update the orbit controls target to follow the ball
-                this.controls.target.lerp(ballPosition, 0.2);
+                // Calculate target point slightly ahead of the ball
+                let targetPosition = ballPosition; // Default to ball position
+                const velocity = ball.body.velocity;
+                const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+                const lookAheadDistance = 1.5; // Increased from 0.5
+                const minSpeedForLookAhead = 0.1; // Only look ahead if moving fast enough
+
+                if (speed > minSpeedForLookAhead) {
+                    const lookAheadDirection = new THREE.Vector3(velocity.x, 0, velocity.z).normalize();
+                    targetPosition = ballPosition.clone().add(lookAheadDirection.multiplyScalar(lookAheadDistance));
+                }
+
+                // Update the orbit controls target to smoothly follow the calculated target position
+                this.controls.target.lerp(targetPosition, 0.1); // Reduced from 0.2 for smoother follow
                 this.controls.update();
             } else {
                 // If no controls, update camera position directly to follow the ball
                 const cameraTargetPosition = ballPosition.clone().add(new THREE.Vector3(10, 10, 10));
                 this.camera.position.lerp(cameraTargetPosition, 0.1);
                 this.camera.lookAt(ballPosition);
+            }
+        } else {
+            // When the ball is stopped, calculate target slightly towards the hole
+            if (this.controls && this.course) {
+                const holePosition = this.course.getHolePosition();
+                if (holePosition) {
+                    const directionToHole = new THREE.Vector3().subVectors(holePosition, ballPosition).normalize();
+                    // Use the same lookAheadDistance for consistency when stopped
+                    const lookAheadDistance = 1.5; 
+                    const targetPosition = ballPosition.clone().add(directionToHole.multiplyScalar(lookAheadDistance));
+                    
+                    // Lerp towards the position ahead of the ball (towards the hole)
+                    this.controls.target.lerp(targetPosition, 0.05); // Reduced from 0.1 for smoother aiming follow
+                } else {
+                    // Fallback: If hole position isn't available, target the ball itself
+                    this.controls.target.lerp(ballPosition, 0.1); // Keep fallback slightly faster?
+                }
+            } else if (this.controls) {
+                 // Fallback: If course isn't available, target the ball itself
+                this.controls.target.lerp(ballPosition, 0.1); // Keep fallback slightly faster?
             }
         }
     }

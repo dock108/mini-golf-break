@@ -28,6 +28,7 @@ export class PhysicsWorld {
         this.sandMaterial = new CANNON.Material('sand');
         this.bumperMaterial = new CANNON.Material('bumper'); // New material for obstacles
         this.holeCupMaterial = new CANNON.Material('holeCup'); // Material for the physical hole cup
+        this.holeRimMaterial = new CANNON.Material('holeRim'); // New material for the hole edge/funnel
         
         // Create contact materials
         this.createContactMaterials();
@@ -112,6 +113,22 @@ export class PhysicsWorld {
         );
         this.world.addContactMaterial(ballHoleCupContact);
         console.log(`[PhysicsWorld] Added ballHoleCupContact.`);
+        
+        // Set up contact between ball and hole rim/funnel - low bounce
+        const ballRimContact = new CANNON.ContactMaterial(
+            this.ballMaterial,
+            this.holeRimMaterial, 
+            {
+                friction: 0.6,          // Similar to ground friction
+                restitution: 0.01,      // VERY low bounce
+                contactEquationStiffness: 1e7,
+                contactEquationRelaxation: 3,
+                frictionEquationStiffness: 1e7,
+                frictionEquationRelaxation: 1 
+            }
+        );
+        this.world.addContactMaterial(ballRimContact);
+        console.log(`[PhysicsWorld] Added ballRimContact.`);
         
         // Default contact material for everything else
         this.world.defaultContactMaterial.friction = 0.8;     // Increased default friction

@@ -240,8 +240,8 @@ export class CoursesManager {
             new THREE.Vector3(12, 0, 12)
         ];
         
-        // Ball radius is 0.2, so hole radius should be about 0.35 (1.75 × ball size)
-        const holeRadius = 0.35;
+        // Ball radius is 0.2. Realistic hole radius ~2.53 * 0.2 = 0.506
+        const holeRadius = 0.5; // Adjusted to 0.5 (was 0.35)
         const holeDepth = 0.3;
         
         holePositions.forEach(position => {
@@ -290,6 +290,7 @@ export class CoursesManager {
                 });
                 
                 // Add a cylinder shape with slightly larger radius for better detection
+                // Keep trigger slightly larger than visual radius
                 const holeShape = new CANNON.Cylinder(holeRadius * 1.1, holeRadius * 1.1, 0.1, 16);
                 holeBody.addShape(holeShape);
                 
@@ -579,8 +580,8 @@ export class CoursesManager {
             const dz = position.z - holePos.z;
             const distance = Math.sqrt(dx * dx + dz * dz);
             
-            // Base hole radius - slightly smaller than visual radius
-            const holeRadius = 0.3; // Adjusted for smaller hole
+            // Base hole radius - use the updated radius
+            const holeRadius = 0.5; // Adjusted for larger hole (was 0.3)
             
             // Check if the ball is near the hole
             if (distance < holeRadius && position.y < 0.2) {
