@@ -62,7 +62,7 @@ export class HoleEntity {
         
         // --- Create other components --- 
         this.createWalls();
-        this.createHoleCup();       // Call new cup creation method
+        this.createHoleTrigger(); // No longer creates visual, only physics trigger
         this.createStartPosition();
         
         // Create hazards (Sand will now just create its visual mesh)
@@ -90,17 +90,16 @@ export class HoleEntity {
             side: THREE.DoubleSide // Important for CSG results
         });
 
-        // 1. Create base green geometry using BoxGeometry (Reverted)
+        // 1. Create base green geometry (centered at origin)
+        // Increase segments for potentially smoother CSG results
         const greenGeom = new THREE.BoxGeometry(
             this.width, 
-            this.surfaceHeight, // Use surface height for box depth 
+            this.surfaceHeight, 
             this.length,
             10, // widthSegments
             1,  // heightSegments
             10  // depthSegments
             );
-        // BoxGeometry is centered at origin, no rotation/translation needed here.
-
         let greenCSG = CSG.fromGeometry(greenGeom);
 
         // 2. Subtract Sand Traps (if any)
@@ -126,23 +125,20 @@ export class HoleEntity {
         });
 
         // 3. Subtract Hole
-        const visualHoleRadius = 0.40;
-        const holeSubtractorGeom = new THREE.CylinderGeometry(
-            visualHoleRadius, 
-            visualHoleRadius, 
-            this.surfaceHeight * 1.1, // Adjust height relative to box height
+        const holeGeom = new THREE.CylinderGeometry(
+            this.holeRadius,
+            this.holeRadius,
+            this.surfaceHeight * 1.1, // Ensure it cuts through fully
             16
-            );
-        // No translation needed for subtractor if base box is centered at origin
-
-        // Calculate position relative to the green's center (which is origin for the geometry)
+        );
+        // Calculate position relative to the green's center
         const localHolePos = this.config.holePosition.clone().sub(this.centerPosition);
         // Create transformation matrix
         const holeMatrix = new THREE.Matrix4().makeTranslation(localHolePos.x, 0, localHolePos.z);
         // Apply matrix to the geometry *before* creating CSG object
-        holeSubtractorGeom.applyMatrix4(holeMatrix);
+        holeGeom.applyMatrix4(holeMatrix);
         // Create CSG object from transformed geometry
-        const holeCSG = CSG.fromGeometry(holeSubtractorGeom);
+        const holeCSG = CSG.fromGeometry(holeGeom);
         
         // Subtract
         greenCSG = greenCSG.subtract(holeCSG);
@@ -150,24 +146,12 @@ export class HoleEntity {
 
         // 4. Convert final CSG back to Mesh
         const finalGreenMesh = CSG.toMesh(greenCSG, new THREE.Matrix4(), greenMaterial);
-        // Position the final mesh correctly vertically (since BoxGeometry was centered at 0)
-        finalGreenMesh.position.y = this.surfaceHeight / 2; 
+        finalGreenMesh.position.y = this.surfaceHeight / 2; // Position the final mesh correctly vertically
         
         // --- Recalculate Normals --- 
         finalGreenMesh.geometry.computeVertexNormals(); 
         console.log('[HoleEntity] Recalculated vertex normals for final green mesh');
         // --- End Recalculate Normals ---
-
-        // --- Log Geometry Details POST-CSG ---
-        finalGreenMesh.geometry.computeBoundingBox(); // Ensure bounding box is up-to-date
-        const postCsgVertexCount = finalGreenMesh.geometry.attributes.position.count;
-        const postCsgIndexCount = finalGreenMesh.geometry.index?.count;
-        const postCsgBBox = finalGreenMesh.geometry.boundingBox;
-        console.log(`[HoleEntity] Post-CSG Geometry: Vertices=${postCsgVertexCount}, Indices=${postCsgIndexCount}`);
-        if (postCsgBBox) {
-            console.log(`[HoleEntity] Post-CSG BBox: Min=(${postCsgBBox.min.x.toFixed(2)}, ${postCsgBBox.min.y.toFixed(2)}, ${postCsgBBox.min.z.toFixed(2)}), Max=(${postCsgBBox.max.x.toFixed(2)}, ${postCsgBBox.max.y.toFixed(2)}, ${postCsgBBox.max.z.toFixed(2)})`);
-        }
-        // --- End Log Geometry Details ---
 
         finalGreenMesh.castShadow = true;
         finalGreenMesh.receiveShadow = true;
@@ -175,45 +159,24 @@ export class HoleEntity {
         this.meshes.push(finalGreenMesh);
         console.log('[HoleEntity] Created final green mesh from CSG');
 
-        // --- Physics Body using Trimesh from CSG result --- 
+        // --- Physics Body (Keep simple box for performance) --- 
         const greenBody = new CANNON.Body({
             mass: 0,
             type: CANNON.Body.STATIC,
-            material: this.world.groundMaterial // Use ground material
+            material: this.world.defaultMaterial
         });
-
-        // Convert THREE.BufferGeometry to Cannon-es format
-        const geometry = finalGreenMesh.geometry; // Use geometry from Plane-based CSG
-        if (!geometry.index) {
-             console.error('[HoleEntity] FATAL: Green geometry is non-indexed. Cannot create Trimesh.');
-             // We cannot proceed without indexed geometry for Trimesh
-             // Optional: Add a fallback simple box physics here if needed for basic testing
-             return; // Or throw an error
-        }
-        const vertices = geometry.attributes.position.array;
-        const indices = geometry.index.array;
-        console.log(`[HoleEntity] Geometry check: Vertices length=${vertices?.length}, Indices length=${indices?.length}`);
-
-        // Create the Trimesh shape
-        const trimeshShape = new CANNON.Trimesh(vertices, indices);
-        greenBody.addShape(trimeshShape);
-        console.log(`[HoleEntity] Added Trimesh shape to greenBody.`);
-                
-        // Position the physics body correctly to match the visual mesh world transform
-        // The visual mesh origin is now likely at (0, 0, 0) relative to the group
-        // The physics body origin should match this.
-        const meshWorldPosition = new THREE.Vector3();
-        finalGreenMesh.getWorldPosition(meshWorldPosition);
-        // If the mesh position is (0,0,0) relative to group, body position should be group position
-        // Let's use the mesh world position for safety
-        greenBody.position.copy(meshWorldPosition); 
-        greenBody.quaternion.copy(finalGreenMesh.getWorldQuaternion(new THREE.Quaternion())); 
-        console.log(`[HoleEntity] Positioned Trimesh body at (${greenBody.position.x.toFixed(2)}, ${greenBody.position.y.toFixed(2)}, ${greenBody.position.z.toFixed(2)})`);
-
+        const mainSurfaceShape = new CANNON.Box(new CANNON.Vec3(
+            this.width / 2,
+            this.surfaceHeight / 2,
+            this.length / 2
+        ));
+        // Position physics relative to world origin, not group origin
+        greenBody.addShape(mainSurfaceShape, new CANNON.Vec3(0, this.surfaceHeight / 2, 0)); 
+        greenBody.position.copy(this.centerPosition);
         greenBody.userData = { type: 'green', holeIndex: this.config.index };
         this.world.addBody(greenBody);
         this.bodies.push(greenBody);
-        console.log('[HoleEntity] Created Trimesh green physics body');
+        console.log('[HoleEntity] Created simple green physics body');
     }
     
     /**
@@ -222,11 +185,10 @@ export class HoleEntity {
     createHoleRim() {
         // Calculate position relative to the group's center
         const localHolePos = this.config.holePosition.clone().sub(this.centerPosition);
-        const visualHoleRadius = 0.40; // Reduced slightly for clearance
 
         const rimGeometry = new THREE.RingGeometry(
-            visualHoleRadius,        // Inner radius matches the smaller visual cutout
-            visualHoleRadius + 0.04, // Outer radius - keep same thickness
+            this.holeRadius,        // Inner radius exactly matching the hole cutout
+            this.holeRadius + 0.04, // Outer radius - make it thin
             32
         );
 
@@ -296,7 +258,7 @@ export class HoleEntity {
             const body = new CANNON.Body({
                 mass: 0,
                 type: CANNON.Body.STATIC,
-                material: this.world.bumperMaterial // Corrected material
+                material: this.world.wallMaterial || this.world.defaultMaterial
             });
             
             body.addShape(new CANNON.Box(new CANNON.Vec3(
@@ -321,32 +283,27 @@ export class HoleEntity {
     }
     
     /**
-     * Create the physical hole cup body.
+     * Create hole trigger physics body (Visual removed)
      */
-    createHoleCup() {
-        const holeCupDepth = 0.5; // How deep the physical cup goes
-        const holePosition = this.config.holePosition;
-        const cupRadius = 0.44; // Wider radius
-
-        const holeCupBody = new CANNON.Body({
+    createHoleTrigger() {
+        // --- Physics Trigger (existing code remains) ---
+        const holeTrigger = new CANNON.Body({
             mass: 0,
             type: CANNON.Body.STATIC,
-            material: this.world.holeCupMaterial 
+            isTrigger: true,
+            collisionResponse: false
         });
-
-        const cupShape = new CANNON.Cylinder(cupRadius, cupRadius, holeCupDepth, 16);
-        const shapeOffset = new CANNON.Vec3(0, -holeCupDepth / 2, 0); 
-        holeCupBody.addShape(cupShape, shapeOffset);
-
-        // Position the body's center Y far BELOW the green surface level (COMICALLY LOW FOR DEBUG)
-        const cupCenterY = -1.0; // Lowered drastically
-        holeCupBody.position.set(holePosition.x, cupCenterY, holePosition.z); 
-
-        holeCupBody.userData = { type: 'holeCup', holeIndex: this.config.index };
-        this.world.addBody(holeCupBody);
-        this.bodies.push(holeCupBody);
-        console.log(`[HoleEntity] Created physical hole cup body`);
-        console.log(`[HoleEntity] holeCupBody details: Pos=(${holeCupBody.position.x.toFixed(2)}, ${holeCupBody.position.y.toFixed(2)}, ${holeCupBody.position.z.toFixed(2)}), MaterialID=${holeCupBody.material?.id}, MaterialName=${holeCupBody.material?.name}`);
+        const triggerShape = new CANNON.Cylinder(this.holeRadius, this.holeRadius, this.surfaceHeight, 16);
+        holeTrigger.addShape(triggerShape);
+        holeTrigger.position.copy(this.config.holePosition);
+        holeTrigger.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+        holeTrigger.collisionFilterGroup = 2;  
+        holeTrigger.collisionFilterMask = 4;   
+        holeTrigger.userData = { type: 'hole', holeIndex: this.config.index };
+        this.world.addBody(holeTrigger);
+        this.bodies.push(holeTrigger);
+        this.holeTrigger = holeTrigger;
+        console.log('[HoleEntity] Created hole trigger body (visual is part of green)');
     }
     
     /**

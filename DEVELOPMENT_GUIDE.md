@@ -89,8 +89,9 @@ Handles user interaction:
 ### CameraController Class (`src/controls/CameraController.js`)
 
 Manages the camera system:
-- Positions camera behind the ball looking toward the hole
-- Follows the ball during motion
+- Positions camera with a high-angle view at the start of each hole, framing the tee and cup
+- Calculates a target slightly ahead of the ball (based on velocity or hole direction)
+- Follows the calculated target smoothly during motion and aiming
 - Handles smooth transitions between states
 - Provides optimal viewing angles
 
@@ -114,6 +115,8 @@ The physics system uses Cannon-es with these key configurations:
    - `groundMaterial`: High friction (0.8) for realistic rolling
    - `ballMaterial`: For the player's ball
    - `bumperMaterial`: Low friction (0.1) with high restitution (0.8)
+   - `holeRimMaterial`: Similar friction to ground, very low restitution (0.01) to dampen rim bounces.
+   - Other materials like `sandMaterial`, `holeCupMaterial`
 
 3. **Ball Physics**:
    - Mass: 0.45 kg (lighter for better control)
@@ -122,8 +125,14 @@ The physics system uses Cannon-es with these key configurations:
    - Sleep Speed Limit: 0.15 (stops calculating physics below this speed)
    - Sleep Time Limit: 0.2 seconds (time before sleeping when slow)
    - Additional damping (0.9) applied during very slow movement
+   - Radius: 0.2 units
 
-4. **Physics World Settings**:
+4. **Hole Physics**:
+   - Hole Radius: ~0.5 units (adjusted for realistic proportions relative to ball)
+   - Hole Rim/Funnel: Uses `holeRimMaterial` for dampened interaction.
+   - Hole Trigger: Detects ball entry.
+
+5. **Physics World Settings**:
    - Gravity: -9.81 m/s² (Earth gravity)
    - Solver Iterations: 30 (for stability)
    - Solver Tolerance: 0.0001 (high precision)
