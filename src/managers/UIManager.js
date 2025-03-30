@@ -91,78 +91,43 @@ export class UIManager {
         // Create main UI container
         this.uiContainer = document.createElement('div');
         this.uiContainer.id = 'ui-container';
-        this.uiContainer.style.cssText = `
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 1000;
-        `;
+        this.uiContainer.classList.add('ui-container');
         document.body.appendChild(this.uiContainer);
 
         // Create top-right info container
         const topRightContainer = document.createElement('div');
-        topRightContainer.style.cssText = `
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 10px;
-            pointer-events: auto;
-        `;
+        topRightContainer.classList.add('top-right-container');
         this.uiContainer.appendChild(topRightContainer);
 
         // Create score element
         this.scoreElement = document.createElement('div');
-        this.scoreElement.style.cssText = `
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 10px 15px;
-            border-radius: 8px;
-            font-family: Arial, sans-serif;
-            font-size: 16px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        `;
+        this.scoreElement.classList.add('info-box');
         topRightContainer.appendChild(this.scoreElement);
 
         // Create strokes element
         this.strokesElement = document.createElement('div');
-        this.strokesElement.style.cssText = `
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 10px 15px;
-            border-radius: 8px;
-            font-family: Arial, sans-serif;
-            font-size: 16px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        `;
+        this.strokesElement.classList.add('info-box');
         topRightContainer.appendChild(this.strokesElement);
 
         // Create message container (center)
         this.messageElement = document.createElement('div');
         this.messageElement.id = 'message-container';
-        this.messageElement.style.cssText = `
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 20px;
-            border-radius: 8px;
-            font-family: Arial, sans-serif;
-            text-align: center;
-            display: none;
-            pointer-events: auto;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            font-size: 16px;
-        `;
+        this.messageElement.classList.add('message-container');
         this.uiContainer.appendChild(this.messageElement);
         
+        // Create power indicator
+        this.powerIndicator = document.createElement('div');
+        this.powerIndicator.classList.add('power-indicator');
+        const powerFill = document.createElement('div');
+        powerFill.classList.add('power-indicator-fill');
+        this.powerIndicator.appendChild(powerFill);
+        this.uiContainer.appendChild(this.powerIndicator);
+        
+        // Create debug display element
+        this.debugElement = document.createElement('div');
+        this.debugElement.classList.add('debug-overlay');
+        this.uiContainer.appendChild(this.debugElement);
+
         console.log('[UIManager.createUI] Calling initial UI updates...');
         this.updateScore();
         this.updateStrokes();
@@ -214,7 +179,6 @@ export class UIManager {
     handleGameCompleted(event) {
         console.log(`[UIManager.handleGameCompleted] Event received. isInitialized: ${this.isInitialized}`);
         // Show a final message and the scorecard
-        this.showMessage("Course Completed!", 5000); 
         this.showFinalScorecard();
     }
     
@@ -244,9 +208,7 @@ export class UIManager {
         const hazardType = event.get('hazardType');
         
         // Show appropriate message based on hazard type
-        if (hazardType === EventTypes.HAZARD_WATER) {
-            this.showMessage("Water hazard! +1 stroke penalty.", 2000);
-        } else if (hazardType === EventTypes.HAZARD_OUT_OF_BOUNDS) {
+        if (hazardType === EventTypes.HAZARD_OUT_OF_BOUNDS) {
             this.showMessage("Out of bounds! +1 stroke penalty.", 2000);
         }
         
@@ -377,83 +339,104 @@ export class UIManager {
     }
     
     /**
-     * Creates and displays the final scorecard overlay.
+     * Show the final scorecard after the game is completed
+     * (Displays total strokes only)
      */
     showFinalScorecard() {
-        console.log('[UIManager] Showing final scorecard...');
-        
-        // --- Get Score Data --- 
-        if (!this.game.scoringSystem) {
-            console.error('[UIManager] ScoringSystem not available!');
+        console.log('[UIManager.showFinalScorecard] Attempting to display scorecard...');
+
+        // Ensure no duplicate score screen exists
+        this.hideFinalScorecard(); 
+
+        // const holeStates = this.game.holeStateManager ? this.game.holeStateManager.getAllHoleStates() : null; // Don't need per-hole state
+        // const courseHoles = this.game.course ? this.game.course.holes : null; // Don't need course details
+        const totalStrokes = this.game.scoringSystem ? this.game.scoringSystem.getTotalStrokes() : null;
+
+        // if (!holeStates || !courseHoles) {
+        if (totalStrokes === null) { // Check if we got the total strokes
+            // console.error('[UIManager.showFinalScorecard] Missing hole state or course holes array.');
+            console.error('[UIManager.showFinalScorecard] Could not retrieve total strokes from ScoringSystem.');
             return;
         }
-        // We only need the total strokes for the simplified card
-        const totalStrokes = this.game.scoringSystem.getTotalStrokes();
 
-        // --- Check for existing scorecard, remove if present ---
-        const existingScorecard = document.getElementById('final-scorecard-overlay');
-        if (existingScorecard) {
-            existingScorecard.remove();
-        }
+        // --- Create DOM Elements ---
+        // Create overlay container (covers the whole screen)
+        this.scoreScreen = document.createElement('div');
+        this.scoreScreen.id = 'score-screen';
+        this.scoreScreen.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1001;
+            font-family: Arial, sans-serif;
+            color: white;
+        `;
 
-        // --- Create Overlay Element --- 
-        const overlay = document.createElement('div');
-        overlay.id = 'final-scorecard-overlay';
-        overlay.style.position = 'fixed';
-        overlay.style.top = '0';
-        overlay.style.left = '0';
-        overlay.style.width = '100%';
-        overlay.style.height = '100%';
-        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-        overlay.style.color = 'white';
-        overlay.style.display = 'flex';
-        overlay.style.flexDirection = 'column';
-        overlay.style.justifyContent = 'center';
-        overlay.style.alignItems = 'center';
-        overlay.style.zIndex = '1000'; // Ensure it's on top
-        overlay.style.fontFamily = 'monospace, sans-serif';
+        // Create the main content box within the overlay
+        const contentBox = document.createElement('div');
+        contentBox.style.cssText = `
+            background-color: #222;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80%;
+            overflow-y: auto;
+        `;
 
-        // --- Create Content Container --- 
-        const container = document.createElement('div');
-        container.style.padding = '40px'; // Increased padding
-        container.style.background = 'rgba(50, 50, 50, 0.9)';
-        container.style.borderRadius = '10px';
-        container.style.textAlign = 'center';
-        container.style.minWidth = '300px'; // Ensure minimum width
-        overlay.appendChild(container);
-
-        // --- Title --- 
+        // --- Populate Content Box ---
+        // Title
         const title = document.createElement('h2');
         title.textContent = 'Course Complete!';
-        title.style.marginBottom = '30px'; // Increased margin
-        title.style.fontSize = '2em'; // Larger title
-        container.appendChild(title);
+        title.style.marginBottom = '20px';
+        contentBox.appendChild(title);
 
-        // --- Total Strokes Display --- 
+        // Scorecard Table - REMOVED
+        // Create the table structure
+        // const table = document.createElement('table');
+        // ... (Removed all table, thead, tbody, tfoot creation logic) ...
+        
+        // --- Display Total Strokes --- 
         const totalStrokesEl = document.createElement('p');
         totalStrokesEl.textContent = `Total Strokes: ${totalStrokes}`;
         totalStrokesEl.style.fontSize = '1.5em'; // Larger score text
         totalStrokesEl.style.margin = '20px 0';
-        container.appendChild(totalStrokesEl);
+        contentBox.appendChild(totalStrokesEl);
+        // --- End Display Total Strokes --- 
 
-        // --- Back Button --- 
+        // Back to Menu Button
         const backButton = document.createElement('button');
-        backButton.textContent = 'Back to Main Menu';
-        backButton.style.marginTop = '30px'; // Increased margin
-        backButton.style.padding = '12px 24px'; // Larger button
-        backButton.style.fontSize = '1.1em';
-        backButton.style.cursor = 'pointer';
-        backButton.style.backgroundColor = '#337ab7';
-        backButton.style.color = 'white';
-        backButton.style.border = 'none';
-        backButton.style.borderRadius = '5px';
-        backButton.onclick = this.handleBackToMenuClick.bind(this); // Bind the handler
-        container.appendChild(backButton);
+        backButton.textContent = 'Back to Menu';
+        backButton.style.cssText = `
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        `;
+        backButton.onmouseover = () => backButton.style.backgroundColor = '#45a049';
+        backButton.onmouseout = () => backButton.style.backgroundColor = '#4CAF50';
+        backButton.onclick = this.handleBackToMenuClick.bind(this);
+        contentBox.appendChild(backButton);
 
-        // --- Add Overlay to DOM --- 
-        document.body.appendChild(overlay);
-        this.finalScorecardElement = overlay; // Store reference for hiding
-        console.log('[UIManager] Simplified final scorecard displayed.');
+        // Append content box to overlay
+        this.scoreScreen.appendChild(contentBox);
+
+        // Append overlay to body
+        document.body.appendChild(this.scoreScreen);
+        // --- End of Scorecard Creation ---
+        console.log('[UIManager.showFinalScorecard] Scorecard displayed.');
     }
 
     /**
@@ -461,9 +444,9 @@ export class UIManager {
      */
     hideFinalScorecard() {
         console.log('[UIManager] Hiding final scorecard...');
-        if (this.finalScorecardElement) {
-            this.finalScorecardElement.remove();
-            this.finalScorecardElement = null;
+        if (this.scoreScreen) {
+            this.scoreScreen.remove();
+            this.scoreScreen = null;
         }
     }
 
@@ -480,33 +463,29 @@ export class UIManager {
     }
     
     /**
-     * Clean up UI resources
+     * Clean up UI elements and event listeners
      */
     cleanup() {
-        // Remove the entire UI container and all its children
-        if (this.uiContainer) {
-            this.uiContainer.remove();
-            this.uiContainer = null;
+        console.log('[UIManager.cleanup] Cleaning up UI and listeners...');
+
+        // Remove main UI container (should remove all children)
+        if (this.uiContainer && this.uiContainer.parentNode) {
+            this.uiContainer.parentNode.removeChild(this.uiContainer);
         }
-        
-        // Remove any standalone elements that might have been created
-        const elementsToRemove = [
-            'score-container',
-            'strokes-display',
-            'debug-display',
-            'power-indicator',
-            'score-screen',
-            'message-container',
-            'error-overlay'
-        ];
-        
-        elementsToRemove.forEach(id => {
-            const element = document.getElementById(id);
-            if (element) {
-                element.remove();
-            }
-        });
-        
+        this.uiContainer = null;
+
+        // Unsubscribe from events
+        if (this.eventSubscriptions && this.game.eventManager) {
+            this.eventSubscriptions.forEach(unsubscribe => {
+                try {
+                    unsubscribe();
+                } catch (error) {
+                    console.error('[UIManager.cleanup] Error unsubscribing from event:', error);
+                }
+            });
+            this.eventSubscriptions = [];
+        }
+
         // Reset all element references
         this.holeInfoElement = null;
         this.scorecardElement = null;
@@ -526,6 +505,7 @@ export class UIManager {
         // Reset state
         this.isShowingMessage = false;
         
+        console.log('[UIManager.cleanup] Finished.');
         return this;
     }
 

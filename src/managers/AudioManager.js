@@ -9,7 +9,6 @@ export class AudioManager {
         this.audioListener = null;
         this.sounds = {
             hit: null,
-            roll: null,
             success: null
         };
         
@@ -41,68 +40,13 @@ export class AudioManager {
         this.sounds.hit = new THREE.Audio(this.audioListener);
         this.sounds.hit.setVolume(0.5);
         
-        // Create roll sound
-        this.sounds.roll = new THREE.Audio(this.audioListener);
-        this.sounds.roll.setVolume(0.3);
-        
         // Create success sound
         this.sounds.success = new THREE.Audio(this.audioListener);
         this.sounds.success.setVolume(0.7);
         
         // Create the actual sound sources
-        this.createHitSound();
-        this.createSuccessSound();
-    }
-    
-    /**
-     * Create a simple hit sound using oscillator
-     */
-    createHitSound() {
-        if (!this.sounds.hit || !this.sounds.hit.context) return;
-        
-        // Create oscillator for hit sound
-        const oscillator = this.sounds.hit.context.createOscillator();
-        const gain = this.sounds.hit.context.createGain();
-        
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(220, this.sounds.hit.context.currentTime);
-        
-        gain.gain.setValueAtTime(0, this.sounds.hit.context.currentTime);
-        gain.gain.linearRampToValueAtTime(0.3, this.sounds.hit.context.currentTime + 0.01);
-        gain.gain.linearRampToValueAtTime(0, this.sounds.hit.context.currentTime + 0.3);
-        
-        oscillator.connect(gain);
-        
-        // Store oscillator and gain for hit sound
-        this.sounds.hit.oscillator = oscillator;
-        this.sounds.hit.gain = gain;
-    }
-    
-    /**
-     * Create a simple success sound using oscillator
-     */
-    createSuccessSound() {
-        if (!this.sounds.success || !this.sounds.success.context) return;
-        
-        // Create oscillator for success sound
-        const oscillator = this.sounds.success.context.createOscillator();
-        const gain = this.sounds.success.context.createGain();
-        
-        oscillator.type = 'sine';
-        
-        // Rising tone for success
-        oscillator.frequency.setValueAtTime(440, this.sounds.success.context.currentTime);
-        oscillator.frequency.linearRampToValueAtTime(880, this.sounds.success.context.currentTime + 0.3);
-        
-        gain.gain.setValueAtTime(0, this.sounds.success.context.currentTime);
-        gain.gain.linearRampToValueAtTime(0.4, this.sounds.success.context.currentTime + 0.1);
-        gain.gain.linearRampToValueAtTime(0, this.sounds.success.context.currentTime + 0.5);
-        
-        oscillator.connect(gain);
-        
-        // Store oscillator and gain for success sound
-        this.sounds.success.oscillator = oscillator;
-        this.sounds.success.gain = gain;
+        // this.createHitSound();
+        // this.createSuccessSound();
     }
     
     /**
@@ -126,9 +70,10 @@ export class AudioManager {
                 this.playSuccessSound(volume);
                 break;
                 
-            default:
-                // Just log a warning for unimplemented sounds
-                console.warn(`Sound type '${soundName}' not implemented`);
+            // Removed default case that logged warnings for unimplemented sounds
+            // default:
+            //     // Just log a warning for unimplemented sounds
+            //     console.warn(`Sound type '${soundName}' not implemented`);
         }
     }
     

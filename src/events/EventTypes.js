@@ -20,7 +20,6 @@ export const EventTypes = {
     
     // Hazard events
     HAZARD_DETECTED: 'hazard:detected',
-    HAZARD_WATER: 'hazard:water',
     HAZARD_OUT_OF_BOUNDS: 'hazard:out_of_bounds',
     
     // UI events

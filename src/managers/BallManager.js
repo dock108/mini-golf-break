@@ -334,6 +334,7 @@ export class BallManager {
         this.lastBallPosition.copy(this.ball.mesh.position);
         
         // Hit the ball
+        console.log(`[BallManager.hitBall] Ball position before impulse: (${this.ball.body.position.x.toFixed(2)}, ${this.ball.body.position.y.toFixed(2)}, ${this.ball.body.position.z.toFixed(2)})`); // Log position
         this.ball.applyImpulse(direction, power);
         
         // Increment stroke count

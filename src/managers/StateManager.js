@@ -47,6 +47,7 @@ export class StateManager {
      */
     setGameState(newState) {
         const oldState = this.state.currentGameState;
+        console.log(`[StateManager.setGameState] Changing state from ${oldState} to ${newState}`);
         this.state.currentGameState = newState;
         
         // Notify listeners of state change
@@ -58,6 +59,12 @@ export class StateManager {
             },
             this
         );
+        
+        // Also publish specific game completed event if applicable
+        if (newState === GameState.GAME_COMPLETED) {
+            this.game.eventManager.publish(EventTypes.GAME_COMPLETED, { timestamp: Date.now() }, this);
+            console.log(`[StateManager.setGameState] Published GAME_COMPLETED event.`);
+        }
         
         return this;
     }

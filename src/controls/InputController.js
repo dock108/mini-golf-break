@@ -18,6 +18,7 @@ export class InputController {
         
         // Track intersection point when clicking on the ground
         this.intersectionPoint = null;
+        this.intersection = new THREE.Vector3();
         
         // Create raycaster for mouse intersection
         this.raycaster = new THREE.Raycaster();
@@ -203,8 +204,12 @@ export class InputController {
     }
     
     onMouseDown(event) {
-        // Skip if input is not enabled
-        if (!this.isInputEnabled) return;
+        // Check if input is allowed and if the ball is stopped
+        const ball = this.game.ballManager?.ball;
+        if (!this.isInputEnabled || (ball && !ball.isStopped())) {
+             console.log(`[InputController.onMouseDown] Input ignored: InputEnabled=${this.isInputEnabled}, Ball Stopped=${ball ? ball.isStopped() : 'N/A'}`);
+            return; // Ignore click if input disabled or ball is moving
+        }
         
         // Only handle left mouse button
         if (event.button !== 0) return;
@@ -235,8 +240,8 @@ export class InputController {
         // Cast ray into the scene
         this.raycaster.setFromCamera(this.pointer, this.camera);
         
-        // Get ball reference from ball manager
-        const ball = this.game.ballManager ? this.game.ballManager.ball : null;
+        // Get ball reference from ball manager (already declared at start of function)
+        // const ball = this.game.ballManager ? this.game.ballManager.ball : null;
         
         // Check if we clicked directly on the ball first
         let clickedOnBall = false;
@@ -265,6 +270,9 @@ export class InputController {
                     // Initially no direction or power
                     this.hitDirection = new THREE.Vector3(0, 0, 0);
                     this.hitPower = 0;
+                    
+                    // Log start of input
+                    console.log(`[InputController] Drag started on ball. Initial point: (${this.intersectionPoint.x.toFixed(2)}, ${this.intersectionPoint.z.toFixed(2)})`);
                     
                     // Show power indicator
                     if (this.powerIndicator) {
@@ -353,7 +361,13 @@ export class InputController {
             
             // Hit ball using BallManager
             if (this.game.ballManager) {
-                this.game.ballManager.hitBall(this.hitDirection, this.hitPower);
+                // Get direction in world space
+                const direction = this.getWorldDirection();
+                
+                // Log stroke details
+                console.log(`[InputController] Applying stroke: Power=${this.hitPower.toFixed(2)}, Direction=(${direction.x.toFixed(2)}, ${direction.y.toFixed(2)}, ${direction.z.toFixed(2)})`);
+                
+                this.game.ballManager.hitBall(direction, this.hitPower);
                 
                 // Disable input until ball stops
                 this.disableInput();
@@ -383,37 +397,44 @@ export class InputController {
     }
     
     onTouchStart(event) {
-        if (!this.isInputEnabled || event.touches.length !== 1) return;
-        
-        const touch = event.touches[0];
-        
-        // Convert touch event to mouse position for ball click check
-        const touchEvent = {
-            clientX: touch.clientX,
-            clientY: touch.clientY
-        };
-        
-        // Check if the touch is on the ball
-        this.clickedOnBall = this.checkClickOnBall(touchEvent);
-        
-        if (this.clickedOnBall && !this.game.gameState.ballInMotion && !this.isDragging) {
-            this.isDragging = true;
+        // Check if input is allowed and if the ball is stopped
+        const ball = this.game.ballManager?.ball;
+        if (!this.isInputEnabled || (ball && !ball.isStopped())) {
+             console.log(`[InputController.onTouchStart] Input ignored: InputEnabled=${this.isInputEnabled}, Ball Stopped=${ball ? ball.isStopped() : 'N/A'}`);
+            return; // Ignore touch if input disabled or ball is moving
+        }
+
+        if (event.touches.length === 1) {
+            const touch = event.touches[0];
             
-            // Save touch position
-            this.dragStart.x = touch.clientX;
-            this.dragStart.y = touch.clientY;
-            this.dragCurrent.copy(this.dragStart);
+            // Convert touch event to mouse position for ball click check
+            const touchEvent = {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            };
             
-            // Disable orbit controls during drag
-            if (this.game.cameraController && this.game.cameraController.controls) {
-                this.controlsWereEnabled = this.game.cameraController.controls.enabled;
-                this.game.cameraController.controls.enabled = false;
+            // Check if the touch is on the ball
+            this.clickedOnBall = this.checkClickOnBall(touchEvent);
+            
+            if (this.clickedOnBall && !this.game.gameState.ballInMotion && !this.isDragging) {
+                this.isDragging = true;
+                
+                // Save touch position
+                this.dragStart.x = touch.clientX;
+                this.dragStart.y = touch.clientY;
+                this.dragCurrent.copy(this.dragStart);
+                
+                // Disable orbit controls during drag
+                if (this.game.cameraController && this.game.cameraController.controls) {
+                    this.controlsWereEnabled = this.game.cameraController.controls.enabled;
+                    this.game.cameraController.controls.enabled = false;
+                }
+                
+                // Create direction line
+                this.createDirectionLine();
+                
+                event.preventDefault();
             }
-            
-            // Create direction line
-            this.createDirectionLine();
-            
-            event.preventDefault();
         }
     }
     
@@ -448,8 +469,11 @@ export class InputController {
                 // Get direction in world space
                 const direction = this.getWorldDirection();
                 
+                // Log stroke details
+                console.log(`[InputController] Applying stroke: Power=${this.dragPower.toFixed(2)}, Direction=(${direction.x.toFixed(2)}, ${direction.y.toFixed(2)}, ${direction.z.toFixed(2)})`);
+                
                 // Apply force to ball
-                this.game.ballManager.applyForce(direction, this.dragPower);
+                this.game.ballManager.hitBall(direction, this.dragPower);
                 
                 // Set game state
                 this.game.gameState.ballInMotion = true;
@@ -509,18 +533,25 @@ export class InputController {
         const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -ballPosition.y);
         
         // Raycast from camera through drag direction to get world position
-        this.raycaster.setFromCamera(this.mouse, this.camera);
+        this.raycaster.setFromCamera(this.pointer, this.camera);
         
         // Create a 3D vector for the direction
         const direction = new THREE.Vector3();
         
-        // Intuitive direction: drag away from the ball
-        // Find the point where the ray from the camera through the mouse intersects the horizontal plane
-        this.raycaster.ray.intersectPlane(plane, this.intersection);
+        // Find the point where the ray intersects the horizontal plane
+        const intersects = this.raycaster.ray.intersectPlane(plane, this.intersection);
         
-        // Direction vector from the ball to the intersection point (reversed for pull effect)
-        direction.subVectors(ballPosition, this.intersection).normalize();
-        direction.y = 0; // Force horizontal direction
+        // Check if intersection occurred before calculating direction
+        if (intersects) {
+             // Direction vector from the ball to the intersection point (reversed for pull effect)
+            direction.subVectors(ballPosition, this.intersection).normalize();
+            direction.y = 0; // Force horizontal direction
+        } else {
+            // Default direction if no intersection (e.g., looking straight down)
+            // You might want a more robust fallback here
+            console.warn("[InputController] Raycaster did not intersect drag plane.");
+            direction.set(0, 0, -1); // Default to backward direction relative to camera maybe?
+        }
         
         return direction;
     }

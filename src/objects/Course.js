@@ -248,28 +248,15 @@ export class CoursesManager {
             // Create a visible rim around the hole for better visibility
             const rimGeometry = new THREE.RingGeometry(holeRadius - 0.02, holeRadius + 0.05, 32);
             const rimMaterial = new THREE.MeshStandardMaterial({ 
-                color: 0x111111,
-                roughness: 0.8,
-                metalness: 0.2,
+                color: 0xCCCCCC, // Light silver/grey color
+                roughness: 0.3,  // Smoother for metallic look
+                metalness: 0.9,  // Much more metallic
                 side: THREE.DoubleSide
             });
             const rim = new THREE.Mesh(rimGeometry, rimMaterial);
             rim.rotation.x = -Math.PI / 2; // Lay flat
-            rim.position.set(position.x, 0.005, position.z); // Slightly above ground
+            rim.position.set(position.x, 0.01, position.z); // Raised slightly higher to avoid z-fighting
             this.scene.add(rim);
-            
-            // Create a dark circular area to represent the hole opening
-            const holeTopGeometry = new THREE.CircleGeometry(holeRadius - 0.02, 32);
-            const holeTopMaterial = new THREE.MeshStandardMaterial({ 
-                color: 0x000000,
-                roughness: 1.0,
-                metalness: 0.0,
-                side: THREE.DoubleSide
-            });
-            const holeTop = new THREE.Mesh(holeTopGeometry, holeTopMaterial);
-            holeTop.rotation.x = -Math.PI / 2; // Lay flat
-            holeTop.position.set(position.x, 0.003, position.z); // Just above ground to prevent z-fighting
-            this.scene.add(holeTop);
             
             // Create hole mesh - make it darker and deeper
             const holeGeometry = new THREE.CylinderGeometry(holeRadius, holeRadius, holeDepth, 32);

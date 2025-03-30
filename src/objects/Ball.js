@@ -27,6 +27,8 @@ export class Ball {
         this.shotCount = 0;
         this.isMoving = false;
         this.hasBeenHit = false;
+        this.isHoleCompleted = false; // Added completion flag
+        this.wasStopped = true; // Initialize as stopped
         
         // Create materials for the ball
         this.defaultMaterial = new THREE.MeshStandardMaterial({ 
@@ -149,13 +151,19 @@ export class Ball {
         this.body = new CANNON.Body({
             mass: this.mass,
             shape: new CANNON.Sphere(this.radius),
-            material: this.game.physicsManager.ballMaterial || this.physicsWorld.defaultMaterial,
-            linearDamping: 0.3,
+            material: this.game.physicsManager.world.ballMaterial,
+            linearDamping: 0.7, // Significantly increased base damping (was 0.4)
             angularDamping: 0.3,
             collisionFilterGroup: 4,
-            collisionFilterMask: -1
+            collisionFilterMask: -1,
+            allowSleep: true, // Ensure sleep is allowed
+            sleepSpeedLimit: 0.05, // Sleep if speed drops below this (more aggressive)
+            sleepTimeLimit: 0.5    // Time required below speed limit to sleep (seconds)
         });
         
+        // Log assigned material ID
+        console.log(`[Ball.createPhysicsBody] Assigned Material ID: ${this.body.material?.id}, Name: ${this.body.material?.name}`);
+
         // Add event listener
         if (this.body) {
             this.body.addEventListener('collide', this.onCollide.bind(this));
@@ -171,41 +179,41 @@ export class Ball {
     
     onCollide(event) {
         // Handle collision events
-        if (!event.body) return;
+        if (!event.body || !event.contact) return; // Ensure contact info exists
         
-        // Check if we collided with a bumper obstacle
-        if (event.body.material && event.body.material.name === 'bumper') {
+        const vel = this.body.velocity;
+        const contactInfo = event.contact; // Get the contact equation info
+        const ballMatId = this.body.material?.id;
+        const otherBody = event.body;
+        const otherMatId = otherBody.material?.id;
+        const otherMatName = otherBody.material?.name || 'unknown';
+        const otherUserData = otherBody.userData; // Get userData
+        console.log(
+            `[Ball.onCollide] Collision with ${otherMatName} (userData type: ${otherUserData?.type || 'none'}). ` + // Log userData type
+            `Velocity: (${vel.x.toFixed(2)}, ${vel.y.toFixed(2)}, ${vel.z.toFixed(2)}). ` + 
+            `Contact Friction: ${contactInfo?.friction?.toFixed(2)}, Restitution: ${contactInfo?.restitution?.toFixed(2)}. ` + 
+            `Ball Mat ID: ${ballMatId}, Other Mat ID: ${otherMatId}` // Renamed for clarity
+        );
+
+        // Generic wake up on any collision
+        this.body.wakeUp();
+
+        // Handle specific materials
+        if (otherMatName === 'bumper') {
             // Play sound for bumper hit via AudioManager
             if (this.game && this.game.audioManager) {
                 this.game.audioManager.playSound('bump', 0.5);
             }
-            
-            // Ensure the ball stays awake after a collision
-            this.body.wakeUp();
+        } 
+        // Handle collision with the physical hole cup wall
+        else if (otherMatName === 'holeCup') {
+             // We will check Y position in update now
         }
-        
-        // Check if the ball collided with a hole
-        if (event.body.userData && event.body.userData.type === 'hole') {
-            // Stop the ball's movement
-            this.resetVelocity();
-            
-            // Trigger the ball in hole event
-            if (this.game && this.game.eventManager) {
-                const EventTypes = this.game.eventManager.getEventTypes();
-                this.game.eventManager.publish(EventTypes.BALL_IN_HOLE, {
-                    ballBody: this.body,
-                    holeBody: event.body,
-                    holeIndex: event.body.userData.holeIndex
-                });
-            }
-
-            // Start transition to next hole after a short delay
-            setTimeout(async () => {
-                if (this.game && this.game.holeTransitionManager) {
-                    await this.game.holeTransitionManager.transitionToNextHole();
-                }
-            }, 500);
+        /* // Remove floor trigger check
+        else if (otherBody.userData?.type === 'holeFloorTrigger') { 
+            // ... removed logic ...
         }
+        */
     }
     
     /**
@@ -231,6 +239,39 @@ export class Ball {
             if (this.body.position.y < outOfBoundsThreshold) {
                 this.handleOutOfBounds();
             }
+
+            /* // Remove old flag-based completion check
+            // Log state if potentially in hole cup
+            if (this.isInHoleCup) {
+                // ... removed logging ...
+            }
+            // Check for hole completion condition
+            if (this.isInHoleCup && this.isStopped()) {
+                // ... removed completion logic ...
+            }
+            */
+           
+           // --- NEW COMPLETION LOGIC BASED ON Y POSITION ---
+           // Define a threshold slightly above the cup bottom
+           const holeCompletionThresholdY = -0.5; // Example: If ball Y drops below this, it's in.
+           if (!this.isHoleCompleted && this.body.position.y < holeCompletionThresholdY) {
+               this.isHoleCompleted = true; // Prevent multiple triggers
+               console.log(`[Ball.update] Ball Y (${this.body.position.y.toFixed(2)}) below threshold (${holeCompletionThresholdY}) - Hole complete!`);
+               
+               // Stop the ball completely
+               this.resetVelocity(); 
+
+               // Trigger the ball in hole event manager sequence
+               if (this.game && this.game.eventManager) {
+                    const EventTypes = this.game.eventManager.getEventTypes();
+                    this.game.eventManager.publish(EventTypes.BALL_IN_HOLE, {
+                        ballBody: this.body,
+                        holeBody: null, // No specific trigger body involved now
+                        holeIndex: this.game.course?.currentHoleIndex
+                    });
+               }
+           }
+           // --- END NEW COMPLETION LOGIC ---
         }
     }
     
@@ -275,21 +316,15 @@ export class Ball {
     isStopped() {
         if (!this.body) return true;
         
-        // Get current linear and angular velocity
         const velocity = this.body.velocity;
         const angularVelocity = this.body.angularVelocity;
-        
-        // More aggressive thresholds for the final roll
-        const speedThreshold = 0.15;    // Increased to match sleepSpeedLimit
-        const rotationThreshold = 0.15;  // Increased to match
-        
-        // Add additional check for very slow movement
-        const isVerySlowMovement = (
-            Math.abs(velocity.x) < speedThreshold * 0.5 &&
-            Math.abs(velocity.z) < speedThreshold * 0.5
-        );
-        
-        const isStopped = (
+     
+        // Thresholds for determining if stopped or very slow
+        const speedThreshold = 0.25;    // Increased threshold for applying high damping (was 0.15)
+        const rotationThreshold = 0.25;  // Increased threshold for applying high damping (was 0.15)
+        const verySlowFactor = 1.0;      // Apply high damping below speedThreshold
+
+        const isEffectivelyZero = (
             Math.abs(velocity.x) < speedThreshold &&
             Math.abs(velocity.y) < speedThreshold &&
             Math.abs(velocity.z) < speedThreshold &&
@@ -298,66 +333,64 @@ export class Ball {
             Math.abs(angularVelocity.z) < rotationThreshold
         );
         
-        // If very slow or stopped, actively kill motion
-        if (isStopped || isVerySlowMovement) {
-            this.body.velocity.set(0, 0, 0);
-            this.body.angularVelocity.set(0, 0, 0);
-            
-            // Apply additional damping for very slow movement
-            if (isVerySlowMovement && !isStopped) {
-                this.body.linearDamping = 0.9; // Temporary high damping
-            } else {
-                this.body.linearDamping = 0.6; // Reset to normal damping
-                this.body.sleep();
+        const isVerySlow = (
+            Math.abs(velocity.x) < speedThreshold * verySlowFactor &&
+            Math.abs(velocity.z) < speedThreshold * verySlowFactor
+        );
+        
+        // --- Simplified Stop Logic --- 
+        // Check if the ball is either stopped OR moving very slowly.
+        const shouldBeStopped = isEffectivelyZero || isVerySlow;
+
+        if (shouldBeStopped) {
+            // Log stopping event only once
+            if (!this.wasStopped) { 
+                 const pos = this.body.position;
+                 console.log(`[Ball.isStopped] Ball considered stopped at (${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)})`);
+                 this.wasStopped = true; 
             }
+        } else {
+             // Reset wasStopped flag if moving faster
+            this.wasStopped = false; 
         }
         
-        return isStopped;
+        // Return the state - rely on damping/sleep params to actually stop the body
+        return shouldBeStopped; 
     }
     
     /**
-     * Apply impulse to the ball (alias for applyForce for backward compatibility)
-     * @param {THREE.Vector3} direction - Direction vector for the force 
-     * @param {number} power - Power of the force (0-1)
+     * Apply impulse to the ball
+     * @param {THREE.Vector3} direction - Direction vector for the impulse 
+     * @param {number} power - Power of the impulse (0-1, scaled internally)
      */
     applyImpulse(direction, power) {
-        // Simply call the existing applyForce method
-        this.applyForce(direction, power);
-    }
-    
-    /**
-     * Apply force to the ball
-     * @param {THREE.Vector3} direction - Direction vector for the force 
-     * @param {number} power - Power of the force (0-1)
-     */
-    applyForce(direction, power) {
         // Enhanced error handling with detailed context
         if (!this.body) {
             if (this.game && this.game.debugManager) {
                 this.game.debugManager.error(
-                    'Ball.applyForce', 
+                    'Ball.applyImpulse', // Updated context
                     'Failed - Ball physics body is null or undefined!',
                     { direction, power },
                     true // Show in UI as this is a critical gameplay issue
                 );
             } else {
-                console.error(`ERROR: Ball.applyForce: Failed - Ball physics body is null or undefined!`);
+                console.error(`ERROR: Ball.applyImpulse: Failed - Ball physics body is null or undefined!`); // Updated context
             }
             return;
         }
         
-        // Scale power for reasonable force (reduced multiplier)
-        const forceMagnitude = power * 15; // Reduced for better control
+        // Scale power for reasonable impulse magnitude
+        const impulseMagnitude = power * 32.5; // Increased base impulse (was 26.25)
         
-        // Apply horizontal force only
-        const force = new CANNON.Vec3(
-            direction.x * forceMagnitude,
+        // Apply horizontal impulse only
+        const impulse = new CANNON.Vec3(
+            direction.x * impulseMagnitude,
             0,
-            direction.z * forceMagnitude
+            direction.z * impulseMagnitude
         );
         
-        // Apply force at the center of the ball
-        this.body.applyImpulse(force);
+        // Apply impulse at the center of the ball
+        this.body.applyImpulse(impulse);
         
         // Wake up the physics body
         this.body.wakeUp();
@@ -365,11 +398,11 @@ export class Ball {
         // Use improved debug logging
         if (this.game && this.game.debugManager) {
             this.game.debugManager.info(
-                'Ball.applyForce',
-                `Applied force with power ${power.toFixed(2)}`,
+                'Ball.applyImpulse', // Updated context
+                `Applied impulse with power ${power.toFixed(2)}`,
                 { 
                     direction: `(${direction.x.toFixed(2)}, ${direction.y.toFixed(2)}, ${direction.z.toFixed(2)})`,
-                    forceMagnitude: forceMagnitude
+                    impulseMagnitude: impulseMagnitude // Log the new magnitude
                 }
             );
         }
@@ -407,6 +440,8 @@ export class Ball {
         if (this.game && this.game.audioManager) {
             this.game.audioManager.playSound('success');
         }
+        // Add a flag to prevent re-triggering success effects
+        this.isHoleCompleted = true; 
     }
     
     /**
@@ -423,60 +458,44 @@ export class Ball {
     }
     
     /**
-     * Clean up resources
+     * Clean up resources for this ball
      */
     cleanup() {
-        if (this.physicsWorld && this.body) {
-            console.log('[Ball] Removing physics body');
+        console.log('[Ball] Cleaning up...');
+        
+        // Remove mesh from scene
+        if (this.mesh && this.scene) {
+            this.scene.remove(this.mesh);
+        }
+        
+        // Remove light from scene
+        if (this.ballLight && this.scene) {
+            this.scene.remove(this.ballLight);
+        }
+        
+        // Remove physics body from world
+        if (this.body && this.physicsWorld) {
             this.physicsWorld.removeBody(this.body);
-            this.body = null;
-        } else if (this.body && !this.physicsWorld) {
-            console.warn('[Ball] Could not remove physics body: physicsWorld is null');
         }
         
-        if (this.mesh && this.mesh.parent) {
-            this.mesh.parent.remove(this.mesh);
-        }
-        
-        console.log('[Ball] Cleanup complete');
-    }
-    
-    /**
-     * Debug method to test force application with fixed values
-     * This bypasses the hitBall flow to test physics directly
-     */
-    debugTestForce() {
-        console.log("DEBUG: Testing force application directly on ball");
-        if (!this.body) {
-            console.error("DEBUG: Can't test force - ball body is null");
-            return;
-        }
-        
-        // Create a fixed test force
-        const testDirection = new THREE.Vector3(1, 0, 0); // Move in positive X direction
-        const testPower = 0.5; // Medium power
-        
-        console.log(`DEBUG: Applying test force with direction: (${testDirection.x}, ${testDirection.y}, ${testDirection.z}), power: ${testPower}`);
-        
-        // Apply the test force using the regular method
-        this.applyForce(testDirection, testPower);
-        
-        // Log the result
-        console.log(`DEBUG: Test force applied. Ball velocity: (${this.body.velocity.x.toFixed(2)}, ${this.body.velocity.y.toFixed(2)}, ${this.body.velocity.z.toFixed(2)})`);
-    }
-    
-    /**
-     * Reset the sucking-into-hole effect and prepare ball for next hole
-     */
-    resetSuckingEffect() {
-        // Reset the flag
-        this.isSuckedIntoHole = false;
-        this.holePosition = null;
-        
-        // Reset the ball scale back to normal
+        // Dispose of geometry and materials
         if (this.mesh) {
-            this.mesh.scale.set(1, 1, 1);
+            this.mesh.geometry.dispose();
+            this.defaultMaterial.dispose();
+            this.successMaterial.dispose();
+            
+            // Dispose of bump map texture if it exists
+            if (this.defaultMaterial.bumpMap) {
+                this.defaultMaterial.bumpMap.dispose();
+            }
         }
+        
+        // Clear references
+        this.mesh = null;
+        this.body = null;
+        this.scene = null;
+        this.physicsWorld = null;
+        this.ballLight = null;
     }
     
     /**
