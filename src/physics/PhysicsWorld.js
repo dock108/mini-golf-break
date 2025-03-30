@@ -24,8 +24,6 @@ export class PhysicsWorld {
         this.defaultMaterial = new CANNON.Material('default');
         this.groundMaterial = new CANNON.Material('ground');
         this.ballMaterial = new CANNON.Material('ball');
-        this.waterMaterial = new CANNON.Material('water'); // TODO: Implement water hazard physics (contact material, body assignment)
-        this.sandMaterial = new CANNON.Material('sand');
         this.bumperMaterial = new CANNON.Material('bumper'); // New material for obstacles
         this.holeCupMaterial = new CANNON.Material('holeCup'); // Material for the physical hole cup
         this.holeRimMaterial = new CANNON.Material('holeRim'); // New material for the hole edge/funnel
@@ -82,21 +80,6 @@ export class PhysicsWorld {
         );
         this.world.addContactMaterial(ballBumperContact);
         console.log(`[PhysicsWorld] World contact materials after adding ballBumper:`, this.world.contactmaterials.map(cm => `${cm.materials[0]?.name}(${cm.materials[0]?.id}) <-> ${cm.materials[1]?.name}(${cm.materials[1]?.id})`)); // Log world's contact materials
-        
-        // Set up contact between ball and sand - extremely high friction to make it very difficult
-        const ballSandContact = new CANNON.ContactMaterial(
-            this.ballMaterial,
-            this.sandMaterial,
-            {
-                friction: 2.0,           // Keep high friction for sand
-                restitution: 0.01,       // Keep very low bounce
-                contactEquationStiffness: 1e6,
-                contactEquationRelaxation: 10,
-                frictionEquationStiffness: 1e7,
-                frictionEquationRelaxation: 20
-            }
-        );
-        this.world.addContactMaterial(ballSandContact);
         
         // Set up contact between ball and hole cup
         const ballHoleCupContact = new CANNON.ContactMaterial(

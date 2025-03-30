@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { CoursesManager } from './Course';
+import { CoursesManager } from '../managers/CoursesManager.js';
 import { HoleEntity } from './HoleEntity';
 
 /**

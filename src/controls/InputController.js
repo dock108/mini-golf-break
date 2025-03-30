@@ -340,19 +340,26 @@ export class InputController {
     }
     
     onMouseUp(event) {
-        // Skip if not in dragging mode
-        if (!this.isPointerDown || !this.isDragging) {
-            this.isPointerDown = false;
+        // Skip if not in dragging mode or pointer wasn't down
+        // Check isPointerDown first, as isDragging might be false on a simple click
+        if (!this.isPointerDown) {
+            // Restore controls if pointer wasn't down but they were disabled
+            if (this.game.cameraController && this.game.cameraController.controls && !this.controlsWereEnabled) {
+                 this.game.cameraController.controls.enabled = true; // Should be restored based on controlsWereEnabled
+            }
             return;
         }
-        
-        // Only handle left mouse button
+
+        // Only handle left mouse button (or touch equivalent)
         if (event.button !== 0) return;
-        
-        // If dragging and input is enabled, attempt to hit the ball
-        if (this.isInputEnabled && this.hitPower > 0.05) {
+
+        // Reset pointer down flag immediately
+        this.isPointerDown = false;
+
+        // If dragging occurred and input is enabled, attempt to hit the ball
+        if (this.isDragging && this.isInputEnabled && this.hitPower > 0.05) {
             // Hide direction line
-            this.removeDirectionLine();
+            this.removeDirectionLine(); // Use removeAimLine instead? Assuming removeDirectionLine is correct
             
             // Hide power indicator
             if (this.powerIndicator) {
@@ -361,8 +368,8 @@ export class InputController {
             
             // Hit ball using BallManager
             if (this.game.ballManager) {
-                // Get direction in world space
-                const direction = this.getWorldDirection();
+                // Get direction in world space (should already be calculated by onMouseMove)
+                const direction = this.hitDirection.clone(); // Use the stored direction
                 
                 // Log stroke details
                 console.log(`[InputController] Applying stroke: Power=${this.hitPower.toFixed(2)}, Direction=(${direction.x.toFixed(2)}, ${direction.y.toFixed(2)}, ${direction.z.toFixed(2)})`);
@@ -370,28 +377,35 @@ export class InputController {
                 this.game.ballManager.hitBall(direction, this.hitPower);
                 
                 // Disable input until ball stops
-                this.disableInput();
+                this.disableInput(); // Disabling input should be sufficient, state manager handles ball motion check
                 
-                // Publish input event
-                this.game.eventManager.publish(
-                    EventTypes.INPUT_DISABLED,
-                    {
-                        reason: 'ball_hit'
-                    },
-                    this
-                );
+                // Publish input event (optional, could be handled within disableInput or BallManager)
+                // this.game.eventManager.publish(
+                //     EventTypes.INPUT_DISABLED,
+                //     {
+                //         reason: 'ball_hit'
+                //     },
+                //     this
+                // );
             }
+        } else {
+             // If not dragging or power too low, just remove aim line if it exists
+             this.removeAimLine();
         }
         
-        // Reset input state
-        this.isPointerDown = false;
+        // Reset dragging flag AFTER checking it
         this.isDragging = false;
         
-        // Restore camera controls
+        // Restore camera controls state
         if (this.game.cameraController && this.game.cameraController.controls) {
             this.game.cameraController.controls.enabled = this.controlsWereEnabled;
         }
         
+        // Reset hit parameters
+        this.hitDirection.set(0, 0, 0);
+        this.hitPower = 0;
+        this.intersectionPoint = null;
+
         // Prevent default behavior
         event.preventDefault();
     }
@@ -400,108 +414,61 @@ export class InputController {
         // Check if input is allowed and if the ball is stopped
         const ball = this.game.ballManager?.ball;
         if (!this.isInputEnabled || (ball && !ball.isStopped())) {
-             console.log(`[InputController.onTouchStart] Input ignored: InputEnabled=${this.isInputEnabled}, Ball Stopped=${ball ? ball.isStopped() : 'N/A'}`);
+            console.log(`[InputController.onTouchStart] Input ignored: InputEnabled=${this.isInputEnabled}, Ball Stopped=${ball ? ball.isStopped() : 'N/A'}`);
             return; // Ignore touch if input disabled or ball is moving
         }
 
+        // Only handle single touch events for aiming/shooting
         if (event.touches.length === 1) {
             const touch = event.touches[0];
-            
-            // Convert touch event to mouse position for ball click check
-            const touchEvent = {
+
+            // Simulate a left mouse button down event
+            const simulatedMouseEvent = {
                 clientX: touch.clientX,
-                clientY: touch.clientY
+                clientY: touch.clientY,
+                button: 0, // Simulate left mouse button
+                preventDefault: () => event.preventDefault() // Pass preventDefault
             };
-            
-            // Check if the touch is on the ball
-            this.clickedOnBall = this.checkClickOnBall(touchEvent);
-            
-            if (this.clickedOnBall && !this.game.gameState.ballInMotion && !this.isDragging) {
-                this.isDragging = true;
-                
-                // Save touch position
-                this.dragStart.x = touch.clientX;
-                this.dragStart.y = touch.clientY;
-                this.dragCurrent.copy(this.dragStart);
-                
-                // Disable orbit controls during drag
-                if (this.game.cameraController && this.game.cameraController.controls) {
-                    this.controlsWereEnabled = this.game.cameraController.controls.enabled;
-                    this.game.cameraController.controls.enabled = false;
-                }
-                
-                // Create direction line
-                this.createDirectionLine();
-                
-                event.preventDefault();
-            }
+
+            // Call the existing onMouseDown logic
+            this.onMouseDown(simulatedMouseEvent);
         }
+        // Ignore multi-touch events for shooting mechanics
     }
     
     onTouchMove(event) {
-        if (this.isDragging && this.isInputEnabled && event.touches.length === 1) {
+        // Only handle single touch movements if a drag is active
+        if (this.isPointerDown && event.touches.length === 1) {
             const touch = event.touches[0];
-            
-            // Update current drag position
-            this.dragCurrent.x = touch.clientX;
-            this.dragCurrent.y = touch.clientY;
-            
-            // Calculate drag direction and power
-            this.calculateDragPower();
-            
-            // Update direction line
-            this.updateDirectionLine();
-            
-            // Update power indicator
-            this.updatePowerIndicator();
-            
-            event.preventDefault();
+
+            // Simulate a mouse move event
+            const simulatedMouseEvent = {
+                clientX: touch.clientX,
+                clientY: touch.clientY,
+                preventDefault: () => event.preventDefault() // Pass preventDefault
+            };
+
+            // Call the existing onMouseMove logic
+            this.onMouseMove(simulatedMouseEvent);
         }
     }
     
     onTouchEnd(event) {
-        if (this.isDragging && this.isInputEnabled) {
-            // Calculate final power and direction
-            this.calculateDragPower();
-            
-            // Apply force to ball
-            if (this.dragPower > 0.1) {
-                // Get direction in world space
-                const direction = this.getWorldDirection();
-                
-                // Log stroke details
-                console.log(`[InputController] Applying stroke: Power=${this.dragPower.toFixed(2)}, Direction=(${direction.x.toFixed(2)}, ${direction.y.toFixed(2)}, ${direction.z.toFixed(2)})`);
-                
-                // Apply force to ball
-                this.game.ballManager.hitBall(direction, this.dragPower);
-                
-                // Set game state
-                this.game.gameState.ballInMotion = true;
-                
-                // Disable input until ball stops
-                this.disableInput();
-            }
-            
-            // Remove direction line
-            this.removeDirectionLine();
-            
-            // Reset power indicator
-            this.resetPowerIndicator();
-            
-            // Reset drag state
-            this.isDragging = false;
-            this.clickedOnBall = false;
-            
-            // Restore orbit controls
-            if (this.game.cameraController && this.game.cameraController.controls && this.controlsWereEnabled) {
-                this.game.cameraController.controls.enabled = this.controlsWereEnabled;
-            } else if (this.game.cameraController && this.game.cameraController.controls) {
-                // Restore orbit controls if we're not dragging
-                this.game.cameraController.controls.enabled = true;
-            }
-            
-            event.preventDefault();
+        // Check if we were actually dragging (pointer was down)
+        // touchend is fired even if the touch didn't start on the canvas
+        if (this.isPointerDown) {
+             // Simulate a left mouse button up event
+            // We don't strictly need coordinates for mouse up logic
+             const simulatedMouseEvent = {
+                 button: 0, // Simulate left mouse button release
+                 preventDefault: () => event.preventDefault() // Pass preventDefault
+             };
+
+             // Call the existing onMouseUp logic
+             this.onMouseUp(simulatedMouseEvent);
         }
+        // Note: No check for event.touches.length here, as touchend signifies the end of a touch point.
+        // The state (isPointerDown) determines if it corresponds to our drag action.
     }
     
     calculateDragPower() {

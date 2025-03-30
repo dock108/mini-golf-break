@@ -21,12 +21,16 @@ export class PhysicsManager {
 
         // Flag to track if world is being reset
         this.isResetting = false;
+
+        // Reference to the ball's physics body
+        this.ballBody = null;
+        this.isInBunker = false;
     }
     
     /**
      * Initialize the physics system
      */
-    init() {
+    async init() {
         // Create physics world
         this.world = new PhysicsWorld();
         this.cannonWorld = this.world.world; // Access the inner CANNON.World instance
@@ -34,7 +38,27 @@ export class PhysicsManager {
         // Set up collision event handling
         this.setupCollisionEvents();
         
-        return this;
+        console.log('[PhysicsManager] Physics world created and initialized.');
+
+        // Additional setup (e.g., debug renderer)
+        if (this.game.debugManager && this.game.debugManager.physicsDebuggerEnabled) {
+            console.log('[PhysicsManager] Physics debugger enabled by DebugManager.');
+            // Assuming DebugManager handles the renderer creation and update
+        }
+
+        // Get reference to ball body AFTER ball is created
+        // This assumes BallManager.init() runs before this listener setup
+        // Or we might need a dedicated method called later
+        this.ballBody = this.game.ballManager?.ball?.body;
+
+        if (this.ballBody) {
+            this.setupContactListeners();
+        } else {
+            console.warn('[PhysicsManager] Could not get ball body during init. Listeners not set up.');
+            // Consider setting up listeners later, e.g., after course creation
+        }
+
+        return this.world;
     }
     
     /**
@@ -413,6 +437,54 @@ export class PhysicsManager {
             throw error;
         } finally {
             this.isResetting = false;
+        }
+    }
+
+    // Method to set up listeners, can be called later if ball isn't ready during init
+    setupContactListeners() {
+        if (!this.ballBody) {
+            console.error('[PhysicsManager] Cannot set up listeners: ballBody is null.');
+            return;
+        }
+
+        console.log('[PhysicsManager] Setting up beginContact/endContact listeners for ball.');
+
+        // Use bound functions to maintain 'this' context
+        this.handleBeginContact = this.handleBeginContact.bind(this);
+        this.handleEndContact = this.handleEndContact.bind(this);
+
+        this.ballBody.addEventListener('beginContact', this.handleBeginContact);
+        this.ballBody.addEventListener('endContact', this.handleEndContact);
+    }
+
+    // Handler for when contact begins
+    handleBeginContact(event) {
+        const otherBody = event.body;
+        if (otherBody.userData?.isBunkerZone && !this.isInBunker) {
+            const ball = this.game.ballManager?.ball;
+            if (ball && this.ballBody) {
+                this.isInBunker = true;
+                this.ballBody.linearDamping = ball.bunkerLinearDamping;
+                console.log(`%c[PhysicsManager] Ball entered bunker zone. Damping increased to ${this.ballBody.linearDamping}`, 'color: orange;');
+                // Optional: Add sound effect
+                // this.game.audioManager?.playSound('sand_enter');
+            }
+        }
+    }
+
+    // Handler for when contact ends
+    handleEndContact(event) {
+        const otherBody = event.body;
+        // Check if we are ending contact with a bunker *while* we thought we were in one
+        if (otherBody.userData?.isBunkerZone && this.isInBunker) {
+            const ball = this.game.ballManager?.ball;
+            if (ball && this.ballBody) {
+                this.isInBunker = false;
+                this.ballBody.linearDamping = ball.defaultLinearDamping;
+                console.log(`%c[PhysicsManager] Ball exited bunker zone. Damping restored to ${this.ballBody.linearDamping}`, 'color: green;');
+                // Optional: Add sound effect
+                // this.game.audioManager?.playSound('sand_exit');
+            }
         }
     }
 } 

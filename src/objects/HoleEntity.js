@@ -65,15 +65,15 @@ export class HoleEntity {
         this.createHoleCup();       // Call new cup creation method
         this.createStartPosition();
         
-        // Create hazards (Sand will now just create its visual mesh)
-        if (this.config.hazards) {
-            this.config.hazards.forEach(hazard => this.createHazard(hazard));
-        }
+        // --- Create Bunker Trigger Zones --- 
+        this.createBunkerTriggers();
+        
+        // --- Create Bunker Visuals (Sand Texture) ---
+        this.createBunkerVisuals();
         
         console.log(`[HoleEntity] Created hole with:`, {
             meshes: this.meshes.length,
             bodies: this.bodies.length,
-            hazards: this.config.hazards?.length || 0
         });
         
         return true;
@@ -103,26 +103,47 @@ export class HoleEntity {
 
         let greenCSG = CSG.fromGeometry(greenGeom);
 
-        // 2. Subtract Sand Traps (if any)
-        const sandHazards = this.config.hazards?.filter(h => h.type === 'sand') || [];
-        sandHazards.forEach(hazardConfig => {
-            const sandGeom = new THREE.BoxGeometry(
-                hazardConfig.size.x,
-                this.surfaceHeight, // Use surface height for subtraction depth
-                hazardConfig.size.z
+        // --- 2. Subtract Bunkers (using CSG shapes similar to Course.js) ---
+        const bunkerConfigs = this.config.hazards?.filter(h => h.type === 'sand') || [];
+        console.log(`[HoleEntity] Found ${bunkerConfigs.length} sand hazard configs for hole ${this.config.index}`);
+
+        bunkerConfigs.forEach(bunkerConfig => {
+            // Define the shape to subtract (e.g., shallow cylinder)
+            // Use dimensions from bunkerConfig if available, otherwise default
+            const radius = bunkerConfig.size?.x / 2 || 2; // Example default radius
+            const depth = bunkerConfig.size?.y || 0.5;    // Example default depth
+
+            console.log(`[HoleEntity] Creating bunker subtraction shape: radius=${radius}, depth=${depth}`);
+
+            const bunkerGeometry = new THREE.CylinderGeometry(
+                radius,         // radiusTop
+                radius * 0.8,   // radiusBottom (tapered)
+                depth,          // height (bunker depth)
+                32              // radialSegments
             );
-            // Calculate position relative to the green's center 
-            const localSandPos = hazardConfig.position.clone().sub(this.centerPosition);
-            // Create transformation matrix
-            const sandMatrix = new THREE.Matrix4().makeTranslation(localSandPos.x, 0, localSandPos.z);
-            // Apply matrix to the geometry *before* creating CSG object
-            sandGeom.applyMatrix4(sandMatrix);
-            // Create CSG object from transformed geometry
-            const sandCSG = CSG.fromGeometry(sandGeom);
+
+            // Calculate position relative to the green's center (origin for the CSG operation)
+            const localBunkerPos = bunkerConfig.position.clone().sub(this.centerPosition);
+
+            // Position the *center* of the subtraction cylinder
+            // Top should be slightly above green surface (0 relative to BoxGeometry center)
+            const bunkerMatrix = new THREE.Matrix4().makeTranslation(
+                localBunkerPos.x,
+                depth / 2 - 0.01 + (this.surfaceHeight / 2), // Adjust Y based on BoxGeometry center and surfaceHeight
+                localBunkerPos.z
+            );
+            bunkerGeometry.applyMatrix4(bunkerMatrix);
+
+            const bunkerCSG = CSG.fromGeometry(bunkerGeometry);
 
             // Subtract
-            greenCSG = greenCSG.subtract(sandCSG);
-            console.log('[HoleEntity] Subtracted sand shape from green CSG');
+            try {
+                greenCSG = greenCSG.subtract(bunkerCSG);
+                console.log(`[HoleEntity] Subtracted bunker shape at local pos: ${localBunkerPos.toArray().map(n => n.toFixed(2)).join(',')}`);
+            } catch (error) {
+                console.error("[HoleEntity] CSG Subtraction failed for bunker:", error);
+                // Potentially log geometry details for debugging
+            }
         });
 
         // 3. Subtract Hole
@@ -373,51 +394,88 @@ export class HoleEntity {
     }
     
     /**
-     * Create a hazard (sand trap, etc.)
+     * Create physics trigger bodies for bunker zones based on config.
      */
-    createHazard(hazardConfig) {
-        if (hazardConfig.type === 'sand') {
-            // --- Create visual mesh to fill the CSG cutout --- 
-            const sandGeometry = new THREE.BoxGeometry(
-                hazardConfig.size.x,
-                hazardConfig.size.y, // Use actual configured height for visual
-                hazardConfig.size.z
-            );
-            const sandMaterial = new THREE.MeshStandardMaterial({
-                color: 0xF4A460, 
-                roughness: 0.8, 
-                metalness: 0.1 
-            });
-            const sandMesh = new THREE.Mesh(sandGeometry, sandMaterial);
-            const localPos = hazardConfig.position.clone().sub(this.centerPosition); // Position relative to group center
-            sandMesh.position.copy(localPos);
-            // Position sand slightly below green surface level
-            sandMesh.position.y = (this.surfaceHeight / 2) - (hazardConfig.size.y / 2) - 0.01;
-            sandMesh.castShadow = true;
-            sandMesh.receiveShadow = true;
-            this.group.add(sandMesh);
-            this.meshes.push(sandMesh);
-            console.log('[HoleEntity] Created sand visual mesh to fill cutout');
+    createBunkerTriggers() {
+        const bunkerConfigs = this.config.hazards?.filter(h => h.type === 'sand') || [];
+        console.log(`[HoleEntity] Creating ${bunkerConfigs.length} bunker trigger zones.`);
 
-            // --- Physics Body (remains the same, simple box is fine) --- 
-            const sandBody = new CANNON.Body({
+        bunkerConfigs.forEach(bunkerConfig => {
+            if (!this.world) return; // Safety check
+
+            // Use dimensions from config, providing defaults
+            const radius = bunkerConfig.size?.x / 2 || 2;
+            const depth = bunkerConfig.size?.y || 0.5;
+
+            // Use a simple Box shape for the trigger volume
+            const triggerSize = new CANNON.Vec3(radius * 1.1, depth, radius * 1.1); // Slightly larger overlap
+            const triggerShape = new CANNON.Box(triggerSize.scale(0.5)); // CANNON.Box takes half-extents
+
+            const triggerBody = new CANNON.Body({
                 mass: 0,
                 type: CANNON.Body.STATIC,
-                material: this.world.sandMaterial || this.world.defaultMaterial
+                collisionResponse: false, // IMPORTANT: Makes it a trigger
+                material: null, // No physical material interaction needed
+                collisionFilterGroup: 8, // Assign to a specific group (e.g., 8 for triggers)
+                collisionFilterMask: 4   // Only detect collisions with the ball (group 4)
             });
-            const shape = new CANNON.Box(new CANNON.Vec3(
-                hazardConfig.size.x / 2,
-                hazardConfig.size.y / 2,
-                hazardConfig.size.z / 2
-            ));
-            sandBody.addShape(shape);
-            sandBody.position.copy(hazardConfig.position); // Use world position for physics
-            sandBody.userData = { type: 'sand', holeIndex: this.config.index };
-            this.world.addBody(sandBody);
-            this.bodies.push(sandBody);
-            console.log('[HoleEntity] Created sand physics body');
-        }
-        // TODO: Add other hazard types if needed
+
+            triggerBody.addShape(triggerShape);
+
+            // Position the trigger body using the WORLD position from the config
+             // Adjust Y position to be centered within the depression depth
+            const triggerY = bunkerConfig.position.y; 
+            triggerBody.position.set(bunkerConfig.position.x, triggerY, bunkerConfig.position.z);
+
+            triggerBody.userData = { isBunkerZone: true }; // Identify this body
+
+            this.world.addBody(triggerBody);
+            this.bodies.push(triggerBody); // Track the body
+            console.log(`[HoleEntity] Added bunker trigger zone at world pos: (${triggerBody.position.x.toFixed(2)}, ${triggerBody.position.y.toFixed(2)}, ${triggerBody.position.z.toFixed(2)})`);
+        });
+    }
+    
+    /**
+     * Creates visual sand meshes placed at the bottom of bunker depressions.
+     */
+    createBunkerVisuals() {
+        const bunkerConfigs = this.config.hazards?.filter(h => h.type === 'sand') || [];
+        if (bunkerConfigs.length === 0) return; // No sand hazards configured
+
+        console.log(`[HoleEntity] Creating ${bunkerConfigs.length} bunker visual meshes.`);
+
+        const sandMaterial = new THREE.MeshStandardMaterial({
+            color: 0xE6C388, // Sandy color
+            roughness: 0.9,
+            metalness: 0.1,
+            map: null, // TODO: Add a sand texture later if desired
+        });
+        // Ensure material is disposed later - maybe track separately or add to standard disposal
+
+        bunkerConfigs.forEach(bunkerConfig => {
+            const radius = bunkerConfig.size?.x / 2 || 2;
+            const depth = bunkerConfig.size?.y || 0.5;
+
+            // Create a plane slightly smaller than the radius to fit inside the depression
+            const sandGeometry = new THREE.PlaneGeometry(radius * 2 * 0.95, radius * 2 * 0.95); // Width, Height for Plane
+
+            const sandMesh = new THREE.Mesh(sandGeometry, sandMaterial);
+
+            // Place just slightly below the green's top surface for visibility within the depression
+            const sandY = (this.surfaceHeight / 2) - 0.02;
+
+            // Use LOCAL position relative to the group center
+            const localBunkerPos = bunkerConfig.position.clone().sub(this.centerPosition);
+            sandMesh.position.set(localBunkerPos.x, sandY, localBunkerPos.z);
+
+            sandMesh.rotation.x = -Math.PI / 2; // Rotate flat
+
+            sandMesh.receiveShadow = true; // Allow sand to receive shadows
+
+            this.group.add(sandMesh);
+            this.meshes.push(sandMesh); // Track for disposal
+            console.log(`[HoleEntity] Added sand visual mesh at local pos: (${sandMesh.position.x.toFixed(2)}, ${sandMesh.position.y.toFixed(2)}, ${sandMesh.position.z.toFixed(2)})`);
+        });
     }
     
     /**

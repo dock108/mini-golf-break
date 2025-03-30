@@ -30,6 +30,10 @@ export class Ball {
         this.isHoleCompleted = false; // Added completion flag
         this.wasStopped = true; // Initialize as stopped
         
+        // Damping values
+        this.defaultLinearDamping = 0.7; // Store the default
+        this.bunkerLinearDamping = 0.95; // Higher value for sand effect (Tune this)
+        
         // Create materials for the ball
         this.defaultMaterial = new THREE.MeshStandardMaterial({ 
             color: 0xFFFFFF, // Pure white golf ball
@@ -152,7 +156,7 @@ export class Ball {
             mass: this.mass,
             shape: new CANNON.Sphere(this.radius),
             material: this.game.physicsManager.world.ballMaterial,
-            linearDamping: 0.7, // Significantly increased base damping (was 0.4)
+            linearDamping: this.defaultLinearDamping, // Use stored default
             angularDamping: 0.3,
             collisionFilterGroup: 4,
             collisionFilterMask: -1,
