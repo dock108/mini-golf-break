@@ -243,27 +243,41 @@ export class CameraController {
         // Calculate midpoint between tee and hole
         const midpoint = new THREE.Vector3().addVectors(startPosition, holePosition).multiplyScalar(0.5);
         
-        // --- REVERT TO ANGLED VIEW, ADJUSTED FOR SCREENSHOT --- 
-        const direction = new THREE.Vector3().subVectors(holePosition, startPosition).normalize();
-        const distance = startPosition.distanceTo(holePosition);
+        // Temporarily adjust controls to allow overhead view
+        let originalMaxPolarAngle = Math.PI / 2;
+        if (this.controls) {
+            originalMaxPolarAngle = this.controls.maxPolarAngle;
+            this.controls.maxPolarAngle = Math.PI; // Allow looking straight down
+        }
 
-        // Calculate offset for a high-angle view looking down the hole
-        const cameraOffset = new THREE.Vector3(
-            direction.z * distance * 0.5,  // Smaller perpendicular offset
-            distance * 1.0,                // Increased height offset (was ~0.7-0.8)
-            -direction.x * distance * 0.5 // Smaller perpendicular offset
-        );
+        // --- NEW: Calculate height based on diagonal fit ---
+        const width = Math.abs(startPosition.x - holePosition.x);
+        const length = Math.abs(startPosition.z - holePosition.z);
+        const diagonal = Math.sqrt(width * width + length * length);
 
-        // Set camera position relative to midpoint using the calculated offset
-        this.camera.position.copy(midpoint.clone().add(cameraOffset));
+        // Camera properties
+        const fovYRad = THREE.MathUtils.degToRad(this.camera.fov);
         
-        // Look down towards the midpoint
+        // Calculate height needed to fit the diagonal vertically (simplest approach)
+        // Add a small epsilon to prevent division by zero if diagonal is zero
+        const requiredHeight = (diagonal / 2) / Math.tan(fovYRad / 2) + 0.01;
+        
+        // Add more padding to ensure comfortable view
+        const cameraHeight = requiredHeight * 1.2; // Use 20% padding
+
+        // Position camera directly above the midpoint using the calculated height
+        this.camera.position.set(midpoint.x, cameraHeight, midpoint.z);
+        
+        // Look straight down at the midpoint
         this.camera.lookAt(midpoint);
         
-        // Update orbit controls target to the midpoint
+        // Update orbit controls target to the midpoint and update controls state
         if (this.controls) {
             this.controls.target.copy(midpoint);
-            this.controls.update();
+            this.controls.update(); // Apply the new position/target
+            
+            // Restore original angle limit AFTER update
+            this.controls.maxPolarAngle = originalMaxPolarAngle;
         }
         
         return this;
