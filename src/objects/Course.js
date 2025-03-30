@@ -240,36 +240,23 @@ export class CoursesManager {
             new THREE.Vector3(12, 0, 12)
         ];
         
-        // Ball radius is 0.2, so hole radius should be about 0.35 (1.75 × ball size)
-        const holeRadius = 0.35;
+        // Ball radius is 0.2. Realistic hole radius ~2.53 * 0.2 = 0.506
+        const holeRadius = 0.5; // Adjusted to 0.5 (was 0.35)
         const holeDepth = 0.3;
         
         holePositions.forEach(position => {
             // Create a visible rim around the hole for better visibility
             const rimGeometry = new THREE.RingGeometry(holeRadius - 0.02, holeRadius + 0.05, 32);
             const rimMaterial = new THREE.MeshStandardMaterial({ 
-                color: 0x111111,
-                roughness: 0.8,
-                metalness: 0.2,
+                color: 0xCCCCCC, // Light silver/grey color
+                roughness: 0.3,  // Smoother for metallic look
+                metalness: 0.9,  // Much more metallic
                 side: THREE.DoubleSide
             });
             const rim = new THREE.Mesh(rimGeometry, rimMaterial);
             rim.rotation.x = -Math.PI / 2; // Lay flat
-            rim.position.set(position.x, 0.005, position.z); // Slightly above ground
+            rim.position.set(position.x, 0.01, position.z); // Raised slightly higher to avoid z-fighting
             this.scene.add(rim);
-            
-            // Create a dark circular area to represent the hole opening
-            const holeTopGeometry = new THREE.CircleGeometry(holeRadius - 0.02, 32);
-            const holeTopMaterial = new THREE.MeshStandardMaterial({ 
-                color: 0x000000,
-                roughness: 1.0,
-                metalness: 0.0,
-                side: THREE.DoubleSide
-            });
-            const holeTop = new THREE.Mesh(holeTopGeometry, holeTopMaterial);
-            holeTop.rotation.x = -Math.PI / 2; // Lay flat
-            holeTop.position.set(position.x, 0.003, position.z); // Just above ground to prevent z-fighting
-            this.scene.add(holeTop);
             
             // Create hole mesh - make it darker and deeper
             const holeGeometry = new THREE.CylinderGeometry(holeRadius, holeRadius, holeDepth, 32);
@@ -303,6 +290,7 @@ export class CoursesManager {
                 });
                 
                 // Add a cylinder shape with slightly larger radius for better detection
+                // Keep trigger slightly larger than visual radius
                 const holeShape = new CANNON.Cylinder(holeRadius * 1.1, holeRadius * 1.1, 0.1, 16);
                 holeBody.addShape(holeShape);
                 
@@ -592,8 +580,8 @@ export class CoursesManager {
             const dz = position.z - holePos.z;
             const distance = Math.sqrt(dx * dx + dz * dz);
             
-            // Base hole radius - slightly smaller than visual radius
-            const holeRadius = 0.3; // Adjusted for smaller hole
+            // Base hole radius - use the updated radius
+            const holeRadius = 0.5; // Adjusted for larger hole (was 0.3)
             
             // Check if the ball is near the hole
             if (distance < holeRadius && position.y < 0.2) {

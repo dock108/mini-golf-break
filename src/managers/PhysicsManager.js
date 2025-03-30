@@ -354,7 +354,8 @@ export class PhysicsManager {
             const oldMaterials = {
                 defaultMaterial: this.world?.defaultMaterial,
                 groundMaterial: this.world?.groundMaterial,
-                wallMaterial: this.world?.wallMaterial,
+                ballMaterial: this.world?.ballMaterial,
+                bumperMaterial: this.world?.bumperMaterial,
                 sandMaterial: this.world?.sandMaterial
             };
             
@@ -388,9 +389,13 @@ export class PhysicsManager {
             // Restore materials
             if (oldMaterials.defaultMaterial) this.world.defaultMaterial = oldMaterials.defaultMaterial;
             if (oldMaterials.groundMaterial) this.world.groundMaterial = oldMaterials.groundMaterial;
-            if (oldMaterials.wallMaterial) this.world.wallMaterial = oldMaterials.wallMaterial;
+            if (oldMaterials.ballMaterial) this.world.ballMaterial = oldMaterials.ballMaterial;
+            if (oldMaterials.bumperMaterial) this.world.bumperMaterial = oldMaterials.bumperMaterial;
             if (oldMaterials.sandMaterial) this.world.sandMaterial = oldMaterials.sandMaterial;
             
+            // Re-create contact materials using the restored materials
+            this.world.createContactMaterials();
+
             // Set up collision events for new world
             this.setupCollisionEvents();
             

@@ -336,46 +336,6 @@ export class PerformanceManager {
     }
     
     /**
-     * Update the main game loop with performance timing
-     * @param {Function} originalUpdateMethod - The original update method to wrap
-     * @returns {Function} Wrapped update method with performance timing
-     */
-    wrapUpdate(originalUpdateMethod) {
-        if (!originalUpdateMethod || typeof originalUpdateMethod !== 'function') {
-            console.warn('PerformanceManager: Cannot wrap update method - invalid function provided');
-            return () => {}; // Return empty function as fallback
-        }
-        
-        return () => {
-            this.beginFrame();
-            
-            // Start physics timer - will be continued in the update method
-            this.startTimer('physics');
-            
-            // Start the render timer right before the original update
-            this.startTimer('render');
-            
-            try {
-                // Run the original update
-                originalUpdateMethod();
-            } catch (error) {
-                console.error('Error in game update loop:', error);
-                // Log to debug manager if available
-                const debugManager = this.safelyGet(this.game, 'debugManager');
-                if (debugManager && typeof debugManager.error === 'function') {
-                    debugManager.error('GameLoop', 'Error in update method', error, true);
-                }
-            }
-            
-            // End the render timer
-            this.endTimer('render');
-            
-            // End the frame
-            this.endFrame();
-        };
-    }
-    
-    /**
      * Get a summary of performance data
      * @returns {Object} Performance summary
      */

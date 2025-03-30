@@ -15,7 +15,10 @@ export class CourseElementFactory {
      */
     static createHole(scene, physicsWorld, position, options = {}) {
         const elements = {};
-        const holeRadius = options.radius || 0.35;
+        // Realistic proportion: Hole radius should be ~2.53 * ball radius (0.2)
+        const ballRadius = 0.2; 
+        const realisticHoleRadius = ballRadius * 2.53; // ~0.506
+        const holeRadius = options.radius || 0.5; // Use 0.5 (was 0.35)
         const holeDepth = options.depth || 0.3;
         
         // Create hole bottom (black circle at bottom of hole)
@@ -27,8 +30,8 @@ export class CourseElementFactory {
         // Create a visible rim around the hole
         elements.rim = this.createHoleRim(scene, position, holeRadius);
         
-        // Create the hole (inner circle)
-        elements.hole = this.createHoleInnerCircle(scene, position, holeRadius);
+        // Create the hole (inner circle) - REMOVED as likely redundant/causing issues
+        // elements.hole = this.createHoleInnerCircle(scene, position, holeRadius);
         
         // Create physics bodies if physics world exists
         if (physicsWorld) {
@@ -63,7 +66,7 @@ export class CourseElementFactory {
         const holeWallGeometry = new THREE.CylinderGeometry(radius, radius, depth, 32);
         const holeWallMaterial = new THREE.MeshBasicMaterial({ 
             color: 0x000000, // Black walls
-            side: THREE.BackSide
+            side: THREE.DoubleSide // Changed from BackSide for robustness
         });
         
         const holeWall = new THREE.Mesh(holeWallGeometry, holeWallMaterial);
@@ -128,7 +131,7 @@ export class CourseElementFactory {
             mass: 0, // Static body
             position: new CANNON.Vec3(position.x, position.y - 0.05, position.z),
             shape: funnelShape,
-            material: physicsWorld.groundMaterial
+            material: physicsWorld.holeRimMaterial
         });
         
         // Rotate to align with hole

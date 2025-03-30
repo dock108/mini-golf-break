@@ -12,7 +12,6 @@ export class HazardManager {
         
         // Safe position reference
         this.lastSafePosition = new THREE.Vector3();
-        this.waterHazards = [];
         this.boundaryLimits = {
             minX: -50,
             maxX: 50,
@@ -108,7 +107,7 @@ export class HazardManager {
      * @returns {boolean} True if in a hazard
      */
     isPositionInHazard(position) {
-        return this.isPositionInWater(position) || this.isPositionOutOfBounds(position);
+        return this.isPositionOutOfBounds(position);
     }
     
     /**
@@ -134,28 +133,6 @@ export class HazardManager {
             return true;
         }
         
-        // Check if ball is in water
-        if (this.isPositionInWater(position)) {
-            this.handleBallInWater();
-            return true;
-        }
-        
-        return false;
-    }
-    
-    /**
-     * Check if the ball is in water
-     * @param {THREE.Vector3} position - Position to check
-     * @returns {boolean} True if in water
-     */
-    isPositionInWater(position) {
-        for (const waterHazard of this.waterHazards) {
-            if (position.x > waterHazard.minX && position.x < waterHazard.maxX &&
-                position.z > waterHazard.minZ && position.z < waterHazard.maxZ &&
-                position.y < waterHazard.height) {
-                return true;
-            }
-        }
         return false;
     }
     
@@ -192,43 +169,6 @@ export class HazardManager {
             },
             this
         );
-    }
-    
-    /**
-     * Handle the ball going in water
-     */
-    handleBallInWater() {
-        this.game.debugManager.log("Ball in water - applying penalty");
-        
-        // Show message to player
-        this.game.uiManager.showMessage("Water hazard! +1 stroke penalty.", 2000);
-        
-        // Publish hazard detected event
-        this.game.eventManager.publish(
-            EventTypes.HAZARD_DETECTED,
-            {
-                hazardType: EventTypes.HAZARD_WATER,
-                penalty: 1,
-                lastSafePosition: this.lastSafePosition.clone()
-            },
-            this
-        );
-    }
-    
-    /**
-     * Add a water hazard to the course
-     * @param {object} bounds - The bounds of the water hazard
-     */
-    addWaterHazard(bounds) {
-        this.waterHazards.push(bounds);
-    }
-    
-    /**
-     * Set course boundary limits
-     * @param {object} limits - The boundary limits
-     */
-    setBoundaryLimits(limits) {
-        Object.assign(this.boundaryLimits, limits);
     }
     
     /**

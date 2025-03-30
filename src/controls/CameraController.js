@@ -243,27 +243,41 @@ export class CameraController {
         // Calculate midpoint between tee and hole
         const midpoint = new THREE.Vector3().addVectors(startPosition, holePosition).multiplyScalar(0.5);
         
-        // Calculate direction from tee to hole
-        const direction = new THREE.Vector3().subVectors(holePosition, startPosition).normalize();
+        // Temporarily adjust controls to allow overhead view
+        let originalMaxPolarAngle = Math.PI / 2;
+        if (this.controls) {
+            originalMaxPolarAngle = this.controls.maxPolarAngle;
+            this.controls.maxPolarAngle = Math.PI; // Allow looking straight down
+        }
+
+        // --- NEW: Calculate height based on diagonal fit ---
+        const width = Math.abs(startPosition.x - holePosition.x);
+        const length = Math.abs(startPosition.z - holePosition.z);
+        const diagonal = Math.sqrt(width * width + length * length);
+
+        // Camera properties
+        const fovYRad = THREE.MathUtils.degToRad(this.camera.fov);
         
-        // Position camera at an angle to see both tee and hole
-        const distance = startPosition.distanceTo(holePosition);
-        const cameraOffset = new THREE.Vector3(
-            direction.z * distance * 0.7, // Offset perpendicular to hole direction
-            distance * 0.8,               // Height based on distance
-            -direction.x * distance * 0.7  // Offset perpendicular to hole direction
-        );
+        // Calculate height needed to fit the diagonal vertically (simplest approach)
+        // Add a small epsilon to prevent division by zero if diagonal is zero
+        const requiredHeight = (diagonal / 2) / Math.tan(fovYRad / 2) + 0.01;
         
-        // Set camera position relative to midpoint
-        this.camera.position.copy(midpoint.clone().add(cameraOffset));
+        // Add more padding to ensure comfortable view
+        const cameraHeight = requiredHeight * 1.2; // Use 20% padding
+
+        // Position camera directly above the midpoint using the calculated height
+        this.camera.position.set(midpoint.x, cameraHeight, midpoint.z);
         
-        // Look at midpoint
+        // Look straight down at the midpoint
         this.camera.lookAt(midpoint);
         
-        // Update orbit controls target if they exist
+        // Update orbit controls target to the midpoint and update controls state
         if (this.controls) {
             this.controls.target.copy(midpoint);
-            this.controls.update();
+            this.controls.update(); // Apply the new position/target
+            
+            // Restore original angle limit AFTER update
+            this.controls.maxPolarAngle = originalMaxPolarAngle;
         }
         
         return this;
@@ -305,14 +319,46 @@ export class CameraController {
         // Only follow the ball if it's moving
         if (this.game.stateManager && this.game.stateManager.isBallInMotion()) {
             if (this.controls) {
-                // Update the orbit controls target to follow the ball
-                this.controls.target.lerp(ballPosition, 0.2);
+                // Calculate target point slightly ahead of the ball
+                let targetPosition = ballPosition; // Default to ball position
+                const velocity = ball.body.velocity;
+                const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+                const lookAheadDistance = 1.5; // Increased from 0.5
+                const minSpeedForLookAhead = 0.1; // Only look ahead if moving fast enough
+
+                if (speed > minSpeedForLookAhead) {
+                    const lookAheadDirection = new THREE.Vector3(velocity.x, 0, velocity.z).normalize();
+                    targetPosition = ballPosition.clone().add(lookAheadDirection.multiplyScalar(lookAheadDistance));
+                }
+
+                // Update the orbit controls target to smoothly follow the calculated target position
+                this.controls.target.lerp(targetPosition, 0.1); // Reduced from 0.2 for smoother follow
                 this.controls.update();
             } else {
                 // If no controls, update camera position directly to follow the ball
                 const cameraTargetPosition = ballPosition.clone().add(new THREE.Vector3(10, 10, 10));
                 this.camera.position.lerp(cameraTargetPosition, 0.1);
                 this.camera.lookAt(ballPosition);
+            }
+        } else {
+            // When the ball is stopped, calculate target slightly towards the hole
+            if (this.controls && this.course) {
+                const holePosition = this.course.getHolePosition();
+                if (holePosition) {
+                    const directionToHole = new THREE.Vector3().subVectors(holePosition, ballPosition).normalize();
+                    // Use the same lookAheadDistance for consistency when stopped
+                    const lookAheadDistance = 1.5; 
+                    const targetPosition = ballPosition.clone().add(directionToHole.multiplyScalar(lookAheadDistance));
+                    
+                    // Lerp towards the position ahead of the ball (towards the hole)
+                    this.controls.target.lerp(targetPosition, 0.05); // Reduced from 0.1 for smoother aiming follow
+                } else {
+                    // Fallback: If hole position isn't available, target the ball itself
+                    this.controls.target.lerp(ballPosition, 0.1); // Keep fallback slightly faster?
+                }
+            } else if (this.controls) {
+                 // Fallback: If course isn't available, target the ball itself
+                this.controls.target.lerp(ballPosition, 0.1); // Keep fallback slightly faster?
             }
         }
     }

@@ -52,6 +52,10 @@
 - [x] Fix Z-fighting issues on green/hazards
 - [x] Simplify final scorecard UI
 - [x] Remove dead/unused code (events, states, components, methods)
+- [x] Refine camera behavior (initial view, follow, look-ahead)
+- [x] Adjust physics for realism (proportions, hole rim)
+- [x] Fix hole visual glitches (cup interior)
+- [x] Implement input guards (prevent hitting moving ball)
 - [ ] Add level-of-detail (LOD) for complex objects
 - [ ] Optimize render loop for battery efficiency
 - [ ] Implement asset preloading

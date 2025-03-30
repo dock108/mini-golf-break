@@ -2,6 +2,23 @@
 
 All notable changes to the Mini Golf Break project will be documented in this file.
 
+## [0.9.2] - Camera & Physics Refinements
+
+### Camera System Improvements
+- Adjusted camera target logic to look slightly ahead of the ball (based on velocity when moving, towards the hole when stopped) for better course visibility.
+- Implemented automatic high-angle initial view for each hole, ensuring tee and cup are framed correctly.
+- Smoothed camera follow movement (reduced lerp factors) to reduce shakiness during ricochets and fast movements.
+
+### Physics & Visual Enhancements
+- Adjusted ball and hole proportions to be more realistic (Hole Radius ≈ 2.53 * Ball Radius).
+- Added specific low-restitution physics material (`holeRimMaterial`) to the hole's edge/funnel to dampen bounces off the rim.
+- Fixed visual representation of the hole cup to prevent green texture showing through the inside.
+
+### Other
+- Prevented hitting the ball while it is already moving.
+- Fixed minor compilation errors in InputController.
+- Increased default shot power multiplier.
+
 ## [0.9.1] - Code Cleanup and CSG Implementation
 
 ### Features & Fixes

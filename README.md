@@ -6,13 +6,13 @@ A minimalist mini-golf experience built for quick relaxation breaks. Navigate yo
 - **Clean Visual Design**: Play mini-golf in a beautiful, atmospheric setting with proper lighting and a minimalist environment
 - **Vertical Course Design**: Holes are stacked vertically in space, with completed holes disappearing as you progress
 - **Satisfying Transitions**: Watch your ball fall through space to the next hole after completion
+- **Intelligent Camera**: Camera provides a clear high-angle starting view, looks slightly ahead of the ball, and follows smoothly.
 - **Quick Gameplay Sessions**: Each hole is designed for 1-2 minutes of focused play—perfect for a mental break
 - **Drag-and-Release Controls**: Simple, intuitive controls that mimic pulling back and releasing a pool cue
-- **Realistic Physics**: Powered by Cannon-es physics engine with finely-tuned parameters
+- **Realistic Physics**: Powered by Cannon-es physics engine with finely-tuned parameters (including realistic ball/hole proportions and dampened hole rims).
 - **Visual Feedback**: Holes fade out and disappear when completed, with satisfying animations
 - **Animated Scorecard**: Celebratory scorecard appears after each hole
 - **Sound Effects**: Audio feedback for hitting the ball and completing holes
-- **Intelligent Camera**: Camera consistently positions behind the ball looking toward the hole
 
 ## Installation
 

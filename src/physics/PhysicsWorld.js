@@ -7,7 +7,7 @@ export class PhysicsWorld {
         this.world.gravity.set(0, -9.81, 0); // Earth gravity
         
         // Set solver iterations to match documentation
-        this.world.solver.iterations = 10; // Updated to match documentation (was 30)
+        this.world.solver.iterations = 30; // Increased from 20 for better contact resolution
         this.world.solver.tolerance = 0.0001;
         
         // Use SAPBroadphase for better performance with many objects
@@ -24,9 +24,11 @@ export class PhysicsWorld {
         this.defaultMaterial = new CANNON.Material('default');
         this.groundMaterial = new CANNON.Material('ground');
         this.ballMaterial = new CANNON.Material('ball');
-        this.waterMaterial = new CANNON.Material('water');
+        this.waterMaterial = new CANNON.Material('water'); // TODO: Implement water hazard physics (contact material, body assignment)
         this.sandMaterial = new CANNON.Material('sand');
         this.bumperMaterial = new CANNON.Material('bumper'); // New material for obstacles
+        this.holeCupMaterial = new CANNON.Material('holeCup'); // Material for the physical hole cup
+        this.holeRimMaterial = new CANNON.Material('holeRim'); // New material for the hole edge/funnel
         
         // Create contact materials
         this.createContactMaterials();
@@ -65,19 +67,21 @@ export class PhysicsWorld {
         this.world.addContactMaterial(ballGroundContact);
         
         // Set up contact between ball and bumpers (obstacles)
+        console.log(`[PhysicsWorld] Defining ballBumperContact with ballMat ID: ${this.ballMaterial?.id}, bumperMat ID: ${this.bumperMaterial?.id}`); // Log IDs before definition
         const ballBumperContact = new CANNON.ContactMaterial(
             this.ballMaterial,
             this.bumperMaterial,
             {
-                friction: 0.1,          // Keep low friction for bumpers
-                restitution: 0.8,       // Keep high bounce
+                friction: 0.2,          // Restored original value
+                restitution: 0.4,
                 contactEquationStiffness: 1e8,
-                contactEquationRelaxation: 3,
+                contactEquationRelaxation: 2,
                 frictionEquationStiffness: 1e7,
-                frictionEquationRelaxation: 2
+                frictionEquationRelaxation: 1   // Reduced from 2 for firmer friction response
             }
         );
         this.world.addContactMaterial(ballBumperContact);
+        console.log(`[PhysicsWorld] World contact materials after adding ballBumper:`, this.world.contactmaterials.map(cm => `${cm.materials[0]?.name}(${cm.materials[0]?.id}) <-> ${cm.materials[1]?.name}(${cm.materials[1]?.id})`)); // Log world's contact materials
         
         // Set up contact between ball and sand - extremely high friction to make it very difficult
         const ballSandContact = new CANNON.ContactMaterial(
@@ -94,9 +98,41 @@ export class PhysicsWorld {
         );
         this.world.addContactMaterial(ballSandContact);
         
+        // Set up contact between ball and hole cup
+        const ballHoleCupContact = new CANNON.ContactMaterial(
+            this.ballMaterial,
+            this.holeCupMaterial,
+            {
+                friction: 0.3,      // Moderate friction
+                restitution: 0.0,   // ZERO bounce (was 0.1)
+                contactEquationStiffness: 1e7,
+                contactEquationRelaxation: 3,
+                frictionEquationStiffness: 1e7,
+                frictionEquationRelaxation: 3
+            }
+        );
+        this.world.addContactMaterial(ballHoleCupContact);
+        console.log(`[PhysicsWorld] Added ballHoleCupContact.`);
+        
+        // Set up contact between ball and hole rim/funnel - low bounce
+        const ballRimContact = new CANNON.ContactMaterial(
+            this.ballMaterial,
+            this.holeRimMaterial, 
+            {
+                friction: 0.6,          // Similar to ground friction
+                restitution: 0.01,      // VERY low bounce
+                contactEquationStiffness: 1e7,
+                contactEquationRelaxation: 3,
+                frictionEquationStiffness: 1e7,
+                frictionEquationRelaxation: 1 
+            }
+        );
+        this.world.addContactMaterial(ballRimContact);
+        console.log(`[PhysicsWorld] Added ballRimContact.`);
+        
         // Default contact material for everything else
         this.world.defaultContactMaterial.friction = 0.8;     // Increased default friction
-        this.world.defaultContactMaterial.restitution = 0.1;
+        this.world.defaultContactMaterial.restitution = 0.1; // Restored original value
     }
     
     update() {
@@ -188,31 +224,31 @@ export class PhysicsWorld {
             const bodyA = event.bodyA;
             const bodyB = event.bodyB;
             
-            // Check if one of the bodies is a ball and the other is a hole
-            let ball = null;
-            let hole = null;
-            
-            if (bodyA.userData && bodyA.userData.type === 'ball') {
-                ball = bodyA;
-                if (bodyB.userData && bodyB.userData.type === 'hole') {
-                    hole = bodyB;
-                }
-            } else if (bodyB.userData && bodyB.userData.type === 'ball') {
-                ball = bodyB;
-                if (bodyA.userData && bodyA.userData.type === 'hole') {
-                    hole = bodyA;
-                }
-            }
-            
-            // If we found a ball and hole collision
-            if (ball && hole) {
-                console.log(`[PhysicsWorld] Ball entered hole ${hole.userData.holeIndex + 1}`);
-                
-                // Check if we have a game object with onBallInHole method
-                if (this.game && typeof this.game.onBallInHole === 'function') {
-                    this.game.onBallInHole(hole.userData.holeIndex);
-                }
-            }
+            // REMOVED specific ball/hole check here - handled in Ball.js now
+            // let ball = null;
+            // let hole = null;
+            // 
+            // if (bodyA.userData && bodyA.userData.type === 'ball') {
+            //     ball = bodyA;
+            //     if (bodyB.userData && bodyB.userData.type === 'hole') {
+            //         hole = bodyB;
+            //     }
+            // } else if (bodyB.userData && bodyB.userData.type === 'ball') {
+            //     ball = bodyB;
+            //     if (bodyA.userData && bodyA.userData.type === 'hole') {
+            //         hole = bodyA;
+            //     }
+            // }
+            // 
+            // // If we found a ball and hole collision
+            // if (ball && hole) {
+            //     console.log(`[PhysicsWorld] Ball entered hole ${hole.userData.holeIndex + 1}`);
+            //     
+            //     // Check if we have a game object with onBallInHole method
+            //     if (this.game && typeof this.game.onBallInHole === 'function') {
+            //         this.game.onBallInHole(hole.userData.holeIndex);
+            //     }
+            // }
         };
         
         // Add the callback to the world
@@ -399,7 +435,7 @@ export class PhysicsWorld {
         
         // Reset the world's state
         this.world.gravity.set(0, -9.81, 0);
-        this.world.solver.iterations = 10;
+        this.world.solver.iterations = 30;
         this.world.solver.tolerance = 0.0001;
         this.world.allowSleep = true;
         this.world.defaultSleepSpeedLimit = 0.15;
