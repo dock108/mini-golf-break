@@ -3,19 +3,135 @@ import * as CANNON from 'cannon-es';
 import { CSG } from 'three-csg-ts';
 
 /**
- * HoleEntity - Encapsulates all resources and physics for a single hole
+ * BaseElement - Base class for all course elements
+ * Provides common functionality for creation, physics setup, and destruction
  */
-export class HoleEntity {
+export class BaseElement {
     constructor(world, config, scene) {
         this.world = world;        // CANNON.World instance
-        this.config = config;      // Hole configuration
+        this.config = config;      // Element configuration
         this.scene = scene;        // THREE.Scene instance
         
         this.meshes = [];         // Visual objects
         this.bodies = [];         // Physics bodies
-        this.holeTrigger = null;  // Hole trigger body
+        this.group = null;        // Main group container
         
-        // Store dimensions
+        // Common properties
+        this.id = config.id || `element_${Math.floor(Math.random() * 10000)}`;
+        this.name = config.name || 'Unnamed Element';
+        this.elementType = config.type || 'generic';
+        this.position = config.position || new THREE.Vector3(0, 0, 0);
+        
+        console.log(`[BaseElement] Initializing ${this.elementType} (${this.name}):`, {
+            id: this.id,
+            position: this.position
+        });
+    }
+    
+    /**
+     * Create the element - to be implemented by subclasses
+     */
+    create() {
+        console.log(`[BaseElement] Creating ${this.elementType} (${this.name})`);
+        
+        // Create main element group
+        this.group = new THREE.Group();
+        this.group.position.copy(this.position);
+        this.scene.add(this.group);
+        this.meshes.push(this.group);
+        
+        // Subclasses should override this method to add specific components
+        
+        return true;
+    }
+    
+    /**
+     * Create visual components - to be implemented by subclasses
+     */
+    createVisuals() {
+        // Subclasses should override this method
+        console.log(`[BaseElement] Base createVisuals called for ${this.elementType}`);
+        return true;
+    }
+    
+    /**
+     * Create physics components - to be implemented by subclasses
+     */
+    createPhysics() {
+        // Subclasses should override this method
+        console.log(`[BaseElement] Base createPhysics called for ${this.elementType}`);
+        return true;
+    }
+    
+    /**
+     * Update the element - for any animations or state changes
+     * @param {number} dt - Delta time in seconds
+     */
+    update(dt) {
+        // Default implementation does nothing
+        // Subclasses can override to implement animations or state changes
+    }
+    
+    /**
+     * Clean up all resources
+     */
+    destroy() {
+        console.log(`[BaseElement] Destroying ${this.elementType} (${this.name})`);
+        
+        // Remove meshes from scene
+        this.meshes.forEach(mesh => {
+            if (mesh.parent) {
+                mesh.parent.remove(mesh);
+            }
+            if (mesh.geometry) mesh.geometry.dispose();
+            if (mesh.material) {
+                if (Array.isArray(mesh.material)) {
+                    mesh.material.forEach(mat => mat.dispose());
+                } else {
+                    mesh.material.dispose();
+                }
+            }
+        });
+        
+        // Remove physics bodies
+        this.bodies.forEach(body => {
+            if (body && body.shapes) {
+                body.shapes.forEach(shape => body.removeShape(shape));
+                this.world.removeBody(body);
+            }
+        });
+        
+        // Clear arrays
+        this.meshes = [];
+        this.bodies = [];
+        
+        console.log(`[BaseElement] Cleanup complete for ${this.elementType}`);
+    }
+} 
+
+/**
+ * HoleEntity - Encapsulates all resources and physics for a single hole
+ * Now extends BaseElement
+ */
+export class HoleEntity extends BaseElement {
+    constructor(world, config, scene) {
+        // Add required defaults to config
+        const holeConfig = {
+            ...config,
+            type: 'hole',
+            name: config.name || `Hole ${config.index + 1}`,
+            position: config.centerPosition || new THREE.Vector3(
+                (config.startPosition.x + config.holePosition.x) / 2,
+                0,
+                (config.startPosition.z + config.holePosition.z) / 2
+            )
+        };
+        
+        // Call parent constructor
+        super(world, holeConfig, scene);
+        
+        // Hole-specific properties
+        this.holeTrigger = null;  // Hole trigger body
         this.width = Math.max(1, config.courseWidth || 4);
         this.length = Math.max(1, config.courseLength || 20);
         this.wallHeight = 1.0;
@@ -23,14 +139,10 @@ export class HoleEntity {
         this.holeRadius = 0.35;
         this.surfaceHeight = 0.2;
         
-        // Calculate center position
-        this.centerPosition = new THREE.Vector3(
-            (config.startPosition.x + config.holePosition.x) / 2,
-            0,
-            (config.startPosition.z + config.holePosition.z) / 2
-        );
+        // Calculate center position if not provided
+        this.centerPosition = this.position;
         
-        console.log(`[HoleEntity] Initializing hole ${config.index + 1}:`, {
+        console.log(`[HoleEntity] Initialized hole ${config.index + 1} with dimensions:`, {
             width: this.width,
             length: this.length,
             center: this.centerPosition,
@@ -44,15 +156,13 @@ export class HoleEntity {
     
     /**
      * Create all hole components
+     * @override
      */
     create() {
-        console.log(`[HoleEntity] Creating hole components`);
+        // Initialize the base class implementation
+        super.create();
         
-        // Create main course group
-        this.group = new THREE.Group();
-        this.group.position.copy(this.centerPosition);
-        this.scene.add(this.group);
-        this.meshes.push(this.group);
+        console.log(`[HoleEntity] Creating hole components`);
         
         // --- Create Green using CSG --- 
         this.createCSGGreenSurface();
@@ -62,7 +172,7 @@ export class HoleEntity {
         
         // --- Create other components --- 
         this.createWalls();
-        this.createHoleCup();       // Call new cup creation method
+        this.createHoleCup();
         this.createStartPosition();
         
         // --- Create Bunker Trigger Zones --- 
@@ -476,42 +586,5 @@ export class HoleEntity {
             this.meshes.push(sandMesh); // Track for disposal
             console.log(`[HoleEntity] Added sand visual mesh at local pos: (${sandMesh.position.x.toFixed(2)}, ${sandMesh.position.y.toFixed(2)}, ${sandMesh.position.z.toFixed(2)})`);
         });
-    }
-    
-    /**
-     * Clean up all resources
-     */
-    destroy() {
-        console.log('[HoleEntity] Destroying hole resources');
-        
-        // Remove meshes from scene
-        this.meshes.forEach(mesh => {
-            if (mesh.parent) {
-                mesh.parent.remove(mesh);
-            }
-            if (mesh.geometry) mesh.geometry.dispose();
-            if (mesh.material) {
-                if (Array.isArray(mesh.material)) {
-                    mesh.material.forEach(mat => mat.dispose());
-                } else {
-                    mesh.material.dispose();
-                }
-            }
-        });
-        
-        // Remove physics bodies
-        this.bodies.forEach(body => {
-            if (body && body.shapes) {
-                body.shapes.forEach(shape => body.removeShape(shape));
-                this.world.removeBody(body);
-            }
-        });
-        
-        // Clear arrays
-        this.meshes = [];
-        this.bodies = [];
-        this.holeTrigger = null;
-        
-        console.log('[HoleEntity] Cleanup complete');
     }
 } 
