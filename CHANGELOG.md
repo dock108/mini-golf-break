@@ -2,6 +2,29 @@
 
 All notable changes to the Mini Golf Break project will be documented in this file.
 
+## [0.9.3] - Camera System Overhaul
+
+### Enhanced Camera Positioning
+- Completely redesigned camera positioning algorithm for better gameplay visibility
+- Implemented much higher camera angle with proper framing of the entire hole
+- Added extra space behind the ball to ensure adequate room for pull-back aiming
+- Significantly increased camera height to provide a better course overview
+- Adjusted camera position weighting to better center both the ball and hole
+
+### Camera Behavior Improvements
+- Added user camera adjustment detection to respect manual camera positioning
+- Implemented smart camera reset only when the ball is hit or moving
+- Added transition detection to ensure smooth camera behavior between states
+- Enhanced camera target calculation for better hole visibility during gameplay
+- Increased camera stability with improved parameter tuning
+
+### Technical Improvements
+- Refactored CameraController.js with cleaner positioning calculations
+- Optimized camera position updates for smoother transitions
+- Added explicit user adjustment tracking with the OrbitControls 'start' event
+- Fixed camera repositioning logic to prevent jarring camera movements
+- Improved camera height calculations based on course dimensions
+
 ## [0.9.2] - Camera & Physics Refinements
 
 ### Camera System Improvements

@@ -127,12 +127,13 @@ this.eventSubscriptions.push(
 *   **`InputController` (`src/controls/InputController.js`)**: Handles mouse/touch input for aiming/hitting, calculates shot vector, manages aim/power indicators, disables/enables input based on game state.
 *   **`CameraController` (`src/controls/CameraController.js`)**:
     *   **Core**: Manages the Three.js `PerspectiveCamera`.
-    *   **Positioning**: Aims to position the camera behind the ball, looking towards the hole, at an appropriate height and distance.
-    *   **Following**: Smoothly follows the ball when it's in motion (subscribes to `BALL_MOVED`).
+    *   **Intelligent Positioning**: Positions the camera with a high overhead angle that shows the entire hole and ensures enough space behind the ball for pull-back aiming.
+    *   **User Adjustments**: Detects when the player manually adjusts the camera and respects these adjustments until the ball moves.
+    *   **Smart Following**: Smoothly follows the ball when in motion, with look-ahead based on velocity for better course visibility.
     *   **Transitions**: Handles smooth camera movements between holes (triggered by `HOLE_STARTED`).
-    *   **Orbit Controls**: Integrates `OrbitControls` for free look when the player is not aiming/hitting, disabling them during input drag.
-    *   **Initialization**: Sets initial camera position based on the first hole's layout.
-    *   **Cleanup**: Disposes of controls.
+    *   **Orbit Controls**: Integrates `OrbitControls` for free look when the player is not aiming/hitting.
+    *   **Initialization**: Sets initial camera position with a high angle and good framing of the course.
+    *   **Cleanup**: Disposes of controls and event listeners.
 *   **`ScoringSystem` (`src/game/ScoringSystem.js`)**: Simple system to track strokes per hole and total strokes for the course.
 *   **`HoleCompletionManager` (`src/managers/HoleCompletionManager.js`)**: Central handler for the `BALL_IN_HOLE` event. Triggers effects, sound, UI messages, updates score, sets state, and initiates hole transitions or game completion.
 

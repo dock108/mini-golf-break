@@ -45,8 +45,6 @@
 - [x] Implement multi-hole (2 holes) course structure
 - [x] Add final scorecard display
 
-## Current Focus
-
 ### Phase 6: Polish and Optimization
 - [x] Implement CSG for hole/hazard geometry cutouts
 - [x] Fix Z-fighting issues on green/hazards
@@ -56,6 +54,8 @@
 - [x] Adjust physics for realism (proportions, hole rim)
 - [x] Fix hole visual glitches (cup interior)
 - [x] Implement input guards (prevent hitting moving ball)
+- [x] Enhance camera positioning for improved gameplay view
+- [x] Improve camera control with user adjustment detection
 - [ ] Add level-of-detail (LOD) for complex objects
 - [ ] Optimize render loop for battery efficiency
 - [ ] Implement asset preloading

@@ -12,8 +12,8 @@ export class CameraController {
         this.scene = game.scene;
         this.renderer = null;
         
-        // Setup camera and controls
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // Setup camera and controls with a narrower FOV for better course visibility
+        this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
         this.controls = null;
         
         // Game references
@@ -27,6 +27,9 @@ export class CameraController {
         this.isInitialized = false;
         
         this.isTransitioning = false;
+        this._isRepositioning = false; // Flag to track camera repositioning
+        this._userAdjustedCamera = false; // Flag to track if user manually adjusted camera
+        this._lastManualControlTime = 0; // Track when user last manually adjusted camera
     }
     
     /**
@@ -111,6 +114,9 @@ export class CameraController {
             console.log('[CameraController.setupEventListeners] Subscribing to BALL_CREATED...');
             this.eventSubscriptions.push(this.game.eventManager.subscribe(EventTypes.BALL_CREATED, this.handleBallCreated, this));
             
+            console.log('[CameraController.setupEventListeners] Subscribing to BALL_HIT...');
+            this.eventSubscriptions.push(this.game.eventManager.subscribe(EventTypes.BALL_HIT, this.handleBallHit, this));
+            
             console.log('[CameraController.setupEventListeners] Finished.');
         } catch (error) {
              console.error('[CameraController.setupEventListeners] Failed:', error);
@@ -144,6 +150,16 @@ export class CameraController {
     handleBallCreated(event) {
         // Update the ball reference
         this.ball = event.get('ball');
+    }
+    
+    /**
+     * Handle ball hit event - reset camera adjustment flag when ball is hit
+     * @param {GameEvent} event - The ball hit event
+     */
+    handleBallHit(event) {
+        // Reset user adjustment flag when ball is hit, so camera follows the shot
+        this._userAdjustedCamera = false;
+        console.log('[CameraController.handleBallHit] Ball hit, resetting camera adjustment flag');
     }
     
     /**
@@ -243,37 +259,69 @@ export class CameraController {
         // Calculate midpoint between tee and hole
         const midpoint = new THREE.Vector3().addVectors(startPosition, holePosition).multiplyScalar(0.5);
         
-        // Temporarily adjust controls to allow overhead view
+        // Temporarily adjust controls to allow more flexible camera placement
         let originalMaxPolarAngle = Math.PI / 2;
         if (this.controls) {
             originalMaxPolarAngle = this.controls.maxPolarAngle;
-            this.controls.maxPolarAngle = Math.PI; // Allow looking straight down
+            this.controls.maxPolarAngle = Math.PI; // Allow full rotation for initial positioning
         }
 
-        // --- NEW: Calculate height based on diagonal fit ---
+        // --- Calculate course dimensions ---
         const width = Math.abs(startPosition.x - holePosition.x);
         const length = Math.abs(startPosition.z - holePosition.z);
         const diagonal = Math.sqrt(width * width + length * length);
-
+        
+        // --- Calculate viewing parameters ---
         // Camera properties
         const fovYRad = THREE.MathUtils.degToRad(this.camera.fov);
         
-        // Calculate height needed to fit the diagonal vertically (simplest approach)
-        // Add a small epsilon to prevent division by zero if diagonal is zero
-        const requiredHeight = (diagonal / 2) / Math.tan(fovYRad / 2) + 0.01;
+        // Increased height for a more pulled-back, overhead view
+        const minHeight = 12.0; // Significantly increased minimum height
+        const baseHeight = Math.max((diagonal * 1.0), minHeight); // Further increased height multiplier
         
-        // Add more padding to ensure comfortable view
-        const cameraHeight = requiredHeight * 1.2; // Use 20% padding
-
-        // Position camera directly above the midpoint using the calculated height
-        this.camera.position.set(midpoint.x, cameraHeight, midpoint.z);
+        // Calculate direction from tee to hole
+        const courseDirection = new THREE.Vector3().subVectors(holePosition, startPosition).normalize();
         
-        // Look straight down at the midpoint
-        this.camera.lookAt(midpoint);
+        // Pull camera back much further and higher to see the entire hole
+        // Use increased offset to ensure there's room to pull back on the ball
+        const cameraOffset = new THREE.Vector3(
+            -courseDirection.z * 0.6, // Increased perpendicular component for more sideview
+            baseHeight,                // Much higher elevation
+            courseDirection.x * 0.6    // Increased perpendicular component for more sideview
+        ).normalize().multiplyScalar(diagonal * 1.2); // Increased scale for a more pulled-back view
         
-        // Update orbit controls target to the midpoint and update controls state
+        // Shift the weighted midpoint further back from the ball to see more space behind it
+        const weightToStart = 0.65; // Increased from 0.55 to 0.65 (more weight to start position)
+        const weightedMidpoint = new THREE.Vector3().lerpVectors(
+            midpoint,
+            startPosition,
+            weightToStart
+        );
+        
+        // Add extra space behind the ball to ensure room for aiming
+        const behindBallDirection = new THREE.Vector3().subVectors(startPosition, holePosition).normalize();
+        const behindBallOffset = behindBallDirection.multiplyScalar(diagonal * 0.2); // Add space behind ball
+        const adjustedMidpoint = weightedMidpoint.clone().add(behindBallOffset);
+        
+        // Calculate final camera position
+        const cameraPosition = adjustedMidpoint.clone().add(cameraOffset);
+        
+        // Set camera position
+        this.camera.position.copy(cameraPosition);
+        
+        // Look at a point that ensures we can see the entire hole
+        // Center more between the midpoint and start position to ensure ball aiming space is visible
+        const lookAtPoint = new THREE.Vector3().lerpVectors(
+            midpoint,
+            startPosition,
+            0.2 // 20% weight toward start position - ensures we see most of the hole
+        );
+        
+        this.camera.lookAt(lookAtPoint);
+        
+        // Update orbit controls target
         if (this.controls) {
-            this.controls.target.copy(midpoint);
+            this.controls.target.copy(lookAtPoint);
             this.controls.update(); // Apply the new position/target
             
             // Restore original angle limit AFTER update
@@ -302,10 +350,10 @@ export class CameraController {
         // Get the ball's position
         const ballPosition = ball.mesh.position.clone();
         
-        // During transition, follow the ball more closely
+        // During transition, always follow the ball regardless of user adjustment
         if (this.isTransitioning) {
-            // Position camera slightly above and behind ball
-            const cameraPosition = ballPosition.clone().add(new THREE.Vector3(2, 4, 2));
+            // Position camera slightly above and behind ball with high angle
+            const cameraPosition = ballPosition.clone().add(new THREE.Vector3(1, 8, 3));
             this.camera.position.lerp(cameraPosition, 0.1);
             this.camera.lookAt(ballPosition);
             
@@ -316,8 +364,12 @@ export class CameraController {
             return;
         }
         
-        // Only follow the ball if it's moving
+        // Always reset user adjustment flag when ball is moving
+        // This ensures that after a shot, the camera starts following again
         if (this.game.stateManager && this.game.stateManager.isBallInMotion()) {
+            // Reset the user adjustment flag when ball starts moving
+            this._userAdjustedCamera = false;
+            
             if (this.controls) {
                 // Calculate target point slightly ahead of the ball
                 let targetPosition = ballPosition; // Default to ball position
@@ -336,30 +388,66 @@ export class CameraController {
                 this.controls.update();
             } else {
                 // If no controls, update camera position directly to follow the ball
-                const cameraTargetPosition = ballPosition.clone().add(new THREE.Vector3(10, 10, 10));
+                // Use higher angle for better visibility
+                const cameraTargetPosition = ballPosition.clone().add(new THREE.Vector3(3, 15, 8));
                 this.camera.position.lerp(cameraTargetPosition, 0.1);
                 this.camera.lookAt(ballPosition);
             }
         } else {
-            // When the ball is stopped, calculate target slightly towards the hole
-            if (this.controls && this.course) {
+            // When ball is stopped, only reposition if user hasn't manually adjusted
+            if (!this._userAdjustedCamera && this.controls && this.course) {
                 const holePosition = this.course.getHolePosition();
                 if (holePosition) {
+                    // Get direction from ball to hole
                     const directionToHole = new THREE.Vector3().subVectors(holePosition, ballPosition).normalize();
-                    // Use the same lookAheadDistance for consistency when stopped
-                    const lookAheadDistance = 1.5; 
-                    const targetPosition = ballPosition.clone().add(directionToHole.multiplyScalar(lookAheadDistance));
                     
-                    // Lerp towards the position ahead of the ball (towards the hole)
-                    this.controls.target.lerp(targetPosition, 0.05); // Reduced from 0.1 for smoother aiming follow
+                    // Calculate a target point that keeps both the ball and enough of the hole in view
+                    // Weight less toward the hole to ensure more space is visible behind the ball
+                    const weightedMidpoint = new THREE.Vector3().lerpVectors(
+                        ballPosition,
+                        holePosition,
+                        0.4 // 40% weight toward hole position - ensure more space behind ball
+                    );
+                    
+                    // Gradually shift target toward this point when stopped
+                    this.controls.target.lerp(weightedMidpoint, 0.03); // Slower to avoid jarring changes
+                    
+                    // When ball is stopped, we should also ensure camera is positioned
+                    // to provide good viewing angle for the next shot
+                    if (this.camera && !this._isRepositioning) {
+                        // Calculate distance to hole for scaling
+                        const distanceToHole = ballPosition.distanceTo(holePosition);
+                        
+                        // Calculate reversed direction (from hole to ball)
+                        const reversedDirection = directionToHole.clone().negate().normalize();
+                        
+                        // Calculate ideal position with higher elevation and further back
+                        const idealOffset = new THREE.Vector3(
+                            -directionToHole.z * 0.4, // Perpendicular component for side view 
+                            Math.max(12, distanceToHole * 0.8), // Higher elevation
+                            directionToHole.x * 0.4  // Perpendicular component for side view
+                        ).normalize().multiplyScalar(distanceToHole * 1.2);
+                        
+                        // Position further behind ball for more aiming space
+                        // Use a larger multiplier to pull back more
+                        const behindBallOffset = reversedDirection.multiplyScalar(Math.max(4, distanceToHole * 0.3));
+                        
+                        // Calculate final desired camera position
+                        const desiredCameraPos = ballPosition.clone().add(behindBallOffset).add(idealOffset);
+                        
+                        // Smooth camera movement to this position when ball stops
+                        this.camera.position.lerp(desiredCameraPos, 0.02); // Very slow transition
+                    }
                 } else {
                     // Fallback: If hole position isn't available, target the ball itself
-                    this.controls.target.lerp(ballPosition, 0.1); // Keep fallback slightly faster?
+                    // Only if user hasn't manually adjusted
+                    this.controls.target.lerp(ballPosition, 0.1);
                 }
-            } else if (this.controls) {
-                 // Fallback: If course isn't available, target the ball itself
-                this.controls.target.lerp(ballPosition, 0.1); // Keep fallback slightly faster?
+            } else if (this.controls && !this._userAdjustedCamera) {
+                // Fallback: If course isn't available but user hasn't adjusted camera
+                this.controls.target.lerp(ballPosition, 0.1);
             }
+            // If user has adjusted camera, do nothing - let them control it
         }
     }
     
@@ -449,9 +537,10 @@ export class CameraController {
      */
     setupCamera() {
         try {
-            // Setup camera initial position - higher up for better space view
-            this.camera.position.set(0, 15, 15);
-            this.camera.lookAt(0, 0, 0);
+            // Position camera much higher and further back for a better overview
+            // This ensures more space behind the ball for aiming
+            this.camera.position.set(0, 15, 10); // Higher elevation and further back
+            this.camera.lookAt(0, 0, -5); // Look further ahead to show more of the course
             
             if (this.game.debugManager) {
                 this.game.debugManager.log('Camera setup complete');
@@ -493,6 +582,13 @@ export class CameraController {
             this.controls.panSpeed = 0.8;
             this.controls.screenSpacePanning = true;
 
+            // Add event listeners to detect manual camera adjustments
+            this.controls.addEventListener('start', () => {
+                this._userAdjustedCamera = true;
+                this._lastManualControlTime = Date.now();
+                console.log('[CameraController] User manually adjusted camera');
+            });
+
             if (this.game.debugManager) {
                 this.game.debugManager.log('Controls setup complete');
             }
@@ -510,6 +606,8 @@ export class CameraController {
      */
     setupInitialCameraPosition() {
         console.log('[CameraController] Setting up initial camera position.');
+        // Reset manual adjustment flag
+        this._userAdjustedCamera = false;
         // Now it's safe to position the camera for the initial hole
         this.positionCameraForHole(); 
     }
