@@ -668,6 +668,9 @@ All notable changes to the Mini Golf Break project will be documented in this fi
 - `BaseElement` base class for shared course element logic.
 - `VisualEffectsManager` placeholder.
 - Logging for bunker entry/exit (position-based check in `Ball.update`).
+- Hole 3 added (copy of Hole 2 layout).
+- Water hazard type (`isWaterZone`) created via `HazardFactory`.
+- Water hazard penalty logic (1 stroke + reset to last hit position) implemented in `Ball.update`.
 
 ### Changed
 - Refactored hazard creation out of `HoleEntity` into `HazardFactory`.

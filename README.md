@@ -7,8 +7,9 @@
 *   **3D Graphics:** Clean and simple low-poly aesthetics using Three.js.
 *   **Realistic Physics:** Accurate ball rolling, bouncing, and interactions powered by Cannon-es.
 *   **Intuitive Controls:** Simple click-and-drag aiming and power control.
-*   **Multiple Holes:** Basic course layout with progressively challenging designs.
-*   **Configurable Hazards:** Easily define sand traps and other hazards with various shapes (circles, rectangles, compound shapes like snowmen!) via configuration.
+*   **Multiple Holes:** Basic course layout with progressively challenging designs (currently 3 holes).
+*   **Configurable Hazards:** Easily define sand traps and water hazards with various shapes (circles, rectangles, compound shapes!) via configuration.
+*   **Hazard Penalties:** Water hazards apply a one-stroke penalty and reset the ball to the last hit position.
 *   **Improved Hole Physics:** Ball entry logic considers speed and overlap for more realistic interactions (including high-speed rejections).
 *   **Bunker Effects:** Ball experiences increased drag when rolling through sand traps.
 *   **Custom Hole Layouts:** Supports standard rectangular holes and custom shapes (like L-shapes) using boundary wall definitions.
