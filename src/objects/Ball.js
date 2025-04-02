@@ -40,6 +40,7 @@ export class Ball {
         this.justAppliedHop = false; // Flag to prevent repeated hop impulse
         this.isInBunker = false; // Add flag to track bunker state
         this.lastBunkerLogTime = 0; // Timer for throttling bunker check logs
+        this.lastHitPosition = new THREE.Vector3(); // Store position before hit
         
         // Damping values
         this.defaultLinearDamping = 0.7; // Store the default
@@ -221,7 +222,7 @@ export class Ball {
 
         const otherMatName = otherBody.material?.name || 'unknown';
         if (otherMatName === 'bumper' || otherUserData?.type?.startsWith('wall')) {
-             if (this.game && this.game.audioManager) {
+            if (this.game && this.game.audioManager) {
                 const contactInfo = event.contact; 
                 const impactSpeed = contactInfo.getImpactVelocityAlongNormal();
                 const volume = Math.min(0.8, Math.max(0.1, Math.abs(impactSpeed) / 5.0)); // Use Math.abs
@@ -323,6 +324,10 @@ export class Ball {
             // --- Bunker State Check ---
             this.checkAndUpdateBunkerState();
             // --- End Bunker State Check ---
+
+            // --- Water Hazard Check ---
+            this.checkAndUpdateWaterHazardState();
+            // --- End Water Hazard Check ---
 
             const outOfBoundsThreshold = -50; 
             if (this.body.position.y < outOfBoundsThreshold) {
@@ -433,6 +438,146 @@ export class Ball {
         // If state hasn't changed, do nothing
     }
 
+    /**
+     * Checks if the ball is currently overlapping any water hazard trigger zone
+     * and applies penalty logic if necessary.
+     */
+    checkAndUpdateWaterHazardState() {
+        if (this.isHoleCompleted || !this.game?.course?.currentHole?.bodies) {
+            return; // Don't check if hole complete or context missing
+        }
+
+        const waterTriggers = this.game.course.currentHole.bodies.filter(body => body.userData?.isWaterZone);
+        if (waterTriggers.length === 0) {
+            return; // No water hazards on this hole
+        }
+
+        const ballPos = this.body.position;
+        const ballRadius = this.radius;
+        const overlapThreshold = 0.35; // 35% overlap required for penalty
+
+        for (const trigger of waterTriggers) {
+            if (trigger.shapes.length > 0) {
+                const shape = trigger.shapes[0];
+                const triggerPos = trigger.position;
+                let isOverlapping = false;
+                let overlapDistance = 0;
+
+                if (shape instanceof CANNON.Cylinder) {
+                    const dx = ballPos.x - triggerPos.x;
+                    const dz = ballPos.z - triggerPos.z;
+                    const distSq = dx * dx + dz * dz;
+                    const radius = shape.radiusTop;
+                    if (distSq < radius * radius) { // Check horizontal first
+                         overlapDistance = radius - Math.sqrt(distSq);
+                         isOverlapping = (overlapDistance / (ballRadius * 2)) >= overlapThreshold;
+                    }
+                } else if (shape instanceof CANNON.Box) {
+                    // Basic AABB check for overlap with Box - simplified
+                    const halfExtents = shape.halfExtents;
+                    const dx = Math.abs(ballPos.x - triggerPos.x);
+                    const dz = Math.abs(ballPos.z - triggerPos.z);
+                    // Simplification: check if center is within box + overlap distance
+                    const effectiveHalfX = halfExtents.x + ballRadius * overlapThreshold;
+                    const effectiveHalfZ = halfExtents.z + ballRadius * overlapThreshold;
+                    if (dx < effectiveHalfX && dz < effectiveHalfZ) {
+                         // This is a rough check, not precise overlap percentage
+                         isOverlapping = true; 
+                    }
+                }
+
+                if (isOverlapping) {
+                    console.log("Water penalty applied at hole 3"); // Assuming this logic only runs on hole 3 for now
+                    
+                    // Apply penalty
+                    if (this.game.scoringSystem) {
+                        this.game.scoringSystem.addStroke();
+                    }
+                    
+                    // Reset ball to last hit position
+                    this.resetToLastHitPosition(); 
+                    
+                    // Exit loop after penalty
+                    return; 
+                }
+            }
+        }
+    }
+
+    // Method to store the last hit position
+    storeLastHitPosition() {
+        if (this.body) {
+            this.lastHitPosition.copy(this.body.position);
+             console.log(`[Ball] Stored last hit position: (${this.lastHitPosition.x.toFixed(2)}, ${this.lastHitPosition.y.toFixed(2)}, ${this.lastHitPosition.z.toFixed(2)})`);
+        }
+    }
+
+    // Method to reset the ball to the last hit position
+    resetToLastHitPosition() {
+        if (this.body && this.lastHitPosition) {
+            console.log(`[Ball] Resetting to last hit position: (${this.lastHitPosition.x.toFixed(2)}, ${this.lastHitPosition.y.toFixed(2)}, ${this.lastHitPosition.z.toFixed(2)})`);
+            // Ensure reset position is slightly above ground
+            const resetY = Math.max(this.lastHitPosition.y, this.radius + Ball.START_HEIGHT);
+            this.setPosition(this.lastHitPosition.x, resetY, this.lastHitPosition.z);
+            // Optional: Notify UI or play sound
+             if (this.game.uiManager) {
+                 this.game.uiManager.showMessage("Water Hazard! +1 Stroke", 2000);
+            }
+             if (this.game.audioManager) {
+                 this.game.audioManager.playSound('splash', 0.6); // Assuming a splash sound exists
+             }
+        } else {
+             console.warn('[Ball] Cannot reset to last hit position - position not stored or body missing.');
+             // Fallback: reset to hole start?
+             this.resetPosition(); 
+        }
+    }
+
+    // Modify applyForce to store position *before* applying impulse
+    applyForce(direction, power) {
+        if (!this.body) return;
+
+        // Store position just before hitting
+        this.storeLastHitPosition();
+
+        // Apply impulse (existing logic)
+        const forceMagnitude = power * this.powerMultiplier;
+        const impulse = new CANNON.Vec3(
+            direction.x * forceMagnitude,
+            0, // No vertical impulse from player hit
+            direction.z * forceMagnitude
+        );
+        this.body.wakeUp();
+        this.body.applyImpulse(impulse);
+        this.body.angularVelocity.set(0, 0, 0); // Reset spin
+
+        this.isMoving = true;
+        this.wasStopped = false; 
+
+        // Log event
+        if (this.game.eventManager) {
+             this.game.eventManager.publish(EventTypes.BALL_HIT, { power: power }, this);
+        }
+    }
+
+    // Modify resetPosition to also reset lastHitPosition potentially?
+    resetPosition() {
+        // Reset to current hole's start position
+        if (this.game?.course?.startPosition) {
+             const startPos = this.game.course.startPosition;
+             const resetY = Math.max(startPos.y, this.radius + Ball.START_HEIGHT);
+             this.setPosition(startPos.x, resetY, startPos.z);
+             // this.lastHitPosition.copy(startPos); // REMOVED - Don't overwrite last hit pos on general reset
+             console.log('[Ball] Reset position to hole start.');
+        } else {
+             console.warn('[Ball] Cannot reset position - hole start position unknown.');
+             this.setPosition(0, this.radius + Ball.START_HEIGHT, 0); // Fallback reset
+             // this.lastHitPosition.set(0, this.radius + Ball.START_HEIGHT, 0); // REMOVED - Fallback reset should NOT affect last hit position
+        }
+        this.isHoleCompleted = false; // Ensure hole completion flag is reset
+        this.isInBunker = false; // Ensure bunker flag is reset
+    }
+    
     setPosition(x, y, z) {
         // Make sure y is at least ball radius + start height to avoid ground penetration
         const safeY = Math.max(y, this.radius + Ball.START_HEIGHT);

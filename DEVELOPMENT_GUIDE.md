@@ -302,9 +302,9 @@ Hazards are defined within the `hazards` array in a hole's configuration object 
 ```javascript
 hazards: [
   {
-    type: 'sand', // Currently only 'sand' is fully implemented
+    type: 'sand' | 'water', // Specify hazard type
     shape: 'circle', // 'circle', 'rectangle', or 'compound'
-    depth: 0.25,     // Depth of the hazard depression
+    depth: 0.25,     // Depth of the hazard depression / trigger height
     position: new THREE.Vector3(x, y, z), // World position for simple shapes OR base position for compound
     size: { radius: R } // For shape: 'circle'
     // size: { width: W, length: L } // For shape: 'rectangle'
@@ -330,8 +330,9 @@ hazards: [
 
 1.  Add a `case` to the `switch` statement in `HazardFactory.createHazard`.
 2.  Implement a `createYourHazardType(world, group, config, visualGreenY)` function.
-3.  This function should create the necessary visual meshes (using `THREE`) and physics trigger bodies (`CANNON.Body` with `isTrigger: true`) based on the `config`.
+3.  This function should create the necessary visual meshes (using `THREE`) and physics trigger bodies (`CANNON.Body` with `isTrigger: true`, using appropriate `userData` like `{ isWaterZone: true }`) based on the `config`.
 4.  Remember to add the created meshes/bodies to the `group` and `world` respectively, and return them.
+5.  Implement any specific interaction logic (like penalties) within the `Ball.js` update method (e.g., `checkAndUpdateWaterHazardState`).
 
 ### Defining Custom Hole Shapes (e.g., L-Shape)
 
@@ -353,7 +354,9 @@ For non-rectangular holes, use the `boundaryWalls` configuration instead of rely
 
 *   **Ball Physics:** Properties like mass, radius, damping, and restitution are primarily set in `src/objects/Ball.js` constructor and `createPhysicsBody` method.
 *   **World Settings:** Gravity, solver iterations, and contact materials are configured in `src/physics/PhysicsWorld.js`.
-*   **Hazard Effects:** Damping changes for bunkers are applied in `Ball.checkAndUpdateBunkerState`.
+*   **Hazard Effects:**
+    * Damping changes for bunkers are applied in `Ball.checkAndUpdateBunkerState`.
+    * Water hazard penalties (stroke + reset) are applied in `Ball.checkAndUpdateWaterHazardState` based on overlap percentage.
 *   **Hole Entry:** Speed and overlap thresholds (`HOLE_ENTRY_MAX_SPEED`, `HOLE_ENTRY_OVERLAP_REQUIRED`) are defined as constants at the top of `src/objects/Ball.js`.
 
 ### Debugging

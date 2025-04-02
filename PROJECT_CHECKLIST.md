@@ -130,8 +130,9 @@
     - [x] Supports sand type
     - [x] Supports circle, rectangle shapes
     - [x] Supports compound shapes (e.g., Snowman bunker)
-    - [ ] Supports water type (placeholder exists)
+    - [x] Supports water type
 - [x] Bunker physics effect (increased damping)
+- [x] Water hazard penalty logic (stroke + reset to last hit)
 - [x] Custom hole shapes via boundary walls (e.g., L-shape)
 
 ## Physics Enhancements
@@ -166,6 +167,7 @@
 - [ ] Hole completion sound
 - [x] Particle effect for hole rejection (placeholder function exists)
 - [ ] Particle effect for hole completion
+- [x] Sound effect for water splash (placeholder sound exists)
 
 ## Code Quality & Structure
 

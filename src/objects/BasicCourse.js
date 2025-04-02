@@ -65,6 +65,34 @@ export class BasicCourse extends CoursesManager {
                         ]
                     }
                 ]
+            },
+            // Hole 3 - L-Shape using Boundary Walls - RENAME to Copy of Hole 2 w/ Water
+            {
+                index: 2,
+                // Copy layout details from Hole 2 (Dogleg Right)
+                holePosition: new THREE.Vector3(4, 0, 8), // Same as Hole 2
+                startPosition: new THREE.Vector3(0, 0, -8), // Same as Hole 2
+                courseWidth: 6, // Same as Hole 2
+                courseLength: 24, // Same as Hole 2
+                par: 4, // Same as Hole 2
+                description: "Dogleg Right with Water Hazard", // Updated description
+                // Remove boundaryWalls if they exist from previous attempts
+                // boundaryWalls: [ ... ], 
+                hazards: [
+                    {
+                        // Change type to 'water', keep shape and position
+                        type: 'water', 
+                        shape: 'compound',
+                        // Depth might be less relevant for water visuals/triggers, but keep for consistency?
+                        depth: 0.15, // Shallow water depth visual/trigger height
+                        position: new THREE.Vector3(2, 0, 0), // Same position as Hole 2 bunker
+                        subShapes: [
+                            // Same snowman shape
+                            { position: { x: 0, z: 1.2 }, radius: 1.0 },
+                            { position: { x: 0, z: -0.8 }, radius: 1.5 }
+                        ]
+                    }
+                ]
             }
         ];
         
