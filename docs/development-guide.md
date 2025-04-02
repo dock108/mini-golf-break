@@ -159,13 +159,20 @@ this.eventSubscriptions.push(
 ## Testing and Debugging
 
 ### Debug Mode
-Press 'd' during gameplay to enable:
-- Axes helpers
-- Grid visualization
-- Physics body wireframes (if enabled in `DebugManager`)
-- Extra console logging
+Press 'd' during gameplay to toggle debug mode, which:
+- Shows axes helpers and grid
+- Displays additional console logs
+- Shows a wireframe view of the scene (TBD, might conflict with physics debugger)
 
-### Common Issues & Checks
+## Physics Debug Renderer
+
+The project includes `CannonDebugRenderer` (from `src/utils/CannonDebugRenderer.js`) to help visualize the Cannon.js physics bodies directly within the Three.js scene. This is invaluable for debugging collision issues.
+
+- **Integration**: It's initialized in `Game.js` and updated in `GameLoopManager.js` before rendering.
+- **Appearance**: It draws green wireframes around all active physics bodies.
+- **Usage**: If collisions aren't working as expected (e.g., ball falling through floor), enable this view to see if the physics bodies are correctly positioned, oriented, and shaped.
+
+## Common Issues & Checks
 1.  **Physics**: Collision groups/masks, material properties, body positioning, sleep states, damping.
 2.  **Visuals**: Camera position/target, object positions, Z-fighting (CSG helps), material transparency/opacity, lighting/shadows.
 3.  **State/Flow**: Event publishing/subscriptions, manager initialization order (`Game.init`), state transitions (`StateManager`), race conditions during transitions.
@@ -176,4 +183,52 @@ Press 'd' during gameplay to enable:
 - [Physics Parameters](../technical/physics-parameters.md)
 - [Event System Documentation](../technical/event-system.md)
 - [Error Handling Guidelines](../technical/error-handling-guidelines.md)
-- [CHANGELOG.md](../../CHANGELOG.md) 
+- [CHANGELOG.md](../../CHANGELOG.md)
+
+## Physics Implementation
+
+The physics system uses Cannon-es with these key configurations:
+
+1.  **Course Geometry**:
+    -   Currently uses a `CANNON.Trimesh` generated directly from the visual `THREE.PlaneGeometry` for the floor due to issues with CSG-generated geometry. (**Update:** Collision now works with this simple Trimesh).
+    -   Floor bodies **must** be set to `type: CANNON.Body.STATIC` to prevent them falling. (**Update:** Added in `HoleEntity.js`).
+    -   Hole cutouts using CSG are temporarily disabled pending investigation into geometry/rotation issues.
+
+2.  **Collision Groups**:
+    -   Group 1: Course terrain (Floor/Green - Currently Trimesh)
+    -   Group 2: Holes and triggers (Hole Cup Body)
+    -   Group 4: Ball
+    -   Group 8: Triggers (e.g., Bunker Zones)
+
+3.  **Material Properties**:
+    -   `groundMaterial`: High friction (0.8) for realistic rolling. Used for the green Trimesh.
+    -   `ballMaterial`: For the player's ball.
+    -   `bumperMaterial`: Low friction (0.1) with high restitution (0.8). Used for course walls.
+    -   `holeRimMaterial`: Similar friction to ground, very low restitution (0.01) to dampen rim bounces. (Currently unused as hole edge is part of Trimesh).
+    -   `holeCupMaterial`: Used for the physical hole cup body below the green.
+    -   Other materials like `sandMaterial`.
+
+4.  **Ball Physics**:
+    -   Mass: 0.45 kg (lighter for better control)
+    -   Linear Damping: 0.6 (air resistance and rolling friction)
+    -   Angular Damping: 0.6 (spin resistance)
+    -   Sleep Speed Limit: 0.15 (stops calculating physics below this speed)
+    -   Sleep Time Limit: 0.2 seconds (time before sleeping when slow)
+    -   Additional damping (0.9) applied during very slow movement
+    -   Radius: 0.2 units
+
+5.  **Hole Physics**:
+    -   Physical `holeCupBody` (Cylinder) positioned slightly below the green surface (`visualGreenY`) using `holeCupMaterial`. (**Update:** Y-position corrected in `HoleEntity.js`).
+    -   Hole detection in `Ball.js` checks horizontal distance and if `ball.body.position.y < 0`. (**Update:** Logic fixed and re-enabled).
+    -   Visual hole uses `PlaneGeometry`.
+
+6.  **Physics World Settings**:
+    -   Gravity: -9.81 m/s² (Earth gravity)
+    -   Solver Iterations: 30 (for stability)
+    -   Solver Tolerance: 0.0001 (high precision)
+    -   Fixed Timestep: 1/60 second
+    -   Max Substeps: 8 (for smooth motion)
+
+## Animated Scorecard Implementation
+
+The scorecard implementation is currently a static overlay. Future updates will include an animated scorecard that shows the player's progress and highlights their best shots.

@@ -2,6 +2,21 @@
 
 All notable changes to the Mini Golf Break project will be documented in this file.
 
+## [Unreleased] - Physics Debugging & Fixes
+
+### Debugging & Fixes
+- Integrated `CannonDebugRenderer` to visualize physics bodies in the Three.js scene.
+- Diagnosed ball falling through floor issue:
+  - Confirmed initial ball position was correct relative to floor physics mesh.
+  - Identified that the `Trimesh` physics body for the floor (generated via CSG) was incorrectly oriented/causing collision failure.
+  - Confirmed `CANNON.Body` for static geometry like the floor must have `type: CANNON.Body.STATIC` set.
+- Implemented temporary workaround using a `CANNON.Trimesh` generated directly from the visual `THREE.PlaneGeometry` for the floor, which resolves the collision issue.
+- Corrected the Y-position calculation for the physical `holeCupBody` to align properly below the green surface.
+- Fixed and re-enabled hole completion logic in `Ball.js` (calculating `distanceToHoleCenter`).
+
+### Documentation
+- Updated README, Project Checklist, and Development Guide to reflect the addition of physics debugging and the current state of floor physics (using simple Trimesh).
+
 ## [0.9.3] - Camera System Overhaul
 
 ### Enhanced Camera Positioning

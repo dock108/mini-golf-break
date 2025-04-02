@@ -363,80 +363,71 @@ export class PhysicsManager {
     }
     
     /**
-     * Reset the physics world to its initial state
-     * This removes all bodies and reinitializes the world
-     * @returns {Promise} A promise that resolves when the world is reset and initialized
+     * Resets the entire physics world. Clears all bodies and recreates the world.
+     * @returns {Promise<PhysicsWorld>} The new physics world instance.
      */
     async resetWorld() {
         console.log('[PhysicsManager] Starting physics world reset');
-        
-        // Set resetting flag
         this.isResetting = true;
-        
+
         try {
-            // Store existing materials before cleanup
-            const oldMaterials = {
-                defaultMaterial: this.world?.defaultMaterial,
-                groundMaterial: this.world?.groundMaterial,
-                ballMaterial: this.world?.ballMaterial,
-                bumperMaterial: this.world?.bumperMaterial,
-                sandMaterial: this.world?.sandMaterial
-            };
-            
             // Log current state
             console.log('[PhysicsManager] Current world state:', {
                 hasWorld: !!this.world,
                 hasCannonWorld: !!this.cannonWorld,
-                bodyCount: this.cannonWorld?.bodies?.length || 0
+                bodyCount: this.cannonWorld?.bodies?.length ?? 'N/A'
             });
-            
-            // Clean up existing world
+
+            // Cleanup existing world if it exists
             if (this.world) {
-                // Remove event listeners
+                this.world.cleanup();
+            }
+            if (this.cannonWorld) {
+                // Remove event listeners properly
                 if (this.boundCollisionStart) {
                     this.cannonWorld.removeEventListener('beginContact', this.boundCollisionStart);
                 }
                 if (this.boundCollisionEnd) {
                     this.cannonWorld.removeEventListener('endContact', this.boundCollisionEnd);
                 }
+                // Clear bodies (optional, cleanup should handle this)
+                while(this.cannonWorld.bodies.length > 0) {
+                    this.cannonWorld.removeBody(this.cannonWorld.bodies[0]);
+                }
             }
-            
-            // Create new PhysicsWorld instance
-            this.world = new PhysicsWorld();
-            this.cannonWorld = this.world.world;
-            
-            // Verify the new world was created properly
-            if (!this.world || !this.cannonWorld || !(this.cannonWorld instanceof CANNON.World)) {
-                throw new Error('Failed to create new physics world');
-            }
-            
-            // Restore materials
-            if (oldMaterials.defaultMaterial) this.world.defaultMaterial = oldMaterials.defaultMaterial;
-            if (oldMaterials.groundMaterial) this.world.groundMaterial = oldMaterials.groundMaterial;
-            if (oldMaterials.ballMaterial) this.world.ballMaterial = oldMaterials.ballMaterial;
-            if (oldMaterials.bumperMaterial) this.world.bumperMaterial = oldMaterials.bumperMaterial;
-            if (oldMaterials.sandMaterial) this.world.sandMaterial = oldMaterials.sandMaterial;
-            
-            // Re-create contact materials using the restored materials
-            this.world.createContactMaterials();
+            this.world = null;
+            this.cannonWorld = null;
 
-            // Set up collision events for new world
+            // Create a new world
+            this.world = new PhysicsWorld(); // Re-create the wrapper
+            this.cannonWorld = this.world.world; // Get the new inner CANNON.World
+
+            // Set up collision event handling for the new world
             this.setupCollisionEvents();
             
-            // Log new world state
+            // Re-acquire ball body reference (might be null if ball is recreated later)
+            this.ballBody = this.game.ballManager?.ball?.body;
+            if (this.ballBody) {
+                this.setupContactListeners();
+            } else {
+                console.warn('[PhysicsManager] Ball body not available after world reset. Listeners not set up.');
+            }
+            
             console.log('[PhysicsManager] New world created:', {
                 hasWorld: !!this.world,
                 hasCannonWorld: !!this.cannonWorld,
-                hasStep: !!this.cannonWorld?.step,
-                bodyCount: this.cannonWorld?.bodies?.length || 0
+                hasStep: !!this.world.step,
+                bodyCount: this.cannonWorld?.bodies?.length
             });
-            
-            return this.world;
+
+            return this.world; // Return the new world instance
+
         } catch (error) {
-            console.error('[PhysicsManager] Error resetting physics world:', error);
-            throw error;
+            console.error('[PhysicsManager] Error during physics world reset:', error);
+            return null; // Return null on error
         } finally {
             this.isResetting = false;
+            console.log('[PhysicsManager] Finished physics world reset');
         }
     }
 

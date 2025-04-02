@@ -153,14 +153,25 @@ export class BallManager {
         // Ensure 'this.game' is passed correctly here
         this.ball = new Ball(this.game.scene, physicsWorld, this.game);
 
+        // --- Assign currentHolePosition to the Ball instance --- 
+        const holePosition = this.game.course ? this.game.course.getHolePosition() : null;
+        if (holePosition) {
+            this.ball.currentHolePosition = holePosition;
+            console.log(`[BallManager] Assigned currentHolePosition to Ball:`, holePosition);
+        } else {
+            console.error('[BallManager] Failed to get hole position to assign to ball!');
+            // Optionally assign a default or nullify?
+            this.ball.currentHolePosition = null;
+        }
+        // --- End Assignment --- 
+
         // Position the ball at the start position, slightly elevated
         const finalPosition = new THREE.Vector3(startPosition.x, startPosition.y + Ball.START_HEIGHT, startPosition.z);
         this.ball.setPosition(finalPosition.x, finalPosition.y, finalPosition.z);
 
         console.log('[BallManager] Ball positioned at:', this.ball.mesh.position);
 
-        // Get hole position for distance calculation (optional, for logging)
-        const holePosition = this.game.course ? this.game.course.getHolePosition() : null;
+        // Log distance (already exists)
         if (holePosition) {
             const distance = this.ball.mesh.position.distanceTo(holePosition);
             console.log(`[BallManager] Ball created at distance ${distance.toFixed(2)} from hole`);

@@ -17,7 +17,7 @@
 - [x] Implement physics time stepping synchronized with render loop
 - [x] Create collision groups for different game elements
 - [x] Configure contact materials for realistic interactions
-- [x] Set up physics debugging visualization
+- [x] Set up physics debugging visualization (using CannonDebugRenderer)
 
 ### Phase 3: Game Objects
 - [x] Implement Ball class with mesh creation and physics body
@@ -46,7 +46,7 @@
 - [x] Add final scorecard display
 
 ### Phase 6: Polish and Optimization
-- [x] Implement CSG for hole/hazard geometry cutouts
+- [ ] Implement CSG for hole/hazard geometry cutouts (Currently using simple Trimesh due to CSG issues)
 - [x] Fix Z-fighting issues on green/hazards
 - [x] Simplify final scorecard UI
 - [x] Remove dead/unused code (events, states, components, methods)

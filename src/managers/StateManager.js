@@ -179,12 +179,33 @@ export class StateManager {
         this.state.holeCompleted = false;
         this.state.ballInMotion = false;
         
+        // Reset current strokes in scoring system
+        if (this.game.scoringSystem) {
+            this.game.scoringSystem.resetCurrentStrokes();
+            console.log('[StateManager] Called scoringSystem.resetCurrentStrokes()');
+        } else {
+            console.warn('[StateManager] ScoringSystem not found, cannot reset strokes.');
+        }
+        
         // Set game state to aiming
         this.setGameState(GameState.AIMING);
         
         // Log the transition
         console.log(`[StateManager] Reset for hole ${this.state.currentHoleNumber} of ${totalHoles}`);
         
+        // --- Publish HOLE_STARTED event --- 
+        if (this.game.eventManager) {
+            this.game.eventManager.publish(
+                EventTypes.HOLE_STARTED,
+                { holeNumber: this.state.currentHoleNumber }, // Pass the updated hole number
+                this
+            );
+            console.log(`[StateManager] Published HOLE_STARTED event for hole ${this.state.currentHoleNumber}`);
+        } else {
+            console.error('[StateManager] EventManager not found, cannot publish HOLE_STARTED.');
+        }
+        // --- End Publish --- 
+
         return this;
     }
     

@@ -57,9 +57,22 @@ export class HoleTransitionManager {
             await this.unloadCurrentHole();
             
             // Initialize physics world through the physics manager's reset method
+            let newWorld = null;
             if (this.game.physicsManager?.resetWorld) {
-                await this.game.physicsManager.resetWorld();
-                console.log('[HoleTransitionManager] Physics world reset for new hole');
+                newWorld = await this.game.physicsManager.resetWorld(); // Capture the returned world
+                if (newWorld && newWorld.world) {
+                    console.log('[HoleTransitionManager] Physics world reset for new hole');
+                    // Update the CannonDebugRenderer with the new world instance
+                    if (this.game.cannonDebugRenderer) {
+                        // Explicitly clear old meshes from the renderer
+                        this.game.cannonDebugRenderer.clearMeshes(); 
+                        this.game.cannonDebugRenderer.world = newWorld.world; // Assign the inner CANNON.World
+                        console.log('[HoleTransitionManager] Updated CannonDebugRenderer world reference.');
+                    }
+                } else {
+                    console.error('[HoleTransitionManager] Physics world reset failed or returned invalid world.');
+                    return false; // Stop transition if physics reset failed
+                }
             } else {
                 console.warn('[HoleTransitionManager] Physics world reset not available');
             }
