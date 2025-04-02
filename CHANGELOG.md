@@ -658,6 +658,59 @@ All notable changes to the Mini Golf Break project will be documented in this fi
 - Added console logging for tracking ball velocity and position
 - Created utility functions for streamlined development
 
+## [Unreleased] - YYYY-MM-DD
+
+### Added
+- Configurable hazard system (`HazardFactory`) supporting circle, rectangle, and compound shapes (e.g., snowman bunker).
+- Support for custom hole shapes (e.g., L-shape) via `boundaryWalls` configuration in `HoleEntity`.
+- Physics effect for bunkers (increased linear damping).
+- Visual hop effect for high-speed hole rejections.
+- `BaseElement` base class for shared course element logic.
+- `VisualEffectsManager` placeholder.
+- Logging for bunker entry/exit (position-based check in `Ball.update`).
+
+### Changed
+- Refactored hazard creation out of `HoleEntity` into `HazardFactory`.
+- Refactored wall creation in `HoleEntity` to support `boundaryWalls`.
+- Updated hole entry logic in `Ball.update` to use speed and overlap thresholds.
+- Moved bunker state detection from `Ball.onCollide` to `Ball.update` using geometric checks.
+- Increased `HOLE_ENTRY_MAX_SPEED` allowance.
+- Consolidated documentation regarding new features.
+
+### Fixed
+- Corrected `CANNON.Cylinder` orientation for hole and bunker triggers.
+- Ensured `HoleEntity.init()` is called correctly instead of `create()`.
+- Resolved duplicate `BaseElement` declaration error.
+- Resolved `BaseElement` module not found error.
+- Improved reliability of bunker exit detection.
+- Fixed CSG subtraction for green surface to include hazard cutouts.
+
+### Removed
+- Old `createBunkerTriggers` and `createBunkerVisuals` methods from `HoleEntity`.
+- Redundant `BaseElement` definition from `HoleEntity`.
+- Collision-based bunker detection logic from `Ball.onCollide`.
+
+## [0.2.0] - 2025-04-01
+
+### Added
+- Physics debug renderer (`CannonDebugRenderer`), toggled with 'd' key.
+- 3D cylindrical interior visual for the hole cup in `HoleEntity.createHoleVisual`.
+- Metallic rim visual around the hole cup using `THREE.RingGeometry`.
+- Visual green surface now uses `CSG` subtraction to properly cut out the hole shape, preventing visual overlap.
+- Basic `CHANGELOG.md` file.
+
+### Changed
+- Updated `HoleEntity.createGreenSurfaceAndPhysics` to use `CSG` for visual mesh, keeping physics as a simple `Trimesh` plane.
+- Refined `HoleEntity` constructor and component creation logic.
+- Updated documentation (`README.md`, `PROJECT_CHECKLIST.md`, `DEVELOPMENT_GUIDE.md`) to reflect recent changes.
+
+### Fixed
+- Addressed issues where hole interior/rim were obscured or positioned incorrectly by reverting visual green to `PlaneGeometry` during debugging and then correctly implementing CSG subtraction.
+
+### Removed
+- Old `HoleCompletionManager.checkBallInHole()` method and related calls.
+- Commented-out old hole detection logic in `PhysicsWorld.setupCollideListener`.
+
 ## [Pending Features]
 - Mobile-specific touch controls optimization
 - Additional course designs

@@ -104,4 +104,89 @@
 - [ ] Implement progressive web app
 - [ ] Add offline support
 - [ ] Optimize performance for mobile
-- [ ] Add mobile notifications 
+- [ ] Add mobile notifications
+
+## Core Gameplay Mechanics
+
+- [x] Basic 3D scene setup (Three.js)
+- [x] Physics world setup (Cannon-es)
+- [x] Golf ball object (visual + physics)
+- [x] Simple hole object (visual + physics trigger)
+- [x] Basic green surface (visual + physics)
+- [x] Course walls (visual + physics)
+- [x] Click-and-drag input for aiming and power
+- [x] Ball movement based on input impulse
+- [x] Basic collision handling (ball-wall, ball-ground)
+- [x] Hole completion detection (basic trigger)
+- [x] Stroke counting
+
+## Course Features
+
+- [x] Multiple hole support
+- [x] Configuration-driven course layout (`BasicCourse.js`)
+- [x] Hole par values
+- [x] ~~Sand trap hazards (visual + physics effect)~~ -> Replaced by flexible hazard system
+- [x] Configurable hazard system (`HazardFactory.js`)
+    - [x] Supports sand type
+    - [x] Supports circle, rectangle shapes
+    - [x] Supports compound shapes (e.g., Snowman bunker)
+    - [ ] Supports water type (placeholder exists)
+- [x] Bunker physics effect (increased damping)
+- [x] Custom hole shapes via boundary walls (e.g., L-shape)
+
+## Physics Enhancements
+
+- [x] Ball rolling friction/damping
+- [x] Ball bouncing (restitution)
+- [x] More realistic hole entry logic (speed/overlap based)
+- [x] Visual feedback for high-speed hole rejection (hop)
+- [x] Physics debug renderer toggle
+
+## UI/UX
+
+- [x] Basic HUD (Hole #, Stroke #, Total Score)
+- [x] Aiming indicator line
+- [ ] Hole completion message/animation
+- [ ] Next hole transition controls/indicator
+- [ ] Main menu screen
+- [ ] Game over / Final score screen
+- [ ] Responsive UI design
+
+## Visuals & Audio
+
+- [x] Basic lighting (ambient, directional)
+- [x] Ball material/appearance
+- [x] Hole rim visual
+- [x] Hole interior visual (dark cylinder)
+- [x] Green surface appearance (with CSG cutouts for hole/hazards)
+- [x] Wall appearance
+- [ ] Skybox/Background improvements (currently stars)
+- [x] Ball hit sound
+- [x] Ball-wall collision sound (`bump`)
+- [ ] Hole completion sound
+- [x] Particle effect for hole rejection (placeholder function exists)
+- [ ] Particle effect for hole completion
+
+## Code Quality & Structure
+
+- [x] Modular project structure (managers, objects, etc.)
+- [x] Base classes (`BaseElement`)
+- [x] Consistent coding style
+- [x] Comments and documentation (ongoing)
+- [x] Event-driven architecture (basic events)
+- [x] Dependency management (package.json)
+- [x] Build process (Webpack)
+- [x] Code linting/formatting setup
+
+## Future Ideas / Nice-to-Haves
+
+- [ ] More hazard types (water, rough, obstacles)
+- [ ] Sloped greens / complex terrain
+- [ ] Moving obstacles
+- [ ] Wind simulation
+- [ ] Different ball types/skins
+- [ ] Camera control options (manual orbit/zoom)
+- [ ] Multiplayer mode
+- [ ] Course editor
+- [ ] Improved particle effects / animations
+- [ ] Controller support 
