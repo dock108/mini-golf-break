@@ -5,6 +5,7 @@ import { ScoringSystem } from '../game/ScoringSystem';
 // import { TeeMarker } from '../objects/TeeMarker'; // Removed: Using HoleEntity's start marker
 import { BasicCourse } from '../objects/BasicCourse';
 import { EventTypes } from '../events/EventTypes';
+import { CannonDebugRenderer } from '../utils/CannonDebugRenderer';
 
 // Import managers
 import { StateManager } from '../managers/StateManager';
@@ -47,6 +48,8 @@ export class Game {
         this.holeTransitionManager = new HoleTransitionManager(this);
         this.holeCompletionManager = new HoleCompletionManager(this);
         this.gameLoopManager = new GameLoopManager(this);
+        
+        this.cannonDebugRenderer = null;
         
         // Create camera controller
         this.cameraController = new CameraController(this);
@@ -114,16 +117,18 @@ export class Game {
             this.physicsManager.init();
             this.audioManager.init();
             
+            // Initialize the CannonDebugRenderer after physics manager
+            this.cannonDebugRenderer = new CannonDebugRenderer(this.scene, this.physicsManager.cannonWorld);
+            
             console.log('[Game.init] Awaiting createCourse...');
             await this.createCourse();
             console.log('[Game.init] createCourse finished.');
             
             // Fourth tier - Game object managers that depend on physics and scene
-            this.hazardManager.init();
-            this.holeStateManager.init();
-            this.holeTransitionManager.init();
             this.holeCompletionManager.init();
             this.ballManager.init();
+            this.hazardManager.init();
+            this.visualEffectsManager.init();
             
             // Setup lights
             this.setupLights();

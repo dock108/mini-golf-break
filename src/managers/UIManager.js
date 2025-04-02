@@ -260,8 +260,10 @@ export class UIManager {
     updateScore() {
         if (!this.scoreElement) return;
         
-        const holeNumber = this.game.course ? this.game.course.getCurrentHoleNumber() : 1;
-        const currentStrokes = this.game.scoringSystem.getCurrentStrokes();
+        // Use StateManager for current hole number
+        const holeNumber = this.game.stateManager ? this.game.stateManager.getCurrentHoleNumber() : 1;
+        // Use ScoringSystem for current hole strokes
+        const currentStrokes = this.game.scoringSystem ? this.game.scoringSystem.getCurrentStrokes() : 0;
         
         this.scoreElement.textContent = `Hole: ${holeNumber} | Stroke: ${currentStrokes}`;
     }

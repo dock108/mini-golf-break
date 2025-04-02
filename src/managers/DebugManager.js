@@ -185,17 +185,26 @@ export class DebugManager {
         if (this.enabled) {
             this.setupDebugHelpers();
             
-            // Enable physics debug if needed
+            // REMOVE: Physics debug rendering is handled in GameLoopManager based on this.enabled
+            /*
             if (DEBUG_CONFIG.showPhysicsDebug && this.game.physicsManager) {
                 this.game.physicsManager.enableDebug(this.game.scene);
             }
+            */
         } else {
             this.removeDebugHelpers();
             
-            // Disable physics debug
+            // Explicitly clear CannonDebugRenderer meshes when turning off debug mode
+            if (this.game.cannonDebugRenderer) {
+                this.game.cannonDebugRenderer.clearMeshes();
+            }
+
+            // REMOVE: Physics debug rendering is handled in GameLoopManager based on this.enabled
+            /*
             if (this.game.physicsManager) {
                 this.game.physicsManager.disableDebug();
             }
+            */
         }
         
         return this;
@@ -238,10 +247,12 @@ export class DebugManager {
             }
         }
         
-        // Enable physics debug visualization if configured
+        // REMOVE: Physics debug rendering is handled in GameLoopManager based on this.enabled
+        /*
         if (DEBUG_CONFIG.showPhysicsDebug && this.game.physicsManager) {
             this.game.physicsManager.enableDebug(this.game.scene);
         }
+        */
         
         return this;
     }
@@ -263,10 +274,12 @@ export class DebugManager {
         // Clear the array
         this.debugObjects = [];
         
-        // Disable physics debug visualization
+        // REMOVE: Physics debug rendering is handled in GameLoopManager based on this.enabled
+        /*
         if (this.game.physicsManager) {
             this.game.physicsManager.disableDebug();
         }
+        */
         
         return this;
     }

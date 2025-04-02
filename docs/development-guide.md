@@ -127,12 +127,13 @@ this.eventSubscriptions.push(
 *   **`InputController` (`src/controls/InputController.js`)**: Handles mouse/touch input for aiming/hitting, calculates shot vector, manages aim/power indicators, disables/enables input based on game state.
 *   **`CameraController` (`src/controls/CameraController.js`)**:
     *   **Core**: Manages the Three.js `PerspectiveCamera`.
-    *   **Positioning**: Aims to position the camera behind the ball, looking towards the hole, at an appropriate height and distance.
-    *   **Following**: Smoothly follows the ball when it's in motion (subscribes to `BALL_MOVED`).
+    *   **Intelligent Positioning**: Positions the camera with a high overhead angle that shows the entire hole and ensures enough space behind the ball for pull-back aiming.
+    *   **User Adjustments**: Detects when the player manually adjusts the camera and respects these adjustments until the ball moves.
+    *   **Smart Following**: Smoothly follows the ball when in motion, with look-ahead based on velocity for better course visibility.
     *   **Transitions**: Handles smooth camera movements between holes (triggered by `HOLE_STARTED`).
-    *   **Orbit Controls**: Integrates `OrbitControls` for free look when the player is not aiming/hitting, disabling them during input drag.
-    *   **Initialization**: Sets initial camera position based on the first hole's layout.
-    *   **Cleanup**: Disposes of controls.
+    *   **Orbit Controls**: Integrates `OrbitControls` for free look when the player is not aiming/hitting.
+    *   **Initialization**: Sets initial camera position with a high angle and good framing of the course.
+    *   **Cleanup**: Disposes of controls and event listeners.
 *   **`ScoringSystem` (`src/game/ScoringSystem.js`)**: Simple system to track strokes per hole and total strokes for the course.
 *   **`HoleCompletionManager` (`src/managers/HoleCompletionManager.js`)**: Central handler for the `BALL_IN_HOLE` event. Triggers effects, sound, UI messages, updates score, sets state, and initiates hole transitions or game completion.
 
@@ -158,13 +159,20 @@ this.eventSubscriptions.push(
 ## Testing and Debugging
 
 ### Debug Mode
-Press 'd' during gameplay to enable:
-- Axes helpers
-- Grid visualization
-- Physics body wireframes (if enabled in `DebugManager`)
-- Extra console logging
+Press 'd' during gameplay to toggle debug mode, which:
+- Shows axes helpers and grid
+- Displays additional console logs
+- Shows a wireframe view of the scene (TBD, might conflict with physics debugger)
 
-### Common Issues & Checks
+## Physics Debug Renderer
+
+The project includes `CannonDebugRenderer` (from `src/utils/CannonDebugRenderer.js`) to help visualize the Cannon.js physics bodies directly within the Three.js scene. This is invaluable for debugging collision issues.
+
+- **Integration**: It's initialized in `Game.js` and updated in `GameLoopManager.js` before rendering.
+- **Appearance**: It draws green wireframes around all active physics bodies.
+- **Usage**: If collisions aren't working as expected (e.g., ball falling through floor), enable this view to see if the physics bodies are correctly positioned, oriented, and shaped.
+
+## Common Issues & Checks
 1.  **Physics**: Collision groups/masks, material properties, body positioning, sleep states, damping.
 2.  **Visuals**: Camera position/target, object positions, Z-fighting (CSG helps), material transparency/opacity, lighting/shadows.
 3.  **State/Flow**: Event publishing/subscriptions, manager initialization order (`Game.init`), state transitions (`StateManager`), race conditions during transitions.
@@ -175,4 +183,63 @@ Press 'd' during gameplay to enable:
 - [Physics Parameters](../technical/physics-parameters.md)
 - [Event System Documentation](../technical/event-system.md)
 - [Error Handling Guidelines](../technical/error-handling-guidelines.md)
-- [CHANGELOG.md](../../CHANGELOG.md) 
+- [CHANGELOG.md](../../CHANGELOG.md)
+
+## Physics Implementation
+
+The physics system uses Cannon-es with these key configurations:
+
+1.  **Course Geometry**:
+    -   Uses a `CANNON.Trimesh` generated directly from the visual `THREE.PlaneGeometry` for the floor.
+    -   Floor bodies are correctly set to `type: CANNON.Body.STATIC`.
+    -   Hole cutouts using CSG are currently disabled; hole interaction is handled separately.
+
+2.  **Hole Interaction**:
+    -   Hole detection logic resides entirely within `Ball.update()`.
+    -   It checks if the ball's center is within a defined `holePhysicalRadius` of the hole's center position (`ball.currentHolePosition`).
+    -   If close enough, it checks the ball's speed against `ball.holeEntryThresholds.MAX_SAFE_SPEED`.
+    -   If faster than safe speed, it calculates the impact angle using `calculateImpactAngle` and checks for lip-out conditions using `isLipOut` (based on speed/angle thresholds).
+    -   A static cylinder trigger body (`holeTriggerBody`) exists at the hole location but is currently unused for detection logic (could be removed or used for visual debugging).
+    -   The physical `holeCupBody` has been removed.
+
+3.  **Collision Groups**:
+    -   Group 1: Course terrain (Floor/Green - Trimesh)
+    -   Group 2: Holes and triggers (Unused holeTrigger body)
+    -   Group 4: Ball
+    -   Group 8: Triggers (e.g., Bunker Zones)
+
+4.  **Material Properties**:
+    -   `groundMaterial`: High friction (0.8) for realistic rolling. Used for the green Trimesh.
+    -   `ballMaterial`: For the player's ball.
+    -   `bumperMaterial`: Low friction (0.1) with high restitution (0.8). Used for course walls.
+    -   `holeRimMaterial`: Currently unused.
+    -   `holeCupMaterial`: Removed.
+
+5.  **Ball Physics**:
+    -   Mass: 0.45 kg
+    -   Linear/Angular Damping: 0.6
+    -   Sleep parameters configured.
+    -   Hole entry thresholds defined in constructor (`MAX_SAFE_SPEED`, `LIP_OUT_SPEED_THRESHOLD`, `LIP_OUT_ANGLE_THRESHOLD`).
+
+6.  **Physics World Settings**:
+    -   Gravity: -9.81 m/s²
+    -   Solver Iterations: 30
+    -   Fixed Timestep: 1/60s
+
+## Debug Mode
+
+Press 'd' during gameplay to toggle debug mode, which shows:
+- Axes helpers and grid helpers (via `DebugManager`).
+- Physics wireframes (via `CannonDebugRenderer`, controlled by `DebugManager` state).
+
+## Physics Debug Renderer
+
+The project includes `CannonDebugRenderer` (`src/utils/CannonDebugRenderer.js`) to visualize Cannon.js physics bodies.
+
+- **Integration**: Initialized in `Game.js`. Its `update()` is called conditionally in `GameLoopManager.js` based on `DebugManager.enabled`. Its meshes are cleared by `DebugManager.toggleDebugMode()` when disabling debug mode. Its `world` reference is updated by `HoleTransitionManager` after physics world reset.
+- **Appearance**: Draws green wireframes around active physics bodies.
+- **Usage**: Essential for debugging collision issues, body placement, and orientation.
+
+## Animated Scorecard Implementation
+
+The scorecard implementation is currently a static overlay. Future updates will include an animated scorecard that shows the player's progress and highlights their best shots.

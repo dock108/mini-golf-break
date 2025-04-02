@@ -248,40 +248,47 @@ export class PhysicsWorld {
                 console.log(`[PhysicsWorld] Ignoring collision during grace period (${timeSinceCreation}ms < ${this.collisionGracePeriod}ms)`);
                 return;
             }
-            
-            // Check what objects are colliding
-            const bodyA = event.bodyA;
-            const bodyB = event.bodyB;
-            
-            // Log collision details
-            if (bodyA && bodyA.userData && bodyB && bodyB.userData) {
-                console.log(`[PhysicsWorld] Collision detected between: 
-                    - Type A: ${bodyA.userData.type || 'unknown'}, Index: ${bodyA.userData.holeIndex !== undefined ? bodyA.userData.holeIndex : 'N/A'}
-                    - Type B: ${bodyB.userData.type || 'unknown'}, Index: ${bodyB.userData.holeIndex !== undefined ? bodyB.userData.holeIndex : 'N/A'}`);
+            // Call the original callback if grace period passed
+            if (callback) {
+                callback(event);
             }
-            
-            // Call the original callback
-            callback(event);
         };
-        
-        this._collisionCallback = wrappedCallback;
-        if (this.world) {
-            this.world.addEventListener('beginContact', wrappedCallback);
+
+        // Remove existing listener if it exists
+        if (this._collisionCallback) {
+            this.world.removeEventListener('beginContact', this._collisionCallback);
         }
+        
+        // Store the wrapped callback internally
+        this._collisionCallback = wrappedCallback;
+        
+        // Add the new wrapped listener
+        this.world.addEventListener('beginContact', this._collisionCallback);
+    }
+    
+    /**
+     * Clean up resources used by the PhysicsWorld.
+     * Currently just logs, but could be used to remove listeners or objects.
+     */
+    cleanup() {
+        console.log('[PhysicsWorld] Cleanup called.');
+        // Remove collide listener if it exists
+        if (this._collideCallback) {
+            this.world?.removeEventListener('collide', this._collideCallback);
+            this._collideCallback = null;
+        }
+        // Add any other necessary cleanup for PhysicsWorld itself
     }
     
     addBody(body) {
-        if (body) {
-            // Ensure body is awake when added
-            if (typeof body.wakeUp === 'function') {
-                body.wakeUp();
-            }
-            
-            // Add to world
+        if (this.world && body) {
+            // Log body details before adding
+            console.log(`[PhysicsWorld] Adding body: ` + 
+                `ID=${body.id}, Type=${body.type}, Mass=${body.mass}, ` +
+                `ShapeType=${body.shapes[0]?.type}, MaterialID=${body.material?.id}, ` +
+                `UserData=${JSON.stringify(body.userData)}`
+            );
             this.world.addBody(body);
-            
-            // Log body addition
-            console.log(`[PhysicsWorld] Added body of type: ${body.userData ? body.userData.type : 'unknown'}`);
         }
     }
     

@@ -131,6 +131,13 @@ export class GameLoopManager {
             }
         }
         
+        // 1.6 Update CannonDebugRenderer - must be after physics update
+        // Only update if the main debug mode AND the cannon renderer exist
+        if (this.game.debugManager?.enabled && this.game.cannonDebugRenderer) {
+            // Optional: Add performance tracking if needed
+            this.game.cannonDebugRenderer.update();
+        }
+        
         // 2. Render the scene with updated positions
         if (this.game.performanceManager) {
             this.game.performanceManager.startTimer('render');

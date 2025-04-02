@@ -2,6 +2,62 @@
 
 All notable changes to the Mini Golf Break project will be documented in this file.
 
+## [Unreleased] - Physics Debugging & Fixes
+
+### Debugging & Fixes
+- Integrated `CannonDebugRenderer` to visualize physics bodies in the Three.js scene.
+- Diagnosed ball falling through floor issue:
+  - Confirmed initial ball position was correct relative to floor physics mesh.
+  - Identified that the `Trimesh` physics body for the floor (generated via CSG) was incorrectly oriented/causing collision failure.
+  - Confirmed `CANNON.Body` for static geometry like the floor must have `type: CANNON.Body.STATIC` set.
+- Implemented temporary workaround using a `CANNON.Trimesh` generated directly from the visual `THREE.PlaneGeometry` for the floor, which resolves the collision issue.
+- Corrected the Y-position calculation for the physical `holeCupBody` to align properly below the green surface.
+- Fixed and re-enabled hole completion logic in `Ball.js` (calculating `distanceToHoleCenter`).
+- Refactored hole detection logic:
+  - Removed old physical `holeCupBody` and reliance on `PhysicsWorld` collision listener.
+  - Implemented hole detection based on proximity, speed, and impact angle within `Ball.update()`.
+  - Added physics utility functions (`calculateImpactAngle`, `isLipOut`) in `src/physics/utils.js`.
+  - Defined configurable thresholds in `Ball.js` for tuning hole entry/lip-out behavior.
+  - Added `currentHolePosition` property to `Ball` and ensured it's set correctly by `BallManager`.
+- Fixed UI display for current hole number and current strokes:
+  - Modified `UIManager.updateScore` to use `StateManager` for hole number.
+  - Added `currentHoleStrokes` tracking and `resetCurrentStrokes` method to `ScoringSystem`.
+  - Ensured `StateManager.resetForNextHole` calls `resetCurrentStrokes` and publishes `HOLE_STARTED` event.
+- Fixed `CannonDebugRenderer` behavior:
+  - Ensured it updates correctly after hole transitions by updating its `world` reference in `HoleTransitionManager`.
+  - Ensured it toggles on/off correctly with the 'd' key by calling `clearMeshes` in `DebugManager`.
+  - Added `clearMeshes` method to `CannonDebugRenderer`.
+- Fixed `PhysicsManager.resetWorld` error by adding a `cleanup` method to `PhysicsWorld`.
+- Removed redundant hole checking logic from `HoleCompletionManager`.
+
+### Documentation
+- Updated README, Project Checklist, and Development Guide to reflect the addition of physics debugging and the current state of floor physics (using simple Trimesh).
+- Updated Development Guide physics section to detail the new hole detection logic in `Ball.update`.
+- Updated Changelog with recent physics, UI, and debug fixes.
+
+## [0.9.3] - Camera System Overhaul
+
+### Enhanced Camera Positioning
+- Completely redesigned camera positioning algorithm for better gameplay visibility
+- Implemented much higher camera angle with proper framing of the entire hole
+- Added extra space behind the ball to ensure adequate room for pull-back aiming
+- Significantly increased camera height to provide a better course overview
+- Adjusted camera position weighting to better center both the ball and hole
+
+### Camera Behavior Improvements
+- Added user camera adjustment detection to respect manual camera positioning
+- Implemented smart camera reset only when the ball is hit or moving
+- Added transition detection to ensure smooth camera behavior between states
+- Enhanced camera target calculation for better hole visibility during gameplay
+- Increased camera stability with improved parameter tuning
+
+### Technical Improvements
+- Refactored CameraController.js with cleaner positioning calculations
+- Optimized camera position updates for smoother transitions
+- Added explicit user adjustment tracking with the OrbitControls 'start' event
+- Fixed camera repositioning logic to prevent jarring camera movements
+- Improved camera height calculations based on course dimensions
+
 ## [0.9.2] - Camera & Physics Refinements
 
 ### Camera System Improvements
@@ -601,6 +657,59 @@ All notable changes to the Mini Golf Break project will be documented in this fi
 - Implemented debug visualization of physics bodies
 - Added console logging for tracking ball velocity and position
 - Created utility functions for streamlined development
+
+## [Unreleased] - YYYY-MM-DD
+
+### Added
+- Configurable hazard system (`HazardFactory`) supporting circle, rectangle, and compound shapes (e.g., snowman bunker).
+- Support for custom hole shapes (e.g., L-shape) via `boundaryWalls` configuration in `HoleEntity`.
+- Physics effect for bunkers (increased linear damping).
+- Visual hop effect for high-speed hole rejections.
+- `BaseElement` base class for shared course element logic.
+- `VisualEffectsManager` placeholder.
+- Logging for bunker entry/exit (position-based check in `Ball.update`).
+
+### Changed
+- Refactored hazard creation out of `HoleEntity` into `HazardFactory`.
+- Refactored wall creation in `HoleEntity` to support `boundaryWalls`.
+- Updated hole entry logic in `Ball.update` to use speed and overlap thresholds.
+- Moved bunker state detection from `Ball.onCollide` to `Ball.update` using geometric checks.
+- Increased `HOLE_ENTRY_MAX_SPEED` allowance.
+- Consolidated documentation regarding new features.
+
+### Fixed
+- Corrected `CANNON.Cylinder` orientation for hole and bunker triggers.
+- Ensured `HoleEntity.init()` is called correctly instead of `create()`.
+- Resolved duplicate `BaseElement` declaration error.
+- Resolved `BaseElement` module not found error.
+- Improved reliability of bunker exit detection.
+- Fixed CSG subtraction for green surface to include hazard cutouts.
+
+### Removed
+- Old `createBunkerTriggers` and `createBunkerVisuals` methods from `HoleEntity`.
+- Redundant `BaseElement` definition from `HoleEntity`.
+- Collision-based bunker detection logic from `Ball.onCollide`.
+
+## [0.2.0] - 2025-04-01
+
+### Added
+- Physics debug renderer (`CannonDebugRenderer`), toggled with 'd' key.
+- 3D cylindrical interior visual for the hole cup in `HoleEntity.createHoleVisual`.
+- Metallic rim visual around the hole cup using `THREE.RingGeometry`.
+- Visual green surface now uses `CSG` subtraction to properly cut out the hole shape, preventing visual overlap.
+- Basic `CHANGELOG.md` file.
+
+### Changed
+- Updated `HoleEntity.createGreenSurfaceAndPhysics` to use `CSG` for visual mesh, keeping physics as a simple `Trimesh` plane.
+- Refined `HoleEntity` constructor and component creation logic.
+- Updated documentation (`README.md`, `PROJECT_CHECKLIST.md`, `DEVELOPMENT_GUIDE.md`) to reflect recent changes.
+
+### Fixed
+- Addressed issues where hole interior/rim were obscured or positioned incorrectly by reverting visual green to `PlaneGeometry` during debugging and then correctly implementing CSG subtraction.
+
+### Removed
+- Old `HoleCompletionManager.checkBallInHole()` method and related calls.
+- Commented-out old hole detection logic in `PhysicsWorld.setupCollideListener`.
 
 ## [Pending Features]
 - Mobile-specific touch controls optimization
