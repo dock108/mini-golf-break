@@ -190,44 +190,55 @@ The project includes `CannonDebugRenderer` (from `src/utils/CannonDebugRenderer.
 The physics system uses Cannon-es with these key configurations:
 
 1.  **Course Geometry**:
-    -   Currently uses a `CANNON.Trimesh` generated directly from the visual `THREE.PlaneGeometry` for the floor due to issues with CSG-generated geometry. (**Update:** Collision now works with this simple Trimesh).
-    -   Floor bodies **must** be set to `type: CANNON.Body.STATIC` to prevent them falling. (**Update:** Added in `HoleEntity.js`).
-    -   Hole cutouts using CSG are temporarily disabled pending investigation into geometry/rotation issues.
+    -   Uses a `CANNON.Trimesh` generated directly from the visual `THREE.PlaneGeometry` for the floor.
+    -   Floor bodies are correctly set to `type: CANNON.Body.STATIC`.
+    -   Hole cutouts using CSG are currently disabled; hole interaction is handled separately.
 
-2.  **Collision Groups**:
-    -   Group 1: Course terrain (Floor/Green - Currently Trimesh)
-    -   Group 2: Holes and triggers (Hole Cup Body)
+2.  **Hole Interaction**:
+    -   Hole detection logic resides entirely within `Ball.update()`.
+    -   It checks if the ball's center is within a defined `holePhysicalRadius` of the hole's center position (`ball.currentHolePosition`).
+    -   If close enough, it checks the ball's speed against `ball.holeEntryThresholds.MAX_SAFE_SPEED`.
+    -   If faster than safe speed, it calculates the impact angle using `calculateImpactAngle` and checks for lip-out conditions using `isLipOut` (based on speed/angle thresholds).
+    -   A static cylinder trigger body (`holeTriggerBody`) exists at the hole location but is currently unused for detection logic (could be removed or used for visual debugging).
+    -   The physical `holeCupBody` has been removed.
+
+3.  **Collision Groups**:
+    -   Group 1: Course terrain (Floor/Green - Trimesh)
+    -   Group 2: Holes and triggers (Unused holeTrigger body)
     -   Group 4: Ball
     -   Group 8: Triggers (e.g., Bunker Zones)
 
-3.  **Material Properties**:
+4.  **Material Properties**:
     -   `groundMaterial`: High friction (0.8) for realistic rolling. Used for the green Trimesh.
     -   `ballMaterial`: For the player's ball.
     -   `bumperMaterial`: Low friction (0.1) with high restitution (0.8). Used for course walls.
-    -   `holeRimMaterial`: Similar friction to ground, very low restitution (0.01) to dampen rim bounces. (Currently unused as hole edge is part of Trimesh).
-    -   `holeCupMaterial`: Used for the physical hole cup body below the green.
-    -   Other materials like `sandMaterial`.
+    -   `holeRimMaterial`: Currently unused.
+    -   `holeCupMaterial`: Removed.
 
-4.  **Ball Physics**:
-    -   Mass: 0.45 kg (lighter for better control)
-    -   Linear Damping: 0.6 (air resistance and rolling friction)
-    -   Angular Damping: 0.6 (spin resistance)
-    -   Sleep Speed Limit: 0.15 (stops calculating physics below this speed)
-    -   Sleep Time Limit: 0.2 seconds (time before sleeping when slow)
-    -   Additional damping (0.9) applied during very slow movement
-    -   Radius: 0.2 units
-
-5.  **Hole Physics**:
-    -   Physical `holeCupBody` (Cylinder) positioned slightly below the green surface (`visualGreenY`) using `holeCupMaterial`. (**Update:** Y-position corrected in `HoleEntity.js`).
-    -   Hole detection in `Ball.js` checks horizontal distance and if `ball.body.position.y < 0`. (**Update:** Logic fixed and re-enabled).
-    -   Visual hole uses `PlaneGeometry`.
+5.  **Ball Physics**:
+    -   Mass: 0.45 kg
+    -   Linear/Angular Damping: 0.6
+    -   Sleep parameters configured.
+    -   Hole entry thresholds defined in constructor (`MAX_SAFE_SPEED`, `LIP_OUT_SPEED_THRESHOLD`, `LIP_OUT_ANGLE_THRESHOLD`).
 
 6.  **Physics World Settings**:
-    -   Gravity: -9.81 m/s² (Earth gravity)
-    -   Solver Iterations: 30 (for stability)
-    -   Solver Tolerance: 0.0001 (high precision)
-    -   Fixed Timestep: 1/60 second
-    -   Max Substeps: 8 (for smooth motion)
+    -   Gravity: -9.81 m/s²
+    -   Solver Iterations: 30
+    -   Fixed Timestep: 1/60s
+
+## Debug Mode
+
+Press 'd' during gameplay to toggle debug mode, which shows:
+- Axes helpers and grid helpers (via `DebugManager`).
+- Physics wireframes (via `CannonDebugRenderer`, controlled by `DebugManager` state).
+
+## Physics Debug Renderer
+
+The project includes `CannonDebugRenderer` (`src/utils/CannonDebugRenderer.js`) to visualize Cannon.js physics bodies.
+
+- **Integration**: Initialized in `Game.js`. Its `update()` is called conditionally in `GameLoopManager.js` based on `DebugManager.enabled`. Its meshes are cleared by `DebugManager.toggleDebugMode()` when disabling debug mode. Its `world` reference is updated by `HoleTransitionManager` after physics world reset.
+- **Appearance**: Draws green wireframes around active physics bodies.
+- **Usage**: Essential for debugging collision issues, body placement, and orientation.
 
 ## Animated Scorecard Implementation
 

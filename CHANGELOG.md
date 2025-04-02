@@ -13,9 +13,27 @@ All notable changes to the Mini Golf Break project will be documented in this fi
 - Implemented temporary workaround using a `CANNON.Trimesh` generated directly from the visual `THREE.PlaneGeometry` for the floor, which resolves the collision issue.
 - Corrected the Y-position calculation for the physical `holeCupBody` to align properly below the green surface.
 - Fixed and re-enabled hole completion logic in `Ball.js` (calculating `distanceToHoleCenter`).
+- Refactored hole detection logic:
+  - Removed old physical `holeCupBody` and reliance on `PhysicsWorld` collision listener.
+  - Implemented hole detection based on proximity, speed, and impact angle within `Ball.update()`.
+  - Added physics utility functions (`calculateImpactAngle`, `isLipOut`) in `src/physics/utils.js`.
+  - Defined configurable thresholds in `Ball.js` for tuning hole entry/lip-out behavior.
+  - Added `currentHolePosition` property to `Ball` and ensured it's set correctly by `BallManager`.
+- Fixed UI display for current hole number and current strokes:
+  - Modified `UIManager.updateScore` to use `StateManager` for hole number.
+  - Added `currentHoleStrokes` tracking and `resetCurrentStrokes` method to `ScoringSystem`.
+  - Ensured `StateManager.resetForNextHole` calls `resetCurrentStrokes` and publishes `HOLE_STARTED` event.
+- Fixed `CannonDebugRenderer` behavior:
+  - Ensured it updates correctly after hole transitions by updating its `world` reference in `HoleTransitionManager`.
+  - Ensured it toggles on/off correctly with the 'd' key by calling `clearMeshes` in `DebugManager`.
+  - Added `clearMeshes` method to `CannonDebugRenderer`.
+- Fixed `PhysicsManager.resetWorld` error by adding a `cleanup` method to `PhysicsWorld`.
+- Removed redundant hole checking logic from `HoleCompletionManager`.
 
 ### Documentation
 - Updated README, Project Checklist, and Development Guide to reflect the addition of physics debugging and the current state of floor physics (using simple Trimesh).
+- Updated Development Guide physics section to detail the new hole detection logic in `Ball.update`.
+- Updated Changelog with recent physics, UI, and debug fixes.
 
 ## [0.9.3] - Camera System Overhaul
 

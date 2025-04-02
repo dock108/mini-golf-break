@@ -9,8 +9,8 @@ A minimalist mini-golf experience built for quick relaxation breaks. Navigate yo
 - **Intelligent Camera**: Camera provides a clear high-angle starting view, looks slightly ahead of the ball, and follows smoothly.
 - **Quick Gameplay Sessions**: Each hole is designed for 1-2 minutes of focused play—perfect for a mental break
 - **Drag-and-Release Controls**: Simple, intuitive controls that mimic pulling back and releasing a pool cue
-- **Realistic Physics**: Powered by Cannon-es physics engine with finely-tuned parameters (including realistic ball/hole proportions and dampened hole rims).
-- **Physics Debug Visualization**: Optional wireframe view of physics bodies for debugging collisions (using CannonDebugRenderer).
+- **Realistic Physics**: Powered by Cannon-es physics engine. Features speed and angle-based hole entry logic for realistic interactions and lip-outs.
+- **Physics Debug Visualization**: Optional wireframe view of physics bodies for debugging collisions (using CannonDebugRenderer), toggled with 'd' key.
 - **Visual Feedback**: Holes fade out and disappear when completed, with satisfying animations
 - **Animated Scorecard**: Celebratory scorecard appears after each hole
 - **Sound Effects**: Audio feedback for hitting the ball and completing holes

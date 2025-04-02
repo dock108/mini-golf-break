@@ -17,12 +17,12 @@
 - [x] Implement physics time stepping synchronized with render loop
 - [x] Create collision groups for different game elements
 - [x] Configure contact materials for realistic interactions
-- [x] Set up physics debugging visualization (using CannonDebugRenderer)
+- [x] Set up physics debugging visualization (using CannonDebugRenderer, toggled via DebugManager)
 
 ### Phase 3: Game Objects
 - [x] Implement Ball class with mesh creation and physics body
 - [x] Create Course class for generating the terrain
-- [x] Implement hole objects with collision detection
+- [x] Implement hole objects with collision detection (Moved hole detection logic to Ball.update)
 - [x] Add atmospheric visual elements to environment
 - [x] Create contrasting borders for the fairway
 - [x] Implement particle effects for successful putts
@@ -46,16 +46,16 @@
 - [x] Add final scorecard display
 
 ### Phase 6: Polish and Optimization
-- [ ] Implement CSG for hole/hazard geometry cutouts (Currently using simple Trimesh due to CSG issues)
+- [ ] Implement CSG for hole/hazard geometry cutouts (Currently using simple Trimesh floor)
 - [x] Fix Z-fighting issues on green/hazards
 - [x] Simplify final scorecard UI
-- [x] Remove dead/unused code (events, states, components, methods)
+- [x] Remove dead/unused code (events, states, components, methods, old hole logic)
 - [x] Refine camera behavior (initial view, follow, look-ahead)
-- [x] Adjust physics for realism (proportions, hole rim)
+- [x] Adjust physics for realism (proportions, speed/angle based hole entry, lip-outs)
 - [x] Fix hole visual glitches (cup interior)
 - [x] Implement input guards (prevent hitting moving ball)
 - [x] Enhance camera positioning for improved gameplay view
-- [x] Improve camera control with user adjustment detection
+- [x] Add user camera adjustment detection
 - [ ] Add level-of-detail (LOD) for complex objects
 - [ ] Optimize render loop for battery efficiency
 - [ ] Implement asset preloading

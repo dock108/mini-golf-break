@@ -196,95 +196,102 @@ export class HoleEntity extends BaseElement {
      * Create the visual green surface (simple plane) and the physics body (complex Trimesh from CSG).
      */
     createGreenSurfaceAndPhysics() {
-        console.log('[HoleEntity] Creating visual green plane and CSG physics body...');
+        console.log('[HoleEntity] Creating visual green plane (using CSG) and physics body...');
 
-        // --- 1. Create Visual Green Plane ---
+        // --- 1. Create Visual Green Plane with CSG Hole --- 
         const greenMaterial = new THREE.MeshStandardMaterial({
             color: 0x2ecc71,
-            roughness: 0.8, // Slightly rougher for less reflection
+            roughness: 0.8,
             metalness: 0.1,
-            // side: THREE.DoubleSide // Not needed for PlaneGeometry unless viewed from below
+            // side: THREE.DoubleSide // Usually not needed for CSG results, start with default
         });
 
-        // Use PlaneGeometry for the visual surface
-        const visualGreenGeom = new THREE.PlaneGeometry(
-            this.width, 
-            this.length, 
-            Math.max(1, Math.floor(this.width)), // Segments for potential future displacement/detail
-            Math.max(1, Math.floor(this.length))
-        ); 
+        // --- Base Green Geometry (Thin Box for CSG) ---
+        const greenDepth = 0.01; // Needs some thickness for CSG
+        const baseGreenGeometry = new THREE.BoxGeometry(this.width, greenDepth, this.length);
+        const baseGreenMesh = new THREE.Mesh(baseGreenGeometry);
+        // Position it centered at the desired surface height (its center, not top/bottom face)
+        baseGreenMesh.position.y = this.surfaceHeight; 
+        baseGreenMesh.updateMatrix(); // Important for CSG
+        console.log('[HoleEntity] CSG: Created base green box');
+
+        // --- Hole Cutter Geometry (Cylinder) ---
+        const visualHoleRadius = 0.40; // Match rim inner radius
+        const cutterHeight = greenDepth + 0.1; // Make it taller than the green box
+        const holeCutterGeometry = new THREE.CylinderGeometry(
+            visualHoleRadius, 
+            visualHoleRadius, 
+            cutterHeight, 
+            32
+        );
+        const holeCutterMesh = new THREE.Mesh(holeCutterGeometry);
         
-        const visualGreenMesh = new THREE.Mesh(visualGreenGeom, greenMaterial);
-        visualGreenMesh.rotation.x = -Math.PI / 2; // Rotate flat
-        // Position the plane's center. The physics body origin will need to match this world position.
-        // PlaneGeometry origin is at its center. We place it at the hole's defined surface height.
-        visualGreenMesh.position.y = this.surfaceHeight; 
-        
-        visualGreenMesh.castShadow = false; // Flat plane doesn't need to cast shadow
+        // Position the cutter relative to the HoleEntity center
+        const localHolePos = this.config.holePosition.clone().sub(this.centerPosition);
+        // Align cutter center with green mesh center vertically
+        holeCutterMesh.position.set(localHolePos.x, this.surfaceHeight, localHolePos.z);
+        holeCutterMesh.updateMatrix(); // Important for CSG
+        console.log(`[HoleEntity] CSG: Created hole cutter cylinder at local (${localHolePos.x.toFixed(2)}, ${this.surfaceHeight}, ${localHolePos.z.toFixed(2)})`);
+
+        // --- Perform CSG Subtraction ---
+        console.log('[HoleEntity] CSG: Performing subtraction...');
+        const visualGreenMesh = CSG.subtract(baseGreenMesh, holeCutterMesh);
+        visualGreenMesh.material = greenMaterial; // Apply the material AFTER CSG
+        console.log('[HoleEntity] CSG: Subtraction complete.');
+
+        // The CSG result is already in the correct world orientation relative to the group center
+        // No need to rotate it like a PlaneGeometry
+        // Its position relative to the group is inherited from the baseGreenMesh
+        visualGreenMesh.castShadow = false;
         visualGreenMesh.receiveShadow = true;
         this.group.add(visualGreenMesh);
-        this.meshes.push(visualGreenMesh); // Track visual mesh
-        this.visualGreenY = this.surfaceHeight; // Store Y position for reference
-        console.log(`[HoleEntity] Created visual green plane at y=${this.visualGreenY}`);
+        this.meshes.push(visualGreenMesh); 
+        this.visualGreenY = this.surfaceHeight; // Store the reference surface height
+        console.log(`[HoleEntity] Created visual green plane using CSG with hole at y=${this.visualGreenY}`);
+        // Note: No need to dispose baseGreenMesh/holeCutterMesh geometries/meshes 
+        // as they are intermediate and CSG manages the result.
 
-
-        // --- 2. Create Physics Body (Attempting Trimesh from visualGreenGeom) ---
-        console.log('[HoleEntity] Creating physics body (Trimesh from visualGreenGeom)...');
-        
+        // --- Physics Body (Uses ORIGINAL PlaneGeometry -UNCHANGED) ---
+        console.log('[HoleEntity] Creating physics body (Trimesh from simple PlaneGeometry)...');
+        const physicsPlaneGeom = new THREE.PlaneGeometry(this.width, this.length, 1, 1);
         const physicsGroundMaterial = this.world.groundMaterial;
-        
-        // Ensure the geometry is indexed
-        if (!visualGreenGeom.index) {
-            console.error('[HoleEntity] Visual green geometry is not indexed. Cannot create Trimesh.');
-            return; // Or handle error appropriately
-        }
-        
-        const vertices = visualGreenGeom.attributes.position.array;
-        const indices = visualGreenGeom.index.array;
-        
-        if (!vertices || !indices || vertices.length === 0 || indices.length === 0) {
-            console.error('[HoleEntity] Invalid vertices or indices from visualGreenGeom.');
+        if (!physicsPlaneGeom.index) {
+            console.error('[HoleEntity] Physics plane geometry is not indexed.');
             return;
         }
-        
+        const vertices = physicsPlaneGeom.attributes.position.array;
+        const indices = physicsPlaneGeom.index.array;
+        if (!vertices || !indices || vertices.length === 0 || indices.length === 0) {
+            console.error('[HoleEntity] Invalid vertices or indices for physics Trimesh.');
+            return;
+        }
         const groundShape = new CANNON.Trimesh(vertices, indices);
-        
         const groundBody = new CANNON.Body({
             mass: 0,
             type: CANNON.Body.STATIC,
             material: physicsGroundMaterial,
-            // Shape added after body creation
         });
         groundBody.addShape(groundShape);
-
-        // Position and rotate the Trimesh body to match the visual mesh
         const worldPos = new THREE.Vector3();
         const worldQuat = new THREE.Quaternion();
-        visualGreenMesh.getWorldPosition(worldPos);
-        visualGreenMesh.getWorldQuaternion(worldQuat);
-        groundBody.position.copy(worldPos);
+        // Position/rotate physics body based on the GROUP's transform and surface height
+        this.group.getWorldPosition(worldPos);
+        this.group.getWorldQuaternion(worldQuat);
+        // Adjust position for surface height and rotation
+        groundBody.position.copy(worldPos).y += this.surfaceHeight;
         groundBody.quaternion.copy(worldQuat);
+        // The simple plane needs rotation to lie flat
+        const planeRotation = new CANNON.Quaternion();
+        planeRotation.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+        groundBody.quaternion = groundBody.quaternion.mult(planeRotation);
 
-        console.log(`[HoleEntity] Positioned Trimesh body at world (${groundBody.position.x.toFixed(2)}, ${groundBody.position.y.toFixed(2)}, ${groundBody.position.z.toFixed(2)})`);
-        console.log(`[HoleEntity] Trimesh body Quaternion: (${groundBody.quaternion.x.toFixed(2)}, ${groundBody.quaternion.y.toFixed(2)}, ${groundBody.quaternion.z.toFixed(2)}, ${groundBody.quaternion.w.toFixed(2)})`);
-
+        console.log(`[HoleEntity] Positioned Trimesh physics body at world (${groundBody.position.x.toFixed(2)}, ${groundBody.position.y.toFixed(2)}, ${groundBody.position.z.toFixed(2)})`);
         groundBody.userData = { type: 'green', holeIndex: this.config.index };
         this.world.addBody(groundBody);
         this.bodies.push(groundBody);
-        console.log('[HoleEntity] Created Trimesh physics body from visualGreenGeom');
-
-        /* // --- Simplified CANNON.Plane Code - Temporarily Disabled ---
-        console.log('[HoleEntity] Creating SIMPLIFIED physics body (CANNON.Plane) for debugging...');
-        // ... CANNON.Plane code ...
-        console.log('[HoleEntity] Created simplified Plane physics body');
-        */ // --- End of Disabled Plane Code ---
-        
-        /* // --- Original CSG/Trimesh Code - Temporarily Disabled ---
-        console.log('[HoleEntity] Generating CSG geometry for physics Trimesh...');
-        // ... (rest of the CSG and Trimesh creation code is commented out) ...
-        // physicsGeometry.dispose(); // Geometry would be disposed here if Trimesh was created
-        console.log('[HoleEntity] Created Trimesh green physics body');
-        */ // --- End of Disabled CSG Code ---
+        console.log('[HoleEntity] Created Trimesh physics body from simple PlaneGeometry');
+        physicsPlaneGeom.dispose();
+        // --- End Physics Body Creation ---
     }
     
     /**
@@ -323,33 +330,52 @@ export class HoleEntity extends BaseElement {
     }
 
     /**
-     * Create a simple visual representation for the hole opening.
+     * Create the visual representation of the hole (the dark interior).
      */
-     createHoleVisual() {
+    createHoleVisual() {
+        // Get hole position relative to the HoleEntity group's center
         const localHolePos = this.config.holePosition.clone().sub(this.centerPosition);
-        const visualHoleRadius = 0.40; // Match the inner radius of the rim
+        
+        // Parameters for the interior cylinder
+        const holeInteriorRadius = 0.40; // Match visual rim radius
+        const holeInteriorDepth = 0.25;  // Realistic depth
 
-        // Simple black circle slightly below the green surface
-        const holeVisualGeometry = new THREE.CircleGeometry(visualHoleRadius, 32);
-        const holeVisualMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0x111111, // Dark color for the hole
-            side: THREE.DoubleSide // Visible even if camera goes below slightly
+        // Use CylinderGeometry for the interior
+        // Note: We make it open-ended (last arg = true) so no top/bottom faces are rendered.
+        const interiorGeometry = new THREE.CylinderGeometry(
+            holeInteriorRadius, 
+            holeInteriorRadius, 
+            holeInteriorDepth, 
+            32, // Segments for smoothness
+            1,  // Height segments
+            true // Open-ended
+        );
+
+        // Dark, non-reflective material for the interior walls
+        const interiorMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1a1a1a, // Slightly darker than example
+            roughness: 0.9,
+            metalness: 0.1,
+            side: THREE.DoubleSide // Render inner and outer surfaces (important for open cylinder)
         });
 
-        const holeVisualMesh = new THREE.Mesh(holeVisualGeometry, holeVisualMaterial);
-        holeVisualMesh.rotation.x = -Math.PI / 2; // Lay flat
+        const holeInteriorMesh = new THREE.Mesh(interiorGeometry, interiorMaterial);
 
-        // Position slightly BELOW the visual green surface
-        const holeVisualY = this.visualGreenY - 0.001; // Use stored Y - small offset
-        holeVisualMesh.position.set(localHolePos.x, holeVisualY, localHolePos.z);
-        
-        // No shadows needed for the visual hole
-        holeVisualMesh.castShadow = false;
-        holeVisualMesh.receiveShadow = false; 
+        // Position the cylinder so its top opening is JUST slightly above the green surface level.
+        // Explicitly calculate the target top edge Y, then find the center Y.
+        const slightOffset = 0.01; // Increased offset further 
+        const topEdgeY = this.visualGreenY + slightOffset;
+        const cylinderCenterY = topEdgeY - (holeInteriorDepth / 2);
+        holeInteriorMesh.position.set(localHolePos.x, cylinderCenterY, localHolePos.z);
+        // Cylinder geometry is oriented along Y axis by default, no X rotation needed.
 
-        this.group.add(holeVisualMesh);
-        this.meshes.push(holeVisualMesh); // Track this mesh
-        console.log('[HoleEntity] Created visual hole mesh');
+        // Allow the interior to receive shadows from the rim/ball, but don't cast shadows itself.
+        holeInteriorMesh.castShadow = false;
+        holeInteriorMesh.receiveShadow = true;
+
+        this.group.add(holeInteriorMesh);
+        this.meshes.push(holeInteriorMesh); // Track this mesh
+        console.log('[HoleEntity] Created realistic interior visual for the hole.');
     }
     
     /**
