@@ -3,6 +3,12 @@ import * as CANNON from 'cannon-es';
 // Import the physics utility functions
 import { calculateImpactAngle, isLipOut } from '../physics/utils';
 
+// --- Configuration Constants ---
+const HOLE_ENTRY_OVERLAP_REQUIRED = 0.55; // e.g., 0.55 means 55% of ball diameter must be over the hole
+const HOLE_ENTRY_MAX_SPEED = 3.25;         // Max speed (m/s) for ball to enter the hole (Increased 30%)
+const HOLE_EDGE_RADIUS = 0.40;            // Assumed physical radius of the hole opening
+// --- End Configuration Constants ---
+
 export class Ball {
     // Constants for ball properties
     static START_HEIGHT = 0.2; // Reduced to match green surface height
@@ -31,10 +37,13 @@ export class Ball {
         this.hasBeenHit = false;
         this.isHoleCompleted = false; // Added completion flag
         this.wasStopped = true; // Initialize as stopped
+        this.justAppliedHop = false; // Flag to prevent repeated hop impulse
+        this.isInBunker = false; // Add flag to track bunker state
+        this.lastBunkerLogTime = 0; // Timer for throttling bunker check logs
         
         // Damping values
         this.defaultLinearDamping = 0.7; // Store the default
-        this.bunkerLinearDamping = 0.95; // Higher value for sand effect (Tune this)
+        this.bunkerLinearDamping = 0.98; // Higher value for sand effect (Increased from 0.95)
         
         // Create materials for the ball
         this.defaultMaterial = new THREE.MeshStandardMaterial({ 
@@ -196,34 +205,17 @@ export class Ball {
         
         const otherBody = event.body;
         const otherUserData = otherBody.userData;
+        // let justEnteredBunker = false; // Flag for this event cycle - REMOVED
 
-        // REMOVE Hole Trigger Collision Check block
-        /*
-        if (otherUserData?.type === 'holeTrigger') {
-            if (!this.isHoleCompleted) {
-                console.log(`[Ball.onCollide] Collision with holeTrigger detected.`);
-                const shouldEnterHole = checkHoleEntry(
-                    this.body, 
-                    otherBody, 
-                    this.holeEntryThresholds
-                );
+        // --- Bunker Enter/Exit Check --- REMOVED
+        // Logic moved to update() for continuous state checking
+        // --- End Bunker Check ---
 
-                if (shouldEnterHole) {
-                    console.log(`[Ball.onCollide] checkHoleEntry returned true. Triggering success.`);
-                    this.isHoleCompleted = true; 
-                    this.handleHoleSuccess(); 
-                } else {
-                    console.log(`[Ball.onCollide] checkHoleEntry returned false (lip-out or missed).`);
-                    // Optional: Add lip-out effect (e.g., small impulse)
-                }
-            }
-            return; // Collision handled
+        // --- Existing Other Collision Logic (Walls, Bumpers) --- 
+        // This part requires contact information for sounds etc.
+        if (!event.contact) {
+             return; // Only process physical collisions with contact info below
         }
-        */
-        // --- End REMOVED Hole Trigger Check ---
-
-        // --- Other Collision Logic (Walls, Bumpers) --- 
-        if (!event.contact) return; // Contact info needed for physical collisions
         
         this.body.wakeUp(); // Wake up on physical contact
 
@@ -236,7 +228,7 @@ export class Ball {
                 this.game.audioManager.playSound('bump', volume);
             }
         } 
-        // Add other collision handling (e.g., sand traps) here if needed
+        // Add other collision handling here if needed
     }
     
     /**
@@ -259,35 +251,61 @@ export class Ball {
             
             // --- Check for Hole Entry --- 
             if (this.currentHolePosition && !this.isHoleCompleted) {
-                // Define the physical radius of the hole for entry check
-                const holePhysicalRadius = 0.21; 
+                // Use constants defined at the top of the file
+                const ballRadius = this.radius; // Assumes this.radius is correct (e.g., 0.2 from constructor)
+                
+                // Calculate the effective radius for check based on required overlap
+                const allowedCenterOffsetFromEdge = ballRadius * (1.0 - HOLE_ENTRY_OVERLAP_REQUIRED);
+                const checkRadius = HOLE_EDGE_RADIUS - allowedCenterOffsetFromEdge;
 
                 // Calculate horizontal distance to hole center
                 const dx = this.body.position.x - this.currentHolePosition.x;
                 const dz = this.body.position.z - this.currentHolePosition.z;
                 const distanceFromHoleCenter = Math.sqrt(dx * dx + dz * dz);
                 
-                // Check if ball center is within the hole radius
-                if (distanceFromHoleCenter <= holePhysicalRadius) {
+                // Check if ball center is within the effective check radius
+                if (distanceFromHoleCenter <= checkRadius) {
                     const ballSpeed = this.body.velocity.length();
-                    console.log(`[Ball.update] Near hole: Dist=${distanceFromHoleCenter.toFixed(3)}, Speed=${ballSpeed.toFixed(3)}`);
+                    
+                    console.log(`[Ball.update] Near hole: Dist=${distanceFromHoleCenter.toFixed(3)}, CheckRadius=${checkRadius.toFixed(3)}, Speed=${ballSpeed.toFixed(3)}, MaxSpeed=${HOLE_ENTRY_MAX_SPEED}`);
                     
                     let shouldEnter = false;
-                    // Check for safe entry (slow speed)
-                    if (ballSpeed <= this.holeEntryThresholds.MAX_SAFE_SPEED) {
-                        console.log(`[Ball.update] Hole Entry: Slow speed.`);
+                    // Check speed against threshold constant
+                    if (ballSpeed <= HOLE_ENTRY_MAX_SPEED) {
+                        console.log(`[Ball.update] Hole Entry: Speed OK.`);
                         shouldEnter = true;
                     } else {
-                        // Faster speed, check for lip-out
-                        const angleDeg = calculateImpactAngle(this.body.velocity, this.currentHolePosition, this.body.position);
-                        console.log(`[Ball.update] Hole Check (Fast): Angle=${angleDeg.toFixed(1)}`);
-                        if (!isLipOut(ballSpeed, angleDeg, this.holeEntryThresholds)) {
-                           console.log(`[Ball.update] Hole Entry: Fast but direct.`);
-                           shouldEnter = true; // Fast but not a lip-out
-                        } else {
-                           console.log(`[Ball.update] Lip Out Occurred.`);
-                           // Optional: Add visual/physics effect for lip-out here?
+                         console.log(`[Ball.update] Hole Rejected: Speed too high.`);
+                        // --- Add Lip-Out/High Speed Rejection Effect ---
+                        // Apply hop only once per rejection event
+                        if (this.body && !this.justAppliedHop) {
+                            this.justAppliedHop = true; // Set flag
+                            // Ensure the body is awake to receive impulse
+                            this.body.wakeUp();
+                            // Apply a small upward impulse for a visual hop
+                            const hopImpulseStrength = 2.5; // DRASTICALLY INCREASED STRENGTH
+                            const hopImpulse = new CANNON.Vec3(0, hopImpulseStrength, 0);
+                            const velBefore = this.body.velocity.y;
+                            this.body.applyImpulse(hopImpulse);
+                            const velAfter = this.body.velocity.y;
+                            console.log(`[Ball.update] Applied rejection hop impulse. Vel Y Before: ${velBefore.toFixed(3)}, After: ${velAfter.toFixed(3)}`);
+
+                            // --- Trigger Visual Effect ---
+                            if (this.game && this.game.visualEffectsManager) {
+                                // Convert CANNON.Vec3 to THREE.Vector3 if needed by the manager
+                                const effectPosition = new THREE.Vector3(
+                                    this.body.position.x,
+                                    this.body.position.y,
+                                    this.body.position.z
+                                );
+                                this.game.visualEffectsManager.triggerRejectionEffect(effectPosition);
+                                console.log(`[Ball.update] Triggered rejection visual effect.`);
+                            } else {
+                                console.warn('[Ball.update] VisualEffectsManager not found, cannot trigger rejection effect.');
+                            }
+                            // --- End Trigger Visual Effect ---
                         }
+                        // --- End Effect ---
                     }
                     
                     // Trigger success if conditions met
@@ -295,10 +313,17 @@ export class Ball {
                         this.isHoleCompleted = true;
                         this.handleHoleSuccess();
                     }
+                } else {
+                    // Ball is outside the check radius, reset the hop flag
+                    this.justAppliedHop = false;
                 }
             }
             // --- End Check for Hole Entry ---
             
+            // --- Bunker State Check ---
+            this.checkAndUpdateBunkerState();
+            // --- End Bunker State Check ---
+
             const outOfBoundsThreshold = -50; 
             if (this.body.position.y < outOfBoundsThreshold) {
                 this.handleOutOfBounds();
@@ -306,6 +331,108 @@ export class Ball {
         }
     }
     
+    /**
+     * Checks if the ball is currently inside any bunker trigger zone
+     * and updates the isInBunker state and physics properties accordingly.
+     */
+    checkAndUpdateBunkerState() {
+        if (!this.game || !this.game.course || !this.game.course.currentHole) {
+            return; // Cannot check without course/hole context
+        }
+
+        const currentHole = this.game.course.currentHole;
+        // Assuming currentHole.bodies contains all physics bodies for the hole
+        const bunkerTriggers = currentHole.bodies.filter(body => body.userData?.isBunkerZone);
+
+        if (bunkerTriggers.length === 0) {
+            // If no bunkers on this hole, ensure state is false
+            if (this.isInBunker) {
+                console.log('[Ball.update] Exited bunker zone (no bunkers on hole).');
+                this.isInBunker = false;
+                this.body.linearDamping = this.defaultLinearDamping; 
+            }
+            return;
+        }
+
+        let isCurrentlyInsideBunker = false;
+        const ballPos = this.body.position;
+        
+        // --- Log Throttling --- 
+        const currentTime = Date.now();
+        const logThisFrame = (currentTime - this.lastBunkerLogTime > 1000); // Log approx once per second
+        if (logThisFrame) {
+            this.lastBunkerLogTime = currentTime;
+        }
+        // --- End Log Throttling --- 
+
+        for (const trigger of bunkerTriggers) {
+            // Check if ballPos is inside the trigger shape
+            if (trigger.shapes.length > 0) {
+                const shape = trigger.shapes[0];
+                const triggerPos = trigger.position;
+
+                if (shape instanceof CANNON.Cylinder) {
+                    const radius = shape.radiusTop;
+                    const halfHeight = shape.height / 2;
+                    // Log only if throttled
+                    // if (logThisFrame) console.log(`[Ball Check] Cylinder Trigger: Radius=${radius.toFixed(3)}, CenterY=${triggerPos.y.toFixed(3)}, HalfHeight=${halfHeight.toFixed(3)}`);
+                    
+                    // Cylinder check
+                    const dx = ballPos.x - triggerPos.x;
+                    const dz = ballPos.z - triggerPos.z;
+                    const distSq = dx * dx + dz * dz;
+                    const radiusSq = radius * radius;
+                    const dy = Math.abs(ballPos.y - triggerPos.y);
+                    const isWithinVerticalBounds = dy <= halfHeight;
+                    // Log only if throttled
+                    // if (logThisFrame) console.log(`[Ball Check] Cylinder Check: DistSq=${distSq.toFixed(3)} (RadiusSq=${radiusSq.toFixed(3)}), DeltaY=${dy.toFixed(3)} (HalfHeight=${halfHeight.toFixed(3)}), InVertical=${isWithinVerticalBounds}`);
+                    
+                    if (distSq <= radiusSq) { // Simplified check: Ignore vertical bounds for ground triggers
+                        // Log only if throttled
+                        // if (logThisFrame) console.log('[Ball Check] ---> INSIDE CYLINDER (Horizontal Only)');
+                        isCurrentlyInsideBunker = true;
+                        break; 
+                    }
+                } else if (shape instanceof CANNON.Box) {
+                    const halfExtents = shape.halfExtents;
+                    // Log only if throttled
+                    // if (logThisFrame) console.log(`[Ball Check] Box Trigger: CenterY=${triggerPos.y.toFixed(3)}, HalfExtents=(${halfExtents.x.toFixed(3)}, ${halfExtents.y.toFixed(3)}, ${halfExtents.z.toFixed(3)})`);
+                    
+                    // Box check
+                    const dx = Math.abs(ballPos.x - triggerPos.x);
+                    const dy = Math.abs(ballPos.y - triggerPos.y);
+                    const dz = Math.abs(ballPos.z - triggerPos.z);
+                    const isWithinX = dx <= halfExtents.x;
+                    const isWithinY = dy <= halfExtents.y;
+                    const isWithinZ = dz <= halfExtents.z;
+                    // Log only if throttled
+                    // if (logThisFrame) console.log(`[Ball Check] Box Check: DeltaX=${dx.toFixed(3)}, DeltaY=${dy.toFixed(3)}, DeltaZ=${dz.toFixed(3)}, InX=${isWithinX}, InY=${isWithinY}, InZ=${isWithinZ}`);
+
+                    if (isWithinX && isWithinY && isWithinZ) {
+                        // Log only if throttled
+                        // if (logThisFrame) console.log('[Ball Check] ---> INSIDE BOX');
+                        isCurrentlyInsideBunker = true;
+                        break; 
+                    }
+                }
+            }
+        }
+
+        // Compare current state with previous state
+        if (isCurrentlyInsideBunker && !this.isInBunker) {
+            // Just entered a bunker
+            console.log('[Ball.update] Entered bunker zone (position check).');
+            this.isInBunker = true;
+            this.body.linearDamping = this.bunkerLinearDamping; // Apply higher damping
+        } else if (!isCurrentlyInsideBunker && this.isInBunker) {
+            // Just exited a bunker
+            console.log('[Ball.update] Exited bunker zone (position check).');
+            this.isInBunker = false;
+            this.body.linearDamping = this.defaultLinearDamping; // Restore default damping
+        }
+        // If state hasn't changed, do nothing
+    }
+
     setPosition(x, y, z) {
         // Make sure y is at least ball radius + start height to avoid ground penetration
         const safeY = Math.max(y, this.radius + Ball.START_HEIGHT);

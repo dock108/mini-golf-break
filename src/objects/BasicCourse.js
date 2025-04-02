@@ -42,7 +42,7 @@ export class BasicCourse extends CoursesManager {
                 par: 3,
                 description: "Straight Shot"
             },
-            // Hole 2 - Dogleg right with sand trap
+            // Hole 2 - Dogleg right with snowman bunker
             {
                 index: 1,
                 holePosition: new THREE.Vector3(4, 0, 8),
@@ -50,12 +50,19 @@ export class BasicCourse extends CoursesManager {
                 courseWidth: 6,
                 courseLength: 24,
                 par: 4,
-                description: "Dogleg Right",
+                description: "Dogleg Right with Snowman Bunker",
                 hazards: [
                     {
                         type: 'sand',
-                        position: new THREE.Vector3(2, 0, 0),
-                        size: new THREE.Vector3(2, 0.2, 2)
+                        shape: 'compound',
+                        depth: 0.25,
+                        position: new THREE.Vector3(2, 0, 0), // Centered in the dogleg
+                        subShapes: [
+                            // Head (smaller circle)
+                            { position: { x: 0, z: 1.2 }, radius: 1.0 },
+                            // Body (larger circle)
+                            { position: { x: 0, z: -0.8 }, radius: 1.5 }
+                        ]
                     }
                 ]
             }
@@ -125,12 +132,18 @@ export class BasicCourse extends CoursesManager {
             
             console.log(`[BasicCourse.initializeHole] Creating HoleEntity...`);
             this.currentHole = new HoleEntity(this.physicsWorld, holeConfig, this.scene);
-            const creationSuccess = this.currentHole.create();
-            console.log(`[BasicCourse.initializeHole] HoleEntity created: ${creationSuccess}`);
             
-            if (!creationSuccess) {
-                console.error(`[BasicCourse.initializeHole] Failed to create HoleEntity`);
-                this.currentHole = null; // Ensure it's null if creation failed
+            // Call init() after construction to set up geometry, physics, etc.
+            this.currentHole.init();
+            console.log(`[BasicCourse.initializeHole] Called HoleEntity.init()`);
+
+            // Assume init() is synchronous and successful if no error is thrown
+            // We could add error handling in init() if needed
+            const initializationSuccess = true; 
+
+            if (!initializationSuccess) { // Check if init was successful
+                console.error(`[BasicCourse.initializeHole] Failed to initialize HoleEntity`);
+                this.currentHole = null; // Ensure it's null if initialization failed
                 return false;
             }
             

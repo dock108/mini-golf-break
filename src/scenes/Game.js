@@ -125,11 +125,10 @@ export class Game {
             console.log('[Game.init] createCourse finished.');
             
             // Fourth tier - Game object managers that depend on physics and scene
-            this.hazardManager.init();
-            this.holeStateManager.init();
-            this.holeTransitionManager.init();
             this.holeCompletionManager.init();
             this.ballManager.init();
+            this.hazardManager.init();
+            this.visualEffectsManager.init();
             
             // Setup lights
             this.setupLights();
