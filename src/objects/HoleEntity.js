@@ -108,7 +108,8 @@ export class HoleEntity extends BaseElement {
         // --- 3b. Hazard Cutters ---
         const hazardConfigs = this.config.hazards || [];
         hazardConfigs.forEach(hazardConfig => {
-            if (hazardConfig.type === 'sand') { // Currently only handle sand depressions
+            // Create cutters for hazards that need a visual depression (sand, water)
+            if (hazardConfig.type === 'sand' || hazardConfig.type === 'water') { 
                  const hazardCutterHeight = greenDepth + 0.1; // Taller than green
 
                 if (hazardConfig.shape === 'compound' && hazardConfig.subShapes) {
@@ -124,7 +125,7 @@ export class HoleEntity extends BaseElement {
                             cutterMesh.position.set(subShapeLocalPos.x, this.surfaceHeight, subShapeLocalPos.z);
                             cutterMesh.updateMatrix();
                             cutters.push(cutterMesh);
-                            console.log(`[HoleEntity] CSG: Added compound hazard cutter (r=${subShape.radius})`);
+                            console.log(`[HoleEntity] CSG: Added compound ${hazardConfig.type} hazard cutter (r=${subShape.radius})`);
                         }
                     });
                 } else if (hazardConfig.shape === 'circle' && hazardConfig.size?.radius) {
@@ -136,7 +137,7 @@ export class HoleEntity extends BaseElement {
                     cutterMesh.position.set(hazardLocalPos.x, this.surfaceHeight, hazardLocalPos.z);
                     cutterMesh.updateMatrix();
                     cutters.push(cutterMesh);
-                    console.log(`[HoleEntity] CSG: Added circle hazard cutter (r=${hazardConfig.size.radius})`);
+                    console.log(`[HoleEntity] CSG: Added circle ${hazardConfig.type} hazard cutter (r=${hazardConfig.size.radius})`);
                 } else if (hazardConfig.shape === 'rectangle' && hazardConfig.size?.width && hazardConfig.size?.length) {
                     // Simple rectangle hazard
                      const hazardWorldPos = hazardConfig.position instanceof THREE.Vector3 ? hazardConfig.position : new THREE.Vector3();
@@ -146,7 +147,7 @@ export class HoleEntity extends BaseElement {
                     cutterMesh.position.set(hazardLocalPos.x, this.surfaceHeight, hazardLocalPos.z);
                     cutterMesh.updateMatrix();
                     cutters.push(cutterMesh);
-                     console.log(`[HoleEntity] CSG: Added rectangle hazard cutter (w=${hazardConfig.size.width}, l=${hazardConfig.size.length})`);
+                     console.log(`[HoleEntity] CSG: Added rectangle ${hazardConfig.type} hazard cutter (w=${hazardConfig.size.width}, l=${hazardConfig.size.length})`);
                 }
                 // Add other simple shapes (box?) here if needed
             }
