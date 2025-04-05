@@ -129,8 +129,10 @@ this.eventSubscriptions.push(
     *   **Core**: Manages the Three.js `PerspectiveCamera`.
     *   **Intelligent Positioning**: Positions the camera with a high overhead angle that shows the entire hole and ensures enough space behind the ball for pull-back aiming.
     *   **User Adjustments**: Detects when the player manually adjusts the camera and respects these adjustments until the ball moves.
-    *   **Smart Following**: Smoothly follows the ball when in motion, with look-ahead based on velocity for better course visibility.
-    *   **Transitions**: Handles smooth camera movements between holes (triggered by `HOLE_STARTED`).
+    *   **Active Following**: Actively follows the ball's motion by positioning the camera behind the movement direction, not just changing the orbit center.
+    *   **Dynamic Following**: When the ball is moving fast, the camera positions itself behind the movement direction; when slow or stopped, it maintains a consistent position relative to the ball.
+    *   **Offset Viewport**: Camera is intentionally shifted down by approximately 15% to show more of the course at the top of the screen and less starfield at the bottom.
+    *   **Transitions**: Improved transitions with the camera intelligently following behind the ball's movement direction with increased responsiveness.
     *   **Orbit Controls**: Integrates `OrbitControls` for free look when the player is not aiming/hitting.
     *   **Initialization**: Sets initial camera position with a high angle and good framing of the course.
     *   **Cleanup**: Disposes of controls and event listeners.

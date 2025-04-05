@@ -317,6 +317,9 @@ export class CameraController {
             0.2 // 20% weight toward start position - ensures we see most of the hole
         );
         
+        // Shift the look-at point down by 15% to show more of the hole and less of the starfield
+        lookAtPoint.y -= 1.5; // Lower the look-at point to shift view down
+        
         this.camera.lookAt(lookAtPoint);
         
         // Update orbit controls target
@@ -353,12 +356,36 @@ export class CameraController {
         // During transition, always follow the ball regardless of user adjustment
         if (this.isTransitioning) {
             // Position camera slightly above and behind ball with high angle
-            const cameraPosition = ballPosition.clone().add(new THREE.Vector3(1, 8, 3));
-            this.camera.position.lerp(cameraPosition, 0.1);
-            this.camera.lookAt(ballPosition);
+            // Calculate direction based on ball's velocity if available
+            let cameraPosition;
+            if (ball.body && ball.body.velocity) {
+                const velocity = ball.body.velocity;
+                const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+                if (speed > 0.5) {
+                    // If ball is moving with speed, position camera behind the movement direction
+                    const directionNormalized = new THREE.Vector3(velocity.x, 0, velocity.z).normalize();
+                    cameraPosition = ballPosition.clone()
+                        .sub(directionNormalized.multiplyScalar(4)) // Position behind ball
+                        .add(new THREE.Vector3(0, 8, 0));           // Raise up
+                } else {
+                    // Default position if not moving fast
+                    cameraPosition = ballPosition.clone().add(new THREE.Vector3(2, 8, 4));
+                }
+            } else {
+                // Fallback if no velocity data
+                cameraPosition = ballPosition.clone().add(new THREE.Vector3(2, 8, 4));
+            }
+            
+            // Smooth camera movement
+            this.camera.position.lerp(cameraPosition, 0.15); // Increased lerp factor for transition
+            
+            // Look at a point slightly below the ball to shift view down
+            const lookPoint = ballPosition.clone();
+            lookPoint.y -= 1.5;
+            this.camera.lookAt(lookPoint);
             
             if (this.controls) {
-                this.controls.target.copy(ballPosition);
+                this.controls.target.copy(lookPoint);
                 this.controls.update();
             }
             return;
@@ -383,8 +410,36 @@ export class CameraController {
                     targetPosition = ballPosition.clone().add(lookAheadDirection.multiplyScalar(lookAheadDistance));
                 }
 
-                // Update the orbit controls target to smoothly follow the calculated target position
-                this.controls.target.lerp(targetPosition, 0.1); // Reduced from 0.2 for smoother follow
+                // Shift target position down to show more of the course
+                targetPosition.y -= 1.5;
+
+                // Update the orbit controls target to follow the ball
+                this.controls.target.lerp(targetPosition, 0.1);
+
+                // ADDED: Actually move the camera with the ball, not just update the target
+                // Calculate an ideal camera position relative to the ball
+                const cameraDistance = 8; // Distance from ball
+                const cameraHeight = 6;   // Height above ball
+                
+                // Calculate camera position that follows the ball from behind and above
+                let idealCameraPosition;
+                if (speed > minSpeedForLookAhead) {
+                    // When moving fast, position camera behind the ball based on velocity direction
+                    const cameraOffset = new THREE.Vector3(-velocity.x, cameraHeight, -velocity.z).normalize().multiplyScalar(cameraDistance);
+                    idealCameraPosition = ballPosition.clone().add(cameraOffset);
+                } else {
+                    // When slow/stopped, maintain a position above and behind relative to current camera
+                    const currentDir = new THREE.Vector3();
+                    currentDir.subVectors(this.camera.position, ballPosition).normalize();
+                    // Keep horizontal direction but enforce height
+                    currentDir.y = 0;
+                    currentDir.normalize().multiplyScalar(cameraDistance * 0.7);
+                    currentDir.y = cameraHeight;
+                    idealCameraPosition = ballPosition.clone().add(currentDir);
+                }
+                
+                // Smoothly move camera toward the ideal position
+                this.camera.position.lerp(idealCameraPosition, 0.05);
                 this.controls.update();
             } else {
                 // If no controls, update camera position directly to follow the ball
@@ -408,6 +463,9 @@ export class CameraController {
                         holePosition,
                         0.4 // 40% weight toward hole position - ensure more space behind ball
                     );
+                    
+                    // Shift the weighted midpoint down to show more of the course and less starfield
+                    weightedMidpoint.y -= 1.5;
                     
                     // Gradually shift target toward this point when stopped
                     this.controls.target.lerp(weightedMidpoint, 0.03); // Slower to avoid jarring changes
@@ -540,7 +598,7 @@ export class CameraController {
             // Position camera much higher and further back for a better overview
             // This ensures more space behind the ball for aiming
             this.camera.position.set(0, 15, 10); // Higher elevation and further back
-            this.camera.lookAt(0, 0, -5); // Look further ahead to show more of the course
+            this.camera.lookAt(0, -1.5, -5); // Look lower and further ahead to show more of the course
             
             if (this.game.debugManager) {
                 this.game.debugManager.log('Camera setup complete');

@@ -15,6 +15,15 @@ export const DEBUG_CONFIG = {
         maxErrors: 50,      // Maximum number of errors to track
         suppressRepeated: true, // Suppress repeated identical errors
         maxRepeats: 3       // Number of times an identical error is logged before suppression
+    },
+    courseDebug: {
+        enabled: true,           // Enable course debugging features
+        toggleCourseTypeKey: 'c', // Key to toggle between BasicCourse and NineHoleCourse
+        loadSpecificHoleKey: 'h', // Key to trigger load specific hole prompt
+        quickLoadKeys: {         // Number keys 1-9 to quickly load specific holes
+            '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, 
+            '6': 6, '7': 7, '8': 8, '9': 9
+        }
     }
 };
 
@@ -58,6 +67,18 @@ export class DebugManager {
         
         // UI elements for displaying errors
         this.errorOverlay = null;
+        
+        // Course debug state
+        this.courseDebugState = {
+            active: false,                // Whether course debug mode is active
+            courseType: 'NineHoleCourse', // 'BasicCourse' or 'NineHoleCourse'
+            currentHole: 1,               // Currently loaded hole number (1-based)
+            previousCourseType: null,     // Store previous course type when overriding
+            courseOverrideActive: false   // Flag to indicate an active course debug override
+        };
+        
+        // UI elements for course debugging
+        this.courseDebugUI = null;
     }
     
     /**
@@ -68,6 +89,15 @@ export class DebugManager {
         if (process.env.NODE_ENV !== 'production' || DEBUG_CONFIG.enabled) {
             window.addEventListener('keydown', this.handleKeyPress.bind(this));
             console.log("Debug mode available - press '" + DEBUG_CONFIG.enableKey + "' to toggle");
+            
+            // Log course debug controls if enabled
+            if (DEBUG_CONFIG.courseDebug.enabled) {
+                console.log(`Course debug controls:
+                - Toggle debug mode: '${DEBUG_CONFIG.enableKey}'
+                - Toggle course type: '${DEBUG_CONFIG.courseDebug.toggleCourseTypeKey}'
+                - Load specific hole: '${DEBUG_CONFIG.courseDebug.loadSpecificHoleKey}'
+                - Quick load holes: number keys 1-9`);
+            }
         }
         
         // Set up initial debug state if enabled
@@ -77,6 +107,11 @@ export class DebugManager {
         
         // Create error overlay container (hidden initially)
         this.createErrorOverlay();
+        
+        // Create course debug UI (hidden initially)
+        if (DEBUG_CONFIG.courseDebug.enabled) {
+            this.createCourseDebugUI();
+        }
         
         return this;
     }
@@ -164,8 +199,28 @@ export class DebugManager {
      * @param {KeyboardEvent} e - Keyboard event
      */
     handleKeyPress(e) {
+        // Toggle debug mode
         if (e.key === DEBUG_CONFIG.enableKey) {
             this.toggleDebugMode();
+        }
+        
+        // Only process course debug keys if debug mode is enabled
+        if (!this.enabled || !DEBUG_CONFIG.courseDebug.enabled) return;
+        
+        // Toggle course type (c key)
+        if (e.key === DEBUG_CONFIG.courseDebug.toggleCourseTypeKey) {
+            this.toggleCourseType();
+        }
+        
+        // Load specific hole (h key)
+        if (e.key === DEBUG_CONFIG.courseDebug.loadSpecificHoleKey) {
+            this.promptForHoleNumber();
+        }
+        
+        // Quick load specific hole (number keys 1-9)
+        if (Object.keys(DEBUG_CONFIG.courseDebug.quickLoadKeys).includes(e.key)) {
+            const holeNumber = DEBUG_CONFIG.courseDebug.quickLoadKeys[e.key];
+            this.loadSpecificHole(holeNumber);
         }
     }
     
@@ -206,6 +261,9 @@ export class DebugManager {
             }
             */
         }
+        
+        // Update course debug UI visibility
+        this.updateCourseDebugUI();
         
         return this;
     }
@@ -477,20 +535,281 @@ export class DebugManager {
     }
     
     /**
-     * Clean up debug resources
+     * Cleanup resources and event listeners
      */
     cleanup() {
-        // Remove debug key listener
-        window.removeEventListener('keydown', this.handleKeyPress);
+        // Remove event listeners
+        window.removeEventListener('keydown', this.handleKeyPress.bind(this));
         
-        // Remove debug helpers
+        // Remove debug objects from scene
         this.removeDebugHelpers();
         
-        // Remove error overlay
+        // Remove UI elements
         if (this.errorOverlay && this.errorOverlay.parentNode) {
             this.errorOverlay.parentNode.removeChild(this.errorOverlay);
+            this.errorOverlay = null;
         }
         
+        // Remove course debug UI
+        if (this.courseDebugUI && this.courseDebugUI.parentNode) {
+            this.courseDebugUI.parentNode.removeChild(this.courseDebugUI);
+            this.courseDebugUI = null;
+        }
+        
+        // Clear references
+        this.game = null;
+        this.debugObjects = [];
+        this.velocityHistory = [];
+        this.errorHistory.clear();
+        
         return this;
+    }
+    
+    /**
+     * Toggle between BasicCourse and NineHoleCourse
+     */
+    toggleCourseType() {
+        // Toggle the course type
+        const newCourseType = this.courseDebugState.courseType === 'BasicCourse' 
+            ? 'NineHoleCourse' 
+            : 'BasicCourse';
+        
+        console.log(`[DebugManager] Toggling course type from ${this.courseDebugState.courseType} to ${newCourseType}`);
+        this.courseDebugState.courseType = newCourseType;
+        
+        // Force reload the current course with the new type
+        this.loadCourseWithType(newCourseType);
+        
+        // Update debug UI if it exists
+        this.updateCourseDebugUI();
+    }
+    
+    /**
+     * Prompt the user for a hole number to load
+     */
+    promptForHoleNumber() {
+        const maxHole = this.courseDebugState.courseType === 'BasicCourse' ? 3 : 9;
+        const holeNumber = prompt(`Enter hole number to load (1-${maxHole}):`, this.courseDebugState.currentHole);
+        
+        if (holeNumber === null) return; // User canceled
+        
+        const holeNum = parseInt(holeNumber, 10);
+        if (isNaN(holeNum) || holeNum < 1 || holeNum > maxHole) {
+            alert(`Please enter a valid hole number between 1 and ${maxHole}.`);
+            return;
+        }
+        
+        this.loadSpecificHole(holeNum);
+    }
+    
+    /**
+     * Load a specific hole number
+     * @param {number} holeNumber - The hole number to load (1-based)
+     */
+    loadSpecificHole(holeNumber) {
+        console.log(`[DebugManager] Loading ${this.courseDebugState.courseType} hole #${holeNumber}`);
+        
+        // Store the current hole for debug UI
+        this.courseDebugState.currentHole = holeNumber;
+        
+        // Set override flag
+        this.courseDebugState.courseOverrideActive = true;
+        
+        // Get current game state
+        const hasCourse = !!this.game.course;
+        
+        // If course type changed or no course exists, load a new course
+        if (!hasCourse || this.game.course.constructor.name !== this.courseDebugState.courseType) {
+            this.loadCourseWithType(this.courseDebugState.courseType, holeNumber);
+        } else {
+            // Use existing course but load specific hole
+            this.loadHoleInExistingCourse(holeNumber);
+        }
+        
+        // Update debug UI
+        this.updateCourseDebugUI();
+    }
+    
+    /**
+     * Load a specific course type with optional hole number
+     * @param {string} courseType - 'BasicCourse' or 'NineHoleCourse'
+     * @param {number} [holeNumber] - Optional hole number to load
+     */
+    async loadCourseWithType(courseType, holeNumber = 1) {
+        console.log(`[DebugManager] Loading course type: ${courseType}, hole: ${holeNumber}`);
+        
+        try {
+            // Import the appropriate course class dynamically
+            let CourseClass;
+            if (courseType === 'BasicCourse') {
+                const basicModule = await import('../objects/BasicCourse.js');
+                CourseClass = basicModule.BasicCourse;
+            } else {
+                const nineHoleModule = await import('../objects/NineHoleCourse.js');
+                CourseClass = nineHoleModule.NineHoleCourse;
+            }
+            
+            // Clear existing course if any
+            if (this.game.course) {
+                // Clean up existing course
+                this.game.course.clearCurrentHole();
+                this.game.scene.remove(this.game.course);
+                this.game.course = null;
+            }
+            
+            // Create new course
+            this.game.course = await CourseClass.create(this.game);
+            
+            // Load specific hole if not the first one
+            if (holeNumber > 1) {
+                await this.loadHoleInExistingCourse(holeNumber);
+            } else {
+                // Make sure ballManager is updated with the course's start position
+                if (this.game.ballManager && this.game.course.startPosition) {
+                    await this.game.ballManager.resetBall(this.game.course.startPosition);
+                }
+            }
+            
+            // Update camera to focus on the new hole
+            if (this.game.cameraController) {
+                this.game.cameraController.setupInitialCameraPosition();
+            }
+            
+            return true;
+        } catch (error) {
+            console.error(`[DebugManager] Error loading course ${courseType}:`, error);
+            this.error('DebugManager', `Failed to load ${courseType}`, error, true);
+            return false;
+        }
+    }
+    
+    /**
+     * Load a specific hole in the existing course
+     * @param {number} holeNumber - The hole number to load (1-based)
+     */
+    async loadHoleInExistingCourse(holeNumber) {
+        if (!this.game.course) {
+            console.error('[DebugManager] Cannot load hole: No course exists');
+            return false;
+        }
+        
+        try {
+            // Use the course's own method to load a specific hole
+            const success = await this.game.course.createCourse(holeNumber);
+            
+            if (!success) {
+                throw new Error(`Failed to load hole ${holeNumber}`);
+            }
+            
+            // Reset ball at the new hole's start position
+            if (this.game.ballManager && this.game.course.startPosition) {
+                await this.game.ballManager.resetBall(this.game.course.startPosition);
+            }
+            
+            // Update the current hole number in the debug state
+            this.courseDebugState.currentHole = holeNumber;
+            
+            // Update UI
+            if (this.game.uiManager) {
+                this.game.uiManager.updateHoleInfo();
+                this.game.uiManager.updateScore();
+                this.game.uiManager.updateStrokes();
+            }
+            
+            // Update camera to focus on the new hole
+            if (this.game.cameraController) {
+                this.game.cameraController.setupInitialCameraPosition();
+            }
+            
+            return true;
+        } catch (error) {
+            console.error(`[DebugManager] Error loading hole ${holeNumber}:`, error);
+            this.error('DebugManager', `Failed to load hole ${holeNumber}`, error, true);
+            return false;
+        }
+    }
+    
+    /**
+     * Create the course debug UI overlay
+     */
+    createCourseDebugUI() {
+        if (document.getElementById('course-debug-overlay')) {
+            this.courseDebugUI = document.getElementById('course-debug-overlay');
+            return;
+        }
+        
+        this.courseDebugUI = document.createElement('div');
+        this.courseDebugUI.id = 'course-debug-overlay';
+        this.courseDebugUI.style.position = 'fixed';
+        this.courseDebugUI.style.top = '10px';
+        this.courseDebugUI.style.right = '10px';
+        this.courseDebugUI.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        this.courseDebugUI.style.color = '#00FF00';
+        this.courseDebugUI.style.padding = '10px';
+        this.courseDebugUI.style.fontFamily = 'monospace';
+        this.courseDebugUI.style.fontSize = '14px';
+        this.courseDebugUI.style.zIndex = '1000';
+        this.courseDebugUI.style.borderRadius = '5px';
+        this.courseDebugUI.style.display = 'none';
+        this.courseDebugUI.style.minWidth = '200px';
+        
+        // Add header
+        const header = document.createElement('div');
+        header.textContent = 'COURSE DEBUG';
+        header.style.fontWeight = 'bold';
+        header.style.marginBottom = '5px';
+        header.style.borderBottom = '1px solid #00FF00';
+        this.courseDebugUI.appendChild(header);
+        
+        // Add course type info
+        const courseTypeContainer = document.createElement('div');
+        courseTypeContainer.id = 'course-debug-type';
+        courseTypeContainer.style.marginBottom = '5px';
+        this.courseDebugUI.appendChild(courseTypeContainer);
+        
+        // Add current hole info
+        const holeContainer = document.createElement('div');
+        holeContainer.id = 'course-debug-hole';
+        holeContainer.style.marginBottom = '5px';
+        this.courseDebugUI.appendChild(holeContainer);
+        
+        // Add controls info
+        const controlsContainer = document.createElement('div');
+        controlsContainer.style.marginTop = '10px';
+        controlsContainer.style.fontSize = '12px';
+        controlsContainer.style.color = '#AAAAAA';
+        controlsContainer.innerHTML = `
+            <div>C: Toggle course type</div>
+            <div>H: Load specific hole</div>
+            <div>1-9: Quick load hole</div>
+        `;
+        this.courseDebugUI.appendChild(controlsContainer);
+        
+        document.body.appendChild(this.courseDebugUI);
+    }
+    
+    /**
+     * Update course debug UI with current state
+     */
+    updateCourseDebugUI() {
+        if (!this.courseDebugUI) return;
+        
+        // Show UI only when debug mode is enabled
+        this.courseDebugUI.style.display = this.enabled ? 'block' : 'none';
+        if (!this.enabled) return;
+        
+        // Update course type
+        const courseTypeEl = document.getElementById('course-debug-type');
+        if (courseTypeEl) {
+            courseTypeEl.textContent = `Course: ${this.courseDebugState.courseType}`;
+            courseTypeEl.style.color = this.courseDebugState.courseType === 'BasicCourse' ? '#FFAA00' : '#00FFAA';
+        }
+        
+        // Update current hole
+        const holeEl = document.getElementById('course-debug-hole');
+        if (holeEl) {
+            const maxHole = this.courseDebugState.courseType === 'BasicCourse' ? 3 : 9;
+            holeEl.textContent = `Hole: ${this.courseDebugState.currentHole} / ${maxHole}`;
+        }
     }
 } 

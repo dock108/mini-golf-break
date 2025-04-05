@@ -4,6 +4,9 @@ All notable changes to the Mini Golf Break project will be documented in this fi
 
 ## [Unreleased] - Physics Debugging & Fixes
 
+### Features
+- Added initial scaffolding for `NineHoleCourse.js` to support a full 9-hole course structure, including `THREE.Group` containers for each hole.
+
 ### Debugging & Fixes
 - Integrated `CannonDebugRenderer` to visualize physics bodies in the Three.js scene.
 - Diagnosed ball falling through floor issue:
@@ -720,4 +723,15 @@ All notable changes to the Mini Golf Break project will be documented in this fi
 - Enhanced visual effects for successful putts
 - Sound effects for ball rolling and collisions
 - Course completion and game progression logic
-- Menu and settings interface 
+- Menu and settings interface
+
+## [Unreleased]
+
+### Added
+- Enhanced camera system that actively follows the ball, not just changing the orbit center
+- Improved camera positioning based on ball movement direction and speed
+- Adjusted viewport to shift down by 15% to show more of the course and less starfield
+- More responsive and natural-feeling camera transitions between holes
+
+### Changed
+// ... existing code ... 
