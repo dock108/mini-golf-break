@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { InputController } from '../controls/InputController';
 import { CameraController } from '../controls/CameraController';
 import { ScoringSystem } from '../game/ScoringSystem';
-// import { TeeMarker } from '../objects/TeeMarker'; // Removed: Using HoleEntity's start marker
+// Both course types are available for debug mode
 import { BasicCourse } from '../objects/BasicCourse';
+import { NineHoleCourse } from '../objects/NineHoleCourse';
 import { EventTypes } from '../events/EventTypes';
 import { CannonDebugRenderer } from '../utils/CannonDebugRenderer';
 
@@ -120,15 +121,17 @@ export class Game {
             // Initialize the CannonDebugRenderer after physics manager
             this.cannonDebugRenderer = new CannonDebugRenderer(this.scene, this.physicsManager.cannonWorld);
             
+            // Fourth tier - Game object managers that depend on physics and scene
+            this.holeCompletionManager.init();
+            this.hazardManager.init();
+            this.visualEffectsManager.init();
+            
             console.log('[Game.init] Awaiting createCourse...');
             await this.createCourse();
             console.log('[Game.init] createCourse finished.');
             
-            // Fourth tier - Game object managers that depend on physics and scene
-            this.holeCompletionManager.init();
+            // Initialize the ball manager after the course is created
             this.ballManager.init();
-            this.hazardManager.init();
-            this.visualEffectsManager.init();
             
             // Setup lights
             this.setupLights();
@@ -233,70 +236,107 @@ export class Game {
     }
     
     /**
-     * Create the course
+     * Create the golf course environment
      */
     async createCourse() {
-        console.log('[Game.createCourse] Starting...');
         try {
-            // Create course using the static async method
-            console.log('[Game.createCourse] Awaiting BasicCourse.create()...');
-            this.course = await BasicCourse.create(this);
-            console.log('[Game.createCourse] BasicCourse.create() finished. Course object:', this.course);
+            console.log('[Game.createCourse] Attempting to create the course...');
 
-            // --- VALIDATION --- Check if course and start position are valid after creation
-            if (!this.course || !this.course.startPosition) {
-                console.error('[Game.createCourse] Failed to create course or course has no start position!');
-                throw new Error('Course creation failed or start position missing.');
+            // Ensure PhysicsManager is ready before creating the course
+            if (!this.physicsManager || !this.physicsManager.getWorld()) {
+                console.error('[Game.createCourse] PhysicsManager not ready. Aborting course creation.');
+                throw new Error('PhysicsManager must be initialized before creating the course.');
             }
-            console.log('[Game.createCourse] Course created successfully. Start position:', this.course.startPosition);
-            // --- END VALIDATION ---
 
-            // Set course reference in camera controller
-            console.log('[Game.createCourse] Setting course reference in CameraController...');
-            this.cameraController.setCourse(this.course);
-            console.log('[Game.createCourse] CameraController course set.');
+            // Check for debug override for course type
+            if (this.debugManager.enabled && 
+                this.debugManager.courseDebugState && 
+                this.debugManager.courseDebugState.courseOverrideActive) {
+                
+                console.log('[Game.createCourse] Debug course override active. Deferring to DebugManager...');
+                
+                // Let the debug manager handle course creation with the right type
+                await this.debugManager.loadCourseWithType(
+                    this.debugManager.courseDebugState.courseType, 
+                    this.debugManager.courseDebugState.currentHole
+                );
+                return true;
+            }
 
-            // Set ball at starting position *after* course is confirmed ready
-            console.log('[Game.createCourse] Calling ballManager.createBall with start position...');
-            if (this.ballManager) {
-                // Pass the confirmed start position from the created course
-                const ballCreated = this.ballManager.createBall(this.course.startPosition);
-                if (!ballCreated) {
-                    console.error('[Game.createCourse] ballManager.createBall failed!');
-                    // Consider throwing an error if ball creation is critical for game start
-                } else {
-                    console.log('[Game.createCourse] ballManager.createBall seems successful.');
+            // Normal course creation (no debug override)
+            console.log('[Game.createCourse] Awaiting NineHoleCourse.create()...');
+            
+            try {
+                console.log('[Game.createCourse] Physics world ready?', !!this.physicsManager.getWorld());
+                console.log('[Game.createCourse] About to call NineHoleCourse.create with game context');
+                
+                this.course = await NineHoleCourse.create(this);
+                
+                if (!this.course) {
+                    console.error('[Game.createCourse] NineHoleCourse.create returned null or undefined');
+                    throw new Error('Course creation failed - returned null');
                 }
-            } else {
-                console.error('[Game.createCourse] BallManager not available when trying to create ball!');
+                
+                console.log('[Game.createCourse] NineHoleCourse.create() finished successfully. Course object exists:', !!this.course);
+            } catch (courseError) {
+                console.error('[Game.createCourse] Error during NineHoleCourse.create():', courseError);
+                
+                // Try falling back to BasicCourse if NineHoleCourse fails
+                console.log('[Game.createCourse] Trying fallback to BasicCourse.create()...');
+                try {
+                    this.course = await BasicCourse.create(this);
+                    console.log('[Game.createCourse] BasicCourse.create() fallback finished. Course object:', !!this.course);
+                } catch (fallbackError) {
+                    console.error('[Game.createCourse] Fallback also failed:', fallbackError);
+                    throw new Error(`Failed to create any course: ${courseError.message}`);
+                }
             }
             
-            // Enable input (can happen after course/ball creation)
-            console.log('[Game.createCourse] Enabling input...');
-            if (this.inputController) {
-                this.inputController.enableInput();
-                console.log('[Game.createCourse] Input enabled.');
-            } else {
-                console.warn('[Game.createCourse] InputController not available to enable input.');
+            // Validate essential course properties after creation
+            if (!this.course.startPosition) {
+                 console.error('[Game.createCourse] Course loaded but missing startPosition!');
+                 throw new Error('Course startPosition is missing after creation.');
+            }
+            console.log('[Game.createCourse] Course start position verified:', this.course.startPosition.toArray());
+
+            // Verify that currentHole is set properly
+            if (!this.course.currentHole) {
+                console.error('[Game.createCourse] Course loaded but missing currentHole reference!');
+                // Try to set it if currentHoleEntity exists
+                if (this.course.currentHoleEntity) {
+                    console.log('[Game.createCourse] Setting currentHole to currentHoleEntity as fallback.');
+                    this.course.currentHole = this.course.currentHoleEntity;
+                } else {
+                    throw new Error('Course currentHole is missing after creation and no fallback available.');
+                }
             }
 
-            // Setup initial camera position now that course is ready
-            console.log('[Game.createCourse] Setting up initial camera position...');
-            this.cameraController.setupInitialCameraPosition();
-            console.log('[Game.createCourse] Initial camera position setup finished.');
+            // Create the ball at the course's start position
+            console.log('[Game.createCourse] Creating ball at start position...');
+            if (this.ballManager) {
+                await this.ballManager.createBall(this.course.startPosition);
+                console.log('[Game.createCourse] Ball created successfully.');
+            } else {
+                console.error('[Game.createCourse] BallManager not available!');
+            }
 
-            // Setup initial UI now that course is ready
-            console.log('[Game.createCourse] Setting up initial UI...');
-            this.uiManager.setupInitialUI();
-            console.log('[Game.createCourse] Initial UI setup finished.');
+            // Update camera to focus on the new position
+            if (this.cameraController) {
+                this.cameraController.setupInitialCameraPosition();
+            }
 
-            console.log('[Game.createCourse] Finished successfully.');
+            console.log('[Game.createCourse] Course created successfully.');
+            return true;
 
         } catch (error) {
-            console.error('[Game.createCourse] Failed:', error);
-            this.debugManager.error('Game.createCourse', 'Failed during course creation', error, true);
-            // Handle or re-throw the error as appropriate for the init process
-            throw error; // Re-throw so the calling context (init) can handle it
+            console.error('[Game.createCourse] Failed to create course:', error);
+            // Optionally publish an error event or update UI
+            this.eventManager.publish(EventTypes.ERROR_OCCURRED, {
+                message: 'Failed to load the golf course. Please try refreshing.',
+                error: error,
+                source: 'Game.createCourse'
+            });
+            return false; // Indicate failure
         }
     }
     

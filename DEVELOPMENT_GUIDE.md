@@ -9,10 +9,11 @@ Mini Golf Break follows a component-based architecture where different systems i
 1. **Game**: Central controller that manages game state, scene rendering, and coordinates other components
 2. **PhysicsWorld**: Encapsulates the Cannon-es physics engine and manages simulation
 3. **BasicCourse**: Handles course generation with a single hole
-4. **Ball**: Represents the player's ball with visual mesh, physics body, and success effects
-5. **InputController**: Manages user interaction for hitting the ball
-6. **CameraController**: Handles camera positioning and movement
-7. **ScoringSystem**: Manages scoring and display
+4. **NineHoleCourse**: Manages the layout and progression for a full 9-hole course (extends `CoursesManager`).
+5. **Ball**: Represents the player's ball with visual mesh, physics body, and success effects
+6. **InputController**: Manages user interaction for hitting the ball
+7. **CameraController**: Handles camera positioning and movement
+8. **ScoringSystem**: Manages scoring and display
 
 ## Key Classes and Responsibilities
 
@@ -49,7 +50,7 @@ This class abstracts the Cannon-es physics engine:
 ### BasicCourse Class (`src/objects/BasicCourse.js`)
 
 Responsible for generating the course:
-- Creates a single, focused hole
+- Creates a single, focused hole (primarily for testing/simple examples).
 - Defines fairway with contrasting border
 - Implements the hole with proper physics
 - Provides hole position information
@@ -60,6 +61,22 @@ Key methods:
 - `getHolePosition()`: Returns the position of the hole
 - `getHoleStartPosition()`: Returns the starting (tee) position
 - `createHole1()`: Sets up the single hole design
+
+### NineHoleCourse Class (`src/objects/NineHoleCourse.js`)
+
+Manages the structure and progression for a full 9-hole course:
+- Extends the `CoursesManager` for core course functionality.
+- Defines configurations for 9 distinct holes (positions, pars, hazards, etc.).
+- Uses `THREE.Group` containers to potentially organize geometry for each hole.
+- Handles loading and unloading of individual hole assets/geometry.
+- Manages transitions between holes.
+
+Key methods (potential/planned):
+- `constructor()`: Sets up the 9 hole configurations and group containers.
+- `initializeHole(holeIndex)`: Loads and sets up the specified hole.
+- `createHoleGeometry(holeIndex)`: (Placeholder) Creates the visual and physical geometry for a hole.
+- `loadNextHole()`: Manages the transition to the next hole in sequence.
+- `clearCurrentHole()`: Removes resources for the current hole.
 
 ### Ball Class (`src/objects/Ball.js`)
 
@@ -90,10 +107,19 @@ Handles user interaction:
 
 Manages the camera system:
 - Positions camera with a high-angle view at the start of each hole, framing the tee and cup
-- Calculates a target slightly ahead of the ball (based on velocity or hole direction)
-- Follows the calculated target smoothly during motion and aiming
-- Handles smooth transitions between states
-- Provides optimal viewing angles
+- Actively follows the ball by positioning the camera behind the ball's movement direction
+- Shifts the viewport down by approximately 15% to show more of the course at the top of the screen
+- Uses dynamic following behavior:
+  - When the ball is moving fast, positions camera behind the movement direction
+  - When moving slow/stopped, maintains a consistent position relative to the ball
+- Handles smooth transitions with improved responsiveness during hole changes
+- Provides optimal viewing angles for aiming and watching ball movement
+- Respects user camera adjustments until the ball moves again
+
+Key methods:
+- `positionCameraForHole()`: Sets up camera for a new hole
+- `updateCameraFollowBall()`: Updates camera position and target to follow ball
+- `setTransitionMode(enabled)`: Enables smoother transitions between holes
 
 ### ScoringSystem Class (`src/game/ScoringSystem.js`)
 
@@ -190,11 +216,11 @@ To enhance the visual environment:
 
 ### Implementing Multiple Themed Holes
 
-To add different hole designs:
-1. Create new methods like `createHole2()`, `createHole3()` in BasicCourse
-2. Design unique themed layouts for each
-3. Update the navigation system to cycle between holes
-4. Consider different physics properties for each theme
+The `NineHoleCourse` class is designed for this purpose. To add or modify holes:
+1. Define the hole configuration (start position, hole position, par, hazards) within the `holeConfigs` array in `NineHoleCourse.js`.
+2. Implement the geometry and physics creation logic, potentially within `NineHoleCourse` or dedicated hole-specific classes/functions.
+3. Ensure the `initializeHole` and `clearCurrentHole` methods correctly load/unload the hole's assets.
+4. Update the navigation system (if needed) to handle the 9-hole sequence.
 
 ### Enhancing Audio
 
@@ -230,7 +256,7 @@ mini-golf-break/
 │   ├── config/          # Game configuration files (e.g., course layouts - if separated)
 │   ├── events/          # Event types and EventManager
 │   ├── managers/        # Core game system managers (UI, Physics, Audio, State, etc.)
-│   ├── objects/         # Game objects (Ball, HoleEntity, BaseElement, HazardFactory, etc.)
+│   ├── objects/         # Game objects (Ball, HoleEntity, BaseElement, HazardFactory, BasicCourse, NineHoleCourse, etc.)
 │   │   └── hazards/     # Hazard creation logic (HazardFactory.js)
 │   ├── physics/         # Physics world setup and utilities
 │   ├── scenes/          # Main game scene (Game.js)
@@ -270,6 +296,7 @@ mini-golf-break/
     *   `Ball.js`: Represents the golf ball, managing its visual mesh, physics body, and interactions (hole entry, bunker state, collisions).
     *   `BasicCourse.js`: Defines the layout and configuration for the default course, including hole definitions and hazard placements.
     *   `hazards/HazardFactory.js`: A factory module responsible for creating hazard visuals and physics triggers based on configuration.
+    *   `NineHoleCourse.js`: Manages the structure and progression for a full 9-hole course.
 *   **`src/physics/`**: Contains physics-related setup and utility functions.
 *   **`src/events/EventTypes.js`**: Defines constants for different game events.
 

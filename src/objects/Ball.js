@@ -5,7 +5,7 @@ import { calculateImpactAngle, isLipOut } from '../physics/utils';
 
 // --- Configuration Constants ---
 const HOLE_ENTRY_OVERLAP_REQUIRED = 0.55; // e.g., 0.55 means 55% of ball diameter must be over the hole
-const HOLE_ENTRY_MAX_SPEED = 3.25;         // Max speed (m/s) for ball to enter the hole (Increased 30%)
+const HOLE_ENTRY_MAX_SPEED = 4.06;         // Max speed (m/s) for ball to enter the hole (Increased by 1.25x)
 const HOLE_EDGE_RADIUS = 0.40;            // Assumed physical radius of the hole opening
 // --- End Configuration Constants ---
 
@@ -182,8 +182,8 @@ export class Ball {
 
         // Define thresholds for hole entry logic (make these easily configurable)
         this.holeEntryThresholds = {
-            MAX_SAFE_SPEED: 1.5,          // Speed (m/s) below which the ball safely drops in.
-            LIP_OUT_SPEED_THRESHOLD: 2.5, // Speed (m/s) above which lip-outs become more likely.
+            MAX_SAFE_SPEED: 1.875,          // Speed (m/s) below which the ball safely drops in. (Increased by 1.25x)
+            LIP_OUT_SPEED_THRESHOLD: 3.125, // Speed (m/s) above which lip-outs become more likely. (Increased by 1.25x)
             LIP_OUT_ANGLE_THRESHOLD: 60   // Angle (degrees, 0-180, 180=direct) below which is considered a glancing blow.
         };
 
@@ -683,7 +683,7 @@ export class Ball {
         }
         
         // Scale power for reasonable impulse magnitude
-        const impulseMagnitude = power * 32.5; // Increased base impulse (was 26.25)
+        const impulseMagnitude = power * 65.0; // Doubled from previous value of 32.5
         
         // Apply horizontal impulse only
         const impulse = new CANNON.Vec3(

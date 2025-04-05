@@ -25,7 +25,7 @@ export class InputController {
         this.pointer = new THREE.Vector2();
         
         // Max drag distance for power calculation (in world units)
-        this.maxDragDistance = 5;
+        this.maxDragDistance = 10;
         
         // Hit parameters
         this.hitDirection = new THREE.Vector3(0, 0, 1); // Default forward
@@ -679,7 +679,7 @@ export class InputController {
         }
         
         // Calculate line length based on power
-        const lineLength = power * 5; // Scale by 5 for better visualization
+        const lineLength = power * 8.75; // Increased from 5 to 8.75 (1.75x longer)
         
         // Create points for line (from ball position to desired direction * length)
         const endPoint = new THREE.Vector3().copy(ballPosition).add(

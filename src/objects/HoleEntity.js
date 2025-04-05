@@ -10,6 +10,23 @@ import { createHazard } from './hazards/HazardFactory';
  */
 export class HoleEntity extends BaseElement {
     constructor(world, config, scene) {
+        // Check if the provided scene is actually a THREE.Group (common when used with NineHoleCourse)
+        const sceneIsGroup = scene instanceof THREE.Group;
+        
+        // Get the scene parent, but handle the case where it might be null
+        let actualScene;
+        if (sceneIsGroup) {
+            // If scene is a Group, try to get its parent, but fall back to the Group itself
+            actualScene = scene.parent || scene;
+        } else {
+            // If not a Group, just use the provided scene
+            actualScene = scene;
+        }
+        
+        const targetGroup = sceneIsGroup ? scene : null;
+        
+        console.log(`[HoleEntity] Constructor: scene is ${sceneIsGroup ? 'a THREE.Group' : 'a THREE.Scene'}, actualScene is ${actualScene === scene ? 'same as input' : 'parent'}`);
+        
         // Pass necessary arguments to BaseElement constructor
         // Determine the central position for the HoleEntity group if not explicitly in config
         const centerPos = config.position || new THREE.Vector3(
@@ -23,7 +40,16 @@ export class HoleEntity extends BaseElement {
             name: `Hole ${config.index + 1}`, // Explicitly set name
             position: centerPos // Ensure position is set for BaseElement
         };
-        super(world, baseConfig, scene); // Call parent constructor
+        
+        try {
+            super(world, baseConfig, actualScene); // Call parent constructor with actual scene
+        } catch (error) {
+            console.error(`[HoleEntity] Error in BaseElement constructor: ${error.message}`);
+            throw new Error(`Failed to initialize BaseElement: ${error.message}`);
+        }
+        
+        // Store the target group if one was provided
+        this.targetGroup = targetGroup;
         
         // Hole-specific properties need to be initialized *after* super()
         this.width = Math.max(1, config.courseWidth || 4);
@@ -39,7 +65,16 @@ export class HoleEntity extends BaseElement {
         if (!this.group) { // If BaseElement didn't create it
             this.group = new THREE.Group();
             this.group.position.copy(this.position); // Use position from BaseElement
-            this.scene.add(this.group);
+            
+            // Add to appropriate parent (target group or scene)
+            if (this.targetGroup) {
+                this.targetGroup.add(this.group);
+                console.log(`[HoleEntity] Added group to target parent group: ${this.targetGroup.name || 'unnamed'}`);
+            } else {
+                this.scene.add(this.group);
+                console.log(`[HoleEntity] Added group to scene`);
+            }
+            
             this.meshes.push(this.group); // Track the group if created here
         }
         
@@ -65,6 +100,9 @@ export class HoleEntity extends BaseElement {
         
         // Create hazards using the new factory
         this.createHazards();
+
+        // Create bumpers if defined in config
+        this.createBumpers();
         
         console.log(`[HoleEntity] Initialization complete for hole index ${this.config.index}. Meshes: ${this.meshes.length}, Bodies: ${this.bodies.length}`);
     }
@@ -409,29 +447,156 @@ export class HoleEntity extends BaseElement {
         console.log('[HoleEntity] Created start position marker');
     }
     
+    /**
+     * Create hazards using the Hazard Factory
+     */
     createHazards() {
         const hazardConfigs = this.config.hazards || [];
+        
         if (hazardConfigs.length === 0) {
-            console.log('[HoleEntity] No hazards defined in config.');
+            console.log('[HoleEntity] No hazards to create.');
             return;
         }
         
         console.log(`[HoleEntity] Creating ${hazardConfigs.length} hazards using factory...`);
-
+        
+        // Define course bounds for hazard clipping
+        const courseBounds = {
+            width: this.width,
+            length: this.length
+        };
+        
+        // For each hazard configuration, create visuals and physics
         hazardConfigs.forEach(hazardConfig => {
-            const { meshes, bodies } = createHazard(
-                this.world,
-                this.group, // Pass the group for local positioning of visuals
-                hazardConfig, // Pass the full hazard config
-                this.visualGreenY // Pass the reference green Y level
-            );
-
-            // Add returned meshes and bodies to tracking arrays
-            this.meshes.push(...meshes);
-            this.bodies.push(...bodies);
+            try {
+                // Create the hazard using the factory, passing the course dimensions for boundary clipping
+                const { meshes, bodies } = createHazard(
+                    this.world, 
+                    this.group, 
+                    hazardConfig, 
+                    this.visualGreenY,
+                    courseBounds
+                );
+                
+                // Add meshes and bodies to tracking arrays
+                this.meshes.push(...meshes);
+                this.bodies.push(...bodies);
+            } catch (error) {
+                console.error('[HoleEntity] Failed to create hazard:', error);
+            }
         });
     }
 
-    // Existing destroy method should be inherited from BaseElement
-    // If custom cleanup is needed, override destroy() and call super.destroy()
+    /**
+     * Create bumpers from configuration if any defined
+     */
+    createBumpers() {
+        const bumperConfigs = this.config.bumpers || [];
+        
+        if (bumperConfigs.length === 0) {
+            console.log('[HoleEntity] No bumpers defined in config.');
+            return;
+        }
+        
+        console.log(`[HoleEntity] Creating ${bumperConfigs.length} bumpers for hole ${this.config.index + 1}...`);
+        
+        // Create a box that represents the course boundary for CSG
+        const boundaryGeom = new THREE.BoxGeometry(this.width, 2, this.length);
+        const boundaryMesh = new THREE.Mesh(boundaryGeom);
+        boundaryMesh.position.set(0, 0.5, 0); // Center of course, slightly raised
+        boundaryMesh.updateMatrix();
+        
+        bumperConfigs.forEach((bumperConfig, index) => {
+            try {
+                // Create bumper material
+                const bumperMaterial = new THREE.MeshStandardMaterial({
+                    color: bumperConfig.color || 0xFF8C00, // Default to orange for bumpers
+                    roughness: 0.7,
+                    metalness: 0.3
+                });
+                
+                // Create bumper geometry and mesh
+                const bumperGeom = new THREE.BoxGeometry(
+                    bumperConfig.size.x, 
+                    bumperConfig.size.y, 
+                    bumperConfig.size.z
+                );
+                
+                const bumperMesh = new THREE.Mesh(bumperGeom);
+                bumperMesh.position.copy(bumperConfig.position);
+                
+                // Apply rotation if specified
+                if (bumperConfig.rotation) {
+                    bumperMesh.rotation.copy(bumperConfig.rotation);
+                }
+                
+                bumperMesh.updateMatrix();
+                
+                // Use CSG to constrain the bumper to the course boundaries
+                const finalBumperMesh = CSG.intersect(bumperMesh, boundaryMesh);
+                finalBumperMesh.material = bumperMaterial;
+                
+                // Enable shadows
+                finalBumperMesh.castShadow = true;
+                finalBumperMesh.receiveShadow = true;
+                
+                // Add mesh to hole group
+                this.group.add(finalBumperMesh);
+                this.meshes.push(finalBumperMesh);
+                
+                // Create physics body
+                const bumperBody = new CANNON.Body({
+                    type: CANNON.Body.STATIC,
+                    mass: 0,
+                    material: this.world.bumperMaterial
+                });
+                
+                // Create physics shape matching the visual
+                const halfExtents = new CANNON.Vec3(
+                    bumperConfig.size.x / 2, 
+                    bumperConfig.size.y / 2, 
+                    bumperConfig.size.z / 2
+                );
+                
+                const bumperShape = new CANNON.Box(halfExtents);
+                bumperBody.addShape(bumperShape);
+                
+                // Match position of visual bumper
+                bumperBody.position.copy(bumperConfig.position);
+                
+                // Match rotation if specified
+                if (bumperConfig.rotation) {
+                    // Convert euler rotation to quaternion
+                    const quaternion = new CANNON.Quaternion();
+                    quaternion.setFromEuler(
+                        bumperConfig.rotation.x,
+                        bumperConfig.rotation.y,
+                        bumperConfig.rotation.z,
+                        bumperConfig.rotation.order || 'XYZ'
+                    );
+                    bumperBody.quaternion.copy(quaternion);
+                }
+                
+                // Set user data
+                bumperBody.userData = {
+                    type: 'bumper',
+                    holeIndex: this.config.index
+                };
+                
+                // Add to world and tracking
+                this.world.addBody(bumperBody);
+                this.bodies.push(bumperBody);
+                
+                console.log(`[HoleEntity] Created bumper ${index + 1} at local pos (${bumperConfig.position.x.toFixed(2)}, ${bumperConfig.position.y.toFixed(2)}, ${bumperConfig.position.z.toFixed(2)})`);
+                
+            } catch (error) {
+                console.error(`[HoleEntity] Failed to create bumper ${index}:`, error);
+            }
+        });
+        
+        // Clean up the boundary geometry
+        boundaryGeom.dispose();
+    }
+
+    // BaseElement destroy() will handle cleanup of meshes and bodies arrays.
 } 

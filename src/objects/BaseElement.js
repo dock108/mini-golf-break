@@ -11,6 +11,12 @@ export class BaseElement {
         this.config = config;      // Element configuration
         this.scene = scene;        // THREE.Scene instance
         
+        // Check if scene is valid before proceeding
+        if (!this.scene) {
+            console.error('[BaseElement] No valid scene provided to constructor');
+            throw new Error('BaseElement requires a valid scene');
+        }
+        
         this.meshes = [];         // Visual objects
         this.bodies = [];         // Physics bodies
         this.group = null;        // Main group container
@@ -32,7 +38,15 @@ export class BaseElement {
         // Create main element group here so subclasses can use it
         this.group = new THREE.Group();
         this.group.position.copy(this.position);
-        this.scene.add(this.group);
+        
+        // Check scene validity again before adding the group
+        if (this.scene && typeof this.scene.add === 'function') {
+            this.scene.add(this.group);
+            console.log(`[BaseElement] Added group to scene for ${this.elementType}`);
+        } else {
+            console.error(`[BaseElement] Cannot add group to scene - scene is invalid or lacks add() method`);
+            throw new Error('Cannot add group to scene - invalid scene reference');
+        }
         // We should track the group itself, maybe not add to meshes immediately
         // this.meshes.push(this.group); // Subclasses add their specific meshes
     }
