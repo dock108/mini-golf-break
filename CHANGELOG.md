@@ -10,6 +10,23 @@ All notable changes to the Mini Golf Break project will be documented in this fi
     - Created `src/ads/AdShip.js` to represent individual ad ships with placeholder geometry.
     - Created `src/ads/adConfig.js` with mock ad data.
     - Integrated `AdShipManager` into `Game.js` (init, update loop, cleanup) and added its group to the scene.
+    - Updated `AdShip.js` to generate distinct placeholder meshes (NASA, Alien, Station) based on `shipType`.
+    - Implemented dynamic canvas texture generation for ad banners in `AdShip.js` based on `adData.title`.
+    - Refactored `AdShipManager` to handle ad updates via `AdShip.updateAd`.
+    - Scaled ad ships for better visibility.
+    - Adjusted banner offsets in `AdShip.js` to prevent visual obstruction.
+    - Implemented distinct movement patterns: orbiting for 'station', linear fly-through/recycling for 'nasa'/'alien'.
+    - Added basic distance-based collision avoidance (ship slowdown) in `AdShipManager`.
+
+### Changed
+    - Ad ships now use canvas textures instead of image files.
+    - Ship movement is now orbital or linear based on type, replacing simple drift.
+    - Ship recycling/ad updates are handled differently for linear vs. orbital ships.
+
+### Fixed
+    - Ad ships disappearing after hole transition by marking `AdShipManager.group` as permanent and updating `HoleTransitionManager.cleanScene`.
+    - Increased spawn spread for ad ships in `AdShipManager.spawnShip` (later replaced by orbital/linear logic).
+    - Fixed `spread` variable scope issue in `AdShipManager.update`.
 
 ### Features
 - Added initial scaffolding for `NineHoleCourse.js` to support a full 9-hole course structure, including `THREE.Group` containers for each hole.

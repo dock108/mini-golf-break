@@ -4,48 +4,66 @@ import { mockAds } from './adConfig';
 
 /**
  * Manages the lifecycle, placement, and updates for all AdShip instances.
+ * Ships orbit or fly linearly under the course based on type.
  */
 export class AdShipManager {
     constructor(scene) {
         this.scene = scene;
         this.group = new THREE.Group();
         this.group.name = "AdShipsContainer";
+        this.group.userData = { permanent: true, type: 'AdShipContainer' }; // Mark as permanent
         this.ships = [];
         this.isInitialized = false;
 
-        // TODO: Configurable parameters
-        this.maxShips = 3;
-        this.spawnInterval = 15; // seconds
-        this.timeSinceLastSpawn = 0;
+        // --- Configuration ---
+        this.maxShips = 4;
+        this.verticalOffset = -15; // Y position for ships
+        this.minAdDuration = 30; 
+        this.maxAdDuration = 60;
+
+        // Movement Area (used for linear recycling bounds and initial orbit placement)
+        this.movementAreaSize = 100; // Size of the square area ships generally occupy
+        this.boundaryBuffer = 30; // Extra distance before linear ships recycle
+
+        // Orbital Specific (for stations)
+        this.minOrbitRadius = 20;
+        this.maxOrbitRadius = 50;
+        this.minAngularSpeed = 0.05;
+        this.maxAngularSpeed = 0.2;
+
+        // Linear Specific (for nasa/alien)
+        this.linearShipSpeed = 8.0; // Speed for ships flying straight
+
+        // Collision Avoidance
+        this.shipSafetyRadius = 10.0; // Minimum distance between ship centers (after scaling)
+        this.slowdownFactor = 0.1; // Speed factor when slowed down
+        this.slowdownDuration = 2.0; // Seconds to stay slowed down
+
+        // Calculate bounds once
+        this.minBound = -this.movementAreaSize / 2 - this.boundaryBuffer;
+        this.maxBound = this.movementAreaSize / 2 + this.boundaryBuffer;
     }
 
     init() {
         if (this.isInitialized) return;
         console.log("Initializing AdShipManager...");
-
-        // Add the main container group to the scene
-        // This should be done by the main game/scene manager
-        // this.scene.add(this.group);
-
-        // Initial spawn (example)
         this.spawnInitialShips();
-
         this.isInitialized = true;
-        console.log("AdShipManager Initialized.");
+        console.log(`AdShipManager Initialized with ${this.ships.length} ships.`);
     }
 
     spawnInitialShips() {
-        // Spawn a few ships based on mockAds for testing
-        for (let i = 0; i < Math.min(mockAds.length, this.maxShips); i++) {
-            this.spawnShip(mockAds[i]);
-        }
+        console.log(`Spawning initial ${this.maxShips} ships...`);
+        const initialAds = this.getInitialAds(this.maxShips);
+        initialAds.forEach(adData => {
+            this.spawnShip(adData);
+        });
     }
 
     spawnShip(adData) {
-        if (this.ships.length >= this.maxShips) {
-            // Optionally recycle oldest ship instead of just returning
-            // console.warn("Max ad ships reached.");
-            return;
+        if (!adData) {
+             console.warn("[AdShipManager] Tried to spawn ship with null adData.");
+             return null;
         }
 
         try {
@@ -53,68 +71,212 @@ export class AdShipManager {
             this.ships.push(ship);
             this.group.add(ship.group);
 
-            // TODO: Set initial position/path for the ship
-            // Example: random position beneath the course area
-            const x = (Math.random() - 0.5) * 30;
-            const z = (Math.random() - 0.5) * 30;
-            // Temporarily set Y higher for visibility
-            ship.group.position.set(x, -1, z); // <-- Temporary Y position for testing
+            // --- Collision Avoidance State --- 
+            ship.isSlowedDown = false;
+            ship.slowdownTimer = 0;
 
-            console.log(`Spawned AdShip: ${adData.title}`);
+            // --- Ad Timer --- 
+            ship.adDisplayTime = 0;
+            ship.adDisplayDuration = this.minAdDuration + Math.random() * (this.maxAdDuration - this.minAdDuration);
+
+            // --- Assign Movement Type & Parameters --- 
+            if (ship.shipType === 'station') {
+                ship.movementType = 'orbit';
+                ship.orbitRadius = this.minOrbitRadius + Math.random() * (this.maxOrbitRadius - this.minOrbitRadius);
+                ship.orbitAngle = Math.random() * Math.PI * 2;
+                const speed = this.minAngularSpeed + Math.random() * (this.maxAngularSpeed - this.minAngularSpeed);
+                ship.angularSpeed = speed * (Math.random() < 0.5 ? 1 : -1);
+
+                // Initial position near center for orbiters
+                const initialRadius = Math.random() * (this.movementAreaSize / 3); // Start closer for orbiters
+                const initialAngle = Math.random() * Math.PI * 2;
+                const initialX = initialRadius * Math.cos(initialAngle);
+                const initialZ = initialRadius * Math.sin(initialAngle);
+                ship.group.position.set(initialX, this.verticalOffset, initialZ);
+
+            } else { // 'nasa' or 'alien'
+                ship.movementType = 'linear';
+                const startPosVel = this._getLinearStartPosAndVel();
+                ship.group.position.set(startPosVel.position.x, this.verticalOffset, startPosVel.position.z);
+                ship.velocity = startPosVel.velocity;
+            }
+
+            // --- Common Setup --- 
+            this._orientShip(ship);
+            ship.group.scale.set(4, 4, 4); // Apply scale
+
+            console.log(`Created AdShip: ${adData.title} type ${ship.shipType} mode: ${ship.movementType}`);
+            return ship;
 
         } catch (error) {
-            console.error(`Error spawning ship for ad: ${adData.title}`, error);
+            console.error(`Error creating ship for ad: ${adData.title}`, error);
+            return null;
         }
     }
 
-    update(deltaTime) {
-        if (!this.isInitialized) return;
+    /** Gets a starting position just outside bounds and a velocity pointing across */
+    _getLinearStartPosAndVel() {
+        const position = new THREE.Vector3();
+        const velocity = new THREE.Vector3();
+        const edge = Math.floor(Math.random() * 4); // 0: +X, 1: -X, 2: +Z, 3: -Z
+        const randPosAlongEdge = (Math.random() - 0.5) * this.movementAreaSize;
 
-        // Update individual ship animations/logic
-        this.ships.forEach(ship => {
-            ship.update(deltaTime);
-            // TODO: Implement movement logic (e.g., simple orbit, path following)
-            // Example: Slow drift
-             ship.group.position.x += 0.5 * deltaTime;
-             if (ship.group.position.x > 25) {
-                 ship.group.position.x = -25;
-             }
-        });
-
-        // Spawn new ships periodically
-        this.timeSinceLastSpawn += deltaTime;
-        if (this.timeSinceLastSpawn >= this.spawnInterval) {
-            this.timeSinceLastSpawn = 0;
-            // TODO: Implement logic to select next ad from config/queue
-            // const nextAd = this.getNextAd();
-            // if (nextAd) this.spawnShip(nextAd);
+        switch (edge) {
+            case 0: // Start at +X edge, move -X
+                position.set(this.maxBound - 1, this.verticalOffset, randPosAlongEdge);
+                velocity.set(-this.linearShipSpeed, 0, (Math.random() - 0.5) * 0.2 * this.linearShipSpeed); // Slight Z variance
+                break;
+            case 1: // Start at -X edge, move +X
+                position.set(this.minBound + 1, this.verticalOffset, randPosAlongEdge);
+                velocity.set(this.linearShipSpeed, 0, (Math.random() - 0.5) * 0.2 * this.linearShipSpeed);
+                break;
+            case 2: // Start at +Z edge, move -Z
+                position.set(randPosAlongEdge, this.verticalOffset, this.maxBound - 1);
+                velocity.set((Math.random() - 0.5) * 0.2 * this.linearShipSpeed, 0, -this.linearShipSpeed);
+                break;
+            case 3: // Start at -Z edge, move +Z
+                position.set(randPosAlongEdge, this.verticalOffset, this.minBound + 1);
+                velocity.set((Math.random() - 0.5) * 0.2 * this.linearShipSpeed, 0, this.linearShipSpeed);
+                break;
         }
+        velocity.normalize().multiplyScalar(this.linearShipSpeed);
+        return { position, velocity };
+    }
 
-        // TODO: Implement ship despawning/recycling when out of bounds or expired
+     _orientShip(ship) {
+        if (!ship || !ship.group) return;
+
+        if (ship.movementType === 'orbit') {
+            const tangentX = -ship.orbitRadius * Math.sin(ship.orbitAngle) * Math.sign(ship.angularSpeed);
+            const tangentZ = ship.orbitRadius * Math.cos(ship.orbitAngle) * Math.sign(ship.angularSpeed);
+            ship.group.lookAt(ship.group.position.x + tangentX, this.verticalOffset, ship.group.position.z + tangentZ);
+        } else if (ship.movementType === 'linear' && ship.velocity && ship.velocity.lengthSq() > 0.001) {
+             // Look in the direction of the velocity vector
+            const lookAtPos = new THREE.Vector3().copy(ship.group.position).add(ship.velocity);
+            ship.group.lookAt(lookAtPos.x, this.verticalOffset, lookAtPos.z);
+        }
+     }
+
+    update(deltaTime) {
+        if (!this.isInitialized || this.ships.length === 0) return;
+
+        // --- Prepare for collision checks (optional optimization) ---
+        // const shipPositions = this.ships.map(s => s.group.position);
+
+        this.ships.forEach((ship, i) => {
+            let effectiveDeltaTime = deltaTime;
+
+            // --- Handle existing slowdown --- 
+            if (ship.isSlowedDown) {
+                ship.slowdownTimer -= deltaTime;
+                if (ship.slowdownTimer <= 0) {
+                    ship.isSlowedDown = false;
+                    ship.slowdownTimer = 0;
+                    // console.log(`Ship ${ship.adData.title} resuming normal speed.`);
+                } else {
+                    effectiveDeltaTime *= this.slowdownFactor;
+                    // Skip collision *checks* for this ship if it's already slowed
+                }
+            }
+
+            // --- Simple Collision Avoidance Check --- 
+            if (!ship.isSlowedDown) {
+                for (let j = i + 1; j < this.ships.length; j++) {
+                    const otherShip = this.ships[j];
+                    if (otherShip.isSlowedDown) continue; // Don't check against already slowed ships
+
+                    const distance = ship.group.position.distanceTo(otherShip.group.position);
+
+                    if (distance < this.shipSafetyRadius) {
+                        // Too close - slow down the current ship (ship `i`)
+                        console.warn(`Ships ${ship.adData.title} and ${otherShip.adData.title} too close (${distance.toFixed(1)} < ${this.shipSafetyRadius}). Slowing ${ship.adData.title}.`);
+                        ship.isSlowedDown = true;
+                        ship.slowdownTimer = this.slowdownDuration;
+                        effectiveDeltaTime *= this.slowdownFactor;
+                        break; // Stop checking for this ship once a collision is detected
+                    }
+                }
+            }
+
+            // --- Update Position (using effectiveDeltaTime) --- 
+            if (ship.movementType === 'orbit') {
+                ship.orbitAngle += ship.angularSpeed * effectiveDeltaTime;
+                const newX = ship.orbitRadius * Math.cos(ship.orbitAngle);
+                const newZ = ship.orbitRadius * Math.sin(ship.orbitAngle);
+                ship.group.position.set(newX, this.verticalOffset, newZ);
+            } else if (ship.movementType === 'linear') {
+                ship.group.position.addScaledVector(ship.velocity, effectiveDeltaTime);
+            }
+
+            // --- Update Orientation --- 
+            this._orientShip(ship);
+
+            // --- Update Internal Animations (e.g., station rotation) --- 
+            ship.update(deltaTime); // Use original deltaTime for internal animations
+
+            // --- Recycle Linear Ships --- 
+            if (ship.movementType === 'linear') {
+                const pos = ship.group.position;
+                if (pos.x > this.maxBound || pos.x < this.minBound || pos.z > this.maxBound || pos.z < this.minBound) {
+                    console.log(`Recycling linear ship: ${ship.adData.title}`);
+                    const nextAd = this.getNextAd(ship.adData.title);
+                    ship.updateAd(nextAd);
+                    ship.adDisplayTime = 0;
+                    ship.adDisplayDuration = this.minAdDuration + Math.random() * (this.maxAdDuration - this.minAdDuration);
+
+                    const newStart = this._getLinearStartPosAndVel();
+                    ship.group.position.set(newStart.position.x, this.verticalOffset, newStart.position.z);
+                    ship.velocity = newStart.velocity;
+                    this._orientShip(ship); // Re-orient for new path
+                    ship.isSlowedDown = false; // Ensure recycled ships aren't slowed
+                    ship.slowdownTimer = 0;
+                    console.log(`Recycled linear ${ship.adData.title} to pos: (${newStart.position.x.toFixed(1)}, ${this.verticalOffset}, ${newStart.position.z.toFixed(1)})`);
+                }
+            }
+
+            // --- Check Ad Timer (Common to both types) --- 
+            ship.adDisplayTime += deltaTime; // Use original deltaTime for timer
+            if (ship.adDisplayTime >= ship.adDisplayDuration) {
+                const nextAd = this.getNextAd(ship.adData.title);
+                ship.updateAd(nextAd);
+                ship.adDisplayTime = 0;
+                ship.adDisplayDuration = this.minAdDuration + Math.random() * (this.maxAdDuration - this.minAdDuration);
+            }
+        });
     }
 
     cleanup() {
         console.log("Cleaning up AdShipManager...");
         this.ships.forEach(ship => {
             ship.dispose();
-            this.group.remove(ship.group);
         });
         this.ships = [];
-
-        // Remove the main group from the scene if it was added
         if (this.group.parent) {
             this.group.parent.remove(this.group);
         }
-
         this.isInitialized = false;
         console.log("AdShipManager Cleaned up.");
     }
 
-    // --- Helper methods (Example) ---
-    getNextAd() {
-        // Simple example: pick a random ad from mockAds
+    // --- Helper methods --- 
+    getInitialAds(count) {
+        const uniqueAds = [...new Map(mockAds.map(ad => [ad.title, ad])).values()];
+        const adsToUse = uniqueAds.slice(0, count);
+        while (adsToUse.length < count && mockAds.length > 0) {
+            adsToUse.push(mockAds[Math.floor(Math.random() * mockAds.length)]);
+        }
+        return adsToUse;
+    }
+
+    getNextAd(currentAdTitle = null) {
         if (mockAds.length === 0) return null;
-        const randomIndex = Math.floor(Math.random() * mockAds.length);
-        return mockAds[randomIndex];
+        if (mockAds.length === 1) return mockAds[0];
+        const availableAds = currentAdTitle ? mockAds.filter(ad => ad.title !== currentAdTitle) : mockAds;
+        if (availableAds.length > 0) {
+            const randomIndex = Math.floor(Math.random() * availableAds.length);
+            return availableAds[randomIndex];
+        } else {
+            return mockAds.find(ad => ad.title === currentAdTitle) || mockAds[0];
+        }
     }
 } 
