@@ -17,16 +17,22 @@ All notable changes to the Mini Golf Break project will be documented in this fi
     - Adjusted banner offsets in `AdShip.js` to prevent visual obstruction.
     - Implemented distinct movement patterns: orbiting for 'station', linear fly-through/recycling for 'nasa'/'alien'.
     - Added basic distance-based collision avoidance (ship slowdown) in `AdShipManager`.
+    - Assigned unique vertical offsets (`ship.verticalOffset`) to ships for better 3D separation.
+    - Implemented subtle camera target blending towards closest ad ship while ball is moving (`CameraController`).
 
 ### Changed
     - Ad ships now use canvas textures instead of image files.
     - Ship movement is now orbital or linear based on type, replacing simple drift.
     - Ship recycling/ad updates are handled differently for linear vs. orbital ships.
+    - Linear ships now receive a new random vertical offset upon recycling.
 
 ### Fixed
     - Ad ships disappearing after hole transition by marking `AdShipManager.group` as permanent and updating `HoleTransitionManager.cleanScene`.
     - Increased spawn spread for ad ships in `AdShipManager.spawnShip` (later replaced by orbital/linear logic).
     - Fixed `spread` variable scope issue in `AdShipManager.update`.
+    - Fixed `lengthSq` vs `lengthSquared` call in `CameraController`.
+    - Fixed `deltaTime` not passed to `updateCameraFollowBall` in `CameraController`.
+    - Fixed ad focus camera state not resetting correctly in `positionCameraForHole`.
 
 ### Features
 - Added initial scaffolding for `NineHoleCourse.js` to support a full 9-hole course structure, including `THREE.Group` containers for each hole.

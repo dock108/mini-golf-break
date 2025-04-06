@@ -42,16 +42,16 @@ Phase 2: Ad Ship Mesh + Banner Implementation
 Phase 3: Movement & Visibility
 
 ✅ 6. Place Ships Beneath the Course & Animate
-	•	Ships positioned at `verticalOffset` (e.g., y = -15).
+	•	Ships positioned at varying `verticalOffset` levels (e.g., y = -15 to -25).
 	•	'station' types orbit the center.
     •   'nasa'/'alien' types fly linearly across the area and recycle.
 	•	Ships are scaled for visibility.
 
-2. Add Visibility Awareness
-	•	Have ships spawn at a predictable interval per hole (e.g., 1 per 30 seconds or on idle).
-	•	Optionally:
-	•	Flash subtle glow from below.
-	•	Trigger camera nudge or alternate "spectator view" after 5 seconds idle to pan down and highlight them.
+✅ 7. Add Visibility Awareness
+	•	Ship presence maintained via recycling (linear) or continuous orbit (station).
+	•	Optional:
+	•	Flash subtle glow from below. (Not Implemented)
+	•	Camera subtly blends target towards nearest ad ship during ball motion.
 
 ⸻
 

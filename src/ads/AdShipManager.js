@@ -17,8 +17,9 @@ export class AdShipManager {
 
         // --- Configuration ---
         this.maxShips = 4;
-        this.verticalOffset = -15; // Y position for ships
-        this.minAdDuration = 30; 
+        this.minVerticalOffset = -15;
+        this.maxVerticalOffset = -25;
+        this.minAdDuration = 30;
         this.maxAdDuration = 60;
 
         // Movement Area (used for linear recycling bounds and initial orbit placement)
@@ -88,16 +89,16 @@ export class AdShipManager {
                 ship.angularSpeed = speed * (Math.random() < 0.5 ? 1 : -1);
 
                 // Initial position near center for orbiters
-                const initialRadius = Math.random() * (this.movementAreaSize / 3); // Start closer for orbiters
+                const initialRadius = Math.random() * (this.movementAreaSize / 3);
                 const initialAngle = Math.random() * Math.PI * 2;
                 const initialX = initialRadius * Math.cos(initialAngle);
                 const initialZ = initialRadius * Math.sin(initialAngle);
-                ship.group.position.set(initialX, this.verticalOffset, initialZ);
+                ship.group.position.set(initialX, ship.verticalOffset, initialZ); // Use assigned offset
 
             } else { // 'nasa' or 'alien'
                 ship.movementType = 'linear';
                 const startPosVel = this._getLinearStartPosAndVel();
-                ship.group.position.set(startPosVel.position.x, this.verticalOffset, startPosVel.position.z);
+                ship.group.position.set(startPosVel.position.x, ship.verticalOffset, startPosVel.position.z); // Use assigned offset
                 ship.velocity = startPosVel.velocity;
             }
 
@@ -121,21 +122,23 @@ export class AdShipManager {
         const edge = Math.floor(Math.random() * 4); // 0: +X, 1: -X, 2: +Z, 3: -Z
         const randPosAlongEdge = (Math.random() - 0.5) * this.movementAreaSize;
 
+        // Y is set later using ship.verticalOffset
+
         switch (edge) {
             case 0: // Start at +X edge, move -X
-                position.set(this.maxBound - 1, this.verticalOffset, randPosAlongEdge);
+                position.set(this.maxBound - 1, 0, randPosAlongEdge); // Set Y to 0 temporarily
                 velocity.set(-this.linearShipSpeed, 0, (Math.random() - 0.5) * 0.2 * this.linearShipSpeed); // Slight Z variance
                 break;
             case 1: // Start at -X edge, move +X
-                position.set(this.minBound + 1, this.verticalOffset, randPosAlongEdge);
+                position.set(this.minBound + 1, 0, randPosAlongEdge);
                 velocity.set(this.linearShipSpeed, 0, (Math.random() - 0.5) * 0.2 * this.linearShipSpeed);
                 break;
             case 2: // Start at +Z edge, move -Z
-                position.set(randPosAlongEdge, this.verticalOffset, this.maxBound - 1);
+                position.set(randPosAlongEdge, 0, this.maxBound - 1);
                 velocity.set((Math.random() - 0.5) * 0.2 * this.linearShipSpeed, 0, -this.linearShipSpeed);
                 break;
             case 3: // Start at -Z edge, move +Z
-                position.set(randPosAlongEdge, this.verticalOffset, this.minBound + 1);
+                position.set(randPosAlongEdge, 0, this.minBound + 1);
                 velocity.set((Math.random() - 0.5) * 0.2 * this.linearShipSpeed, 0, this.linearShipSpeed);
                 break;
         }
@@ -145,26 +148,24 @@ export class AdShipManager {
 
      _orientShip(ship) {
         if (!ship || !ship.group) return;
+        const lookAtY = ship.verticalOffset || this.minVerticalOffset; // Use ship's Y or fallback
 
         if (ship.movementType === 'orbit') {
             const tangentX = -ship.orbitRadius * Math.sin(ship.orbitAngle) * Math.sign(ship.angularSpeed);
             const tangentZ = ship.orbitRadius * Math.cos(ship.orbitAngle) * Math.sign(ship.angularSpeed);
-            ship.group.lookAt(ship.group.position.x + tangentX, this.verticalOffset, ship.group.position.z + tangentZ);
+            ship.group.lookAt(ship.group.position.x + tangentX, lookAtY, ship.group.position.z + tangentZ);
         } else if (ship.movementType === 'linear' && ship.velocity && ship.velocity.lengthSq() > 0.001) {
-             // Look in the direction of the velocity vector
-            const lookAtPos = new THREE.Vector3().copy(ship.group.position).add(ship.velocity);
-            ship.group.lookAt(lookAtPos.x, this.verticalOffset, lookAtPos.z);
+             const lookAtPos = new THREE.Vector3().copy(ship.group.position).add(ship.velocity);
+            ship.group.lookAt(lookAtPos.x, lookAtY, lookAtPos.z);
         }
      }
 
     update(deltaTime) {
         if (!this.isInitialized || this.ships.length === 0) return;
 
-        // --- Prepare for collision checks (optional optimization) ---
-        // const shipPositions = this.ships.map(s => s.group.position);
-
         this.ships.forEach((ship, i) => {
             let effectiveDeltaTime = deltaTime;
+            const currentY = ship.verticalOffset || this.minVerticalOffset; // Ensure Y is consistent
 
             // --- Handle existing slowdown --- 
             if (ship.isSlowedDown) {
@@ -203,9 +204,13 @@ export class AdShipManager {
                 ship.orbitAngle += ship.angularSpeed * effectiveDeltaTime;
                 const newX = ship.orbitRadius * Math.cos(ship.orbitAngle);
                 const newZ = ship.orbitRadius * Math.sin(ship.orbitAngle);
-                ship.group.position.set(newX, this.verticalOffset, newZ);
+                ship.group.position.set(newX, currentY, newZ); // Use ship's assigned Y
             } else if (ship.movementType === 'linear') {
                 ship.group.position.addScaledVector(ship.velocity, effectiveDeltaTime);
+                // Ensure linear ships maintain their vertical offset
+                if (ship.group.position.y !== currentY) {
+                     ship.group.position.y = currentY;
+                }
             }
 
             // --- Update Orientation --- 
@@ -225,12 +230,14 @@ export class AdShipManager {
                     ship.adDisplayDuration = this.minAdDuration + Math.random() * (this.maxAdDuration - this.minAdDuration);
 
                     const newStart = this._getLinearStartPosAndVel();
-                    ship.group.position.set(newStart.position.x, this.verticalOffset, newStart.position.z);
+                    // Assign a *new* vertical offset when recycling
+                    ship.verticalOffset = this.minVerticalOffset + Math.random() * (this.maxVerticalOffset - this.minVerticalOffset);
+                    ship.group.position.set(newStart.position.x, ship.verticalOffset, newStart.position.z); // Use new offset
                     ship.velocity = newStart.velocity;
                     this._orientShip(ship); // Re-orient for new path
                     ship.isSlowedDown = false; // Ensure recycled ships aren't slowed
                     ship.slowdownTimer = 0;
-                    console.log(`Recycled linear ${ship.adData.title} to pos: (${newStart.position.x.toFixed(1)}, ${this.verticalOffset}, ${newStart.position.z.toFixed(1)})`);
+                    console.log(`Recycled linear ${ship.adData.title} to pos: (${newStart.position.x.toFixed(1)}, ${ship.verticalOffset.toFixed(1)}, ${newStart.position.z.toFixed(1)})`);
                 }
             }
 
