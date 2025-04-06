@@ -164,6 +164,7 @@ export class AdShip {
 
         this.bannerMesh = new THREE.Mesh(geometry, material);
         this.bannerMesh.name = "AdBanner";
+        this.bannerMesh.userData = { adData: this.adData }; // Store adData for click lookup
 
         // Adjust banner position based on ship type
         // NOTE: These offsets are relative to the ship's local coordinates BEFORE scaling

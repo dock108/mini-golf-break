@@ -19,6 +19,10 @@ All notable changes to the Mini Golf Break project will be documented in this fi
     - Added basic distance-based collision avoidance (ship slowdown) in `AdShipManager`.
     - Assigned unique vertical offsets (`ship.verticalOffset`) to ships for better 3D separation.
     - Implemented subtle camera target blending towards closest ad ship while ball is moving (`CameraController`).
+    - Added `AD_INSPECTING` state to `GameState.js`.
+    - Added key listener ('i') to `InputController` to toggle `AD_INSPECTING` state and camera orbit controls.
+    - Implemented raycasting in `InputController._handleAdClick` to detect clicks on ad banners when in `AD_INSPECTING` state.
+    - Added `adData` to `bannerMesh.userData` in `AdShip` for click identification.
 
 ### Changed
     - Ad ships now use canvas textures instead of image files.
@@ -33,6 +37,7 @@ All notable changes to the Mini Golf Break project will be documented in this fi
     - Fixed `lengthSq` vs `lengthSquared` call in `CameraController`.
     - Fixed `deltaTime` not passed to `updateCameraFollowBall` in `CameraController`.
     - Fixed ad focus camera state not resetting correctly in `positionCameraForHole`.
+    - Fixed `getGameState` method call in `InputController` state check.
 
 ### Features
 - Added initial scaffolding for `NineHoleCourse.js` to support a full 9-hole course structure, including `THREE.Group` containers for each hole.

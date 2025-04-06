@@ -10,6 +10,8 @@ export class InputController {
         this.game = game;
         this.camera = game.camera;
         this.renderer = game.renderer;
+        this.stateManager = game.stateManager;
+        this.adShipManager = game.adShipManager;
         
         // Track input state
         this.isInputEnabled = true;
@@ -91,6 +93,7 @@ export class InputController {
             this.onTouchStart = this.onTouchStart.bind(this);
             this.onTouchMove = this.onTouchMove.bind(this);
             this.onTouchEnd = this.onTouchEnd.bind(this);
+            this.onKeyDown = this.onKeyDown.bind(this); // Bind keydown handler
             
             // Add event listeners
             domElement.addEventListener('mousedown', this.onMouseDown);
@@ -101,6 +104,9 @@ export class InputController {
             domElement.addEventListener('touchstart', this.onTouchStart);
             window.addEventListener('touchmove', this.onTouchMove);
             window.addEventListener('touchend', this.onTouchEnd);
+            
+            // Add keydown listener
+            window.addEventListener('keydown', this.onKeyDown);
             
             if (this.game.debugManager) {
                 this.game.debugManager.log('InputController DOM event listeners initialized');
@@ -340,6 +346,22 @@ export class InputController {
     }
     
     onMouseUp(event) {
+        const currentState = this.stateManager ? this.stateManager.getGameState() : 'UNKNOWN';
+        console.log(`[InputController.onMouseUp] State: ${currentState}, PointerDown: ${this.isPointerDown}, Dragging: ${this.isDragging}`);
+
+        // --- Ad Interaction Check --- 
+        if (this.stateManager && currentState === 'AD_INSPECTING') {
+            console.log('[InputController.onMouseUp] Handling click in AD_INSPECTING state...');
+             // Check if the click originated inside the canvas
+            if (this.isEventInsideCanvas(event)) {
+                this._handleAdClick(event);
+            }
+            // Regardless of hit, prevent default and stop further processing in this state
+            event.preventDefault(); 
+            return; 
+        }
+        // --- End Ad Interaction Check --- 
+
         // Skip if not in dragging mode or pointer wasn't down
         // Check isPointerDown first, as isDragging might be false on a simple click
         if (!this.isPointerDown) {
@@ -469,6 +491,69 @@ export class InputController {
         }
         // Note: No check for event.touches.length here, as touchend signifies the end of a touch point.
         // The state (isPointerDown) determines if it corresponds to our drag action.
+    }
+    
+    /**
+     * Handles clicks specifically when in AD_INSPECTING state.
+     * Performs raycast against ad banners and opens URL if hit.
+     * @param {MouseEvent|TouchEvent} event - The pointer event.
+     */
+    _handleAdClick(event) {
+        console.log('[AdClick] _handleAdClick called.'); // Log entry
+        if (!this.adShipManager || !this.adShipManager.ships || this.adShipManager.ships.length === 0) {
+            console.log("[AdClick] No ad ships available to check.");
+            return;
+        }
+
+        // 1. Get Pointer Coordinates (Normalized Device Coordinates)
+        this.pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+        this.pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        // 2. Update Raycaster
+        this.raycaster.setFromCamera(this.pointer, this.camera);
+
+        // 3. Collect Target Meshes
+        const adBannerMeshes = this.adShipManager.ships
+            .map(ship => ship.bannerMesh)
+            .filter(mesh => mesh);
+        console.log(`[AdClick] Found ${adBannerMeshes.length} banner meshes to check.`); // Log targets
+
+        if (adBannerMeshes.length === 0) {
+            console.log("[AdClick] No ad banner meshes found.");
+            return;
+        }
+
+        // 4. Perform Raycast
+        const intersects = this.raycaster.intersectObjects(adBannerMeshes, false);
+        console.log(`[AdClick] Raycast intersects: ${intersects.length}`); // Log intersects
+
+        // 5. Handle Intersection
+        if (intersects.length > 0) {
+            const hitObject = intersects[0].object;
+
+            if (hitObject.userData && hitObject.userData.adData && hitObject.userData.adData.url) {
+                const adData = hitObject.userData.adData;
+                console.log(`[AdClick] Clicked on banner for ad: "${adData.title}". Opening URL: ${adData.url}`);
+                 console.log("[AdClick] Hit object userData:", hitObject.userData); // Log userData on hit
+                
+                try {
+                    window.open(adData.url, "_blank");
+                    // Optionally: Log click event for analytics
+                    // this.game.eventManager.publish(EventTypes.AD_CLICKED, { adTitle: adData.title, url: adData.url }, this);
+                } catch (e) {
+                     console.error("[AdClick] Error opening URL:", e);
+                     // Inform user? e.g., via UIManager
+                }
+
+                // Optional: Add debounce/cooldown or change game state
+                // For example, switch back to normal gameplay state:
+                // this.stateManager.setGameState(GameState.IDLE); // Assuming GameState enum exists
+            } else {
+                console.log("[AdClick] Clicked on a banner mesh, but no valid adData or URL found in userData.", hitObject.userData);
+            }
+        } else {
+             console.log("[AdClick] Click detected in AD_INSPECTING state, but no ad banner intersected.");
+        }
     }
     
     calculateDragPower() {
@@ -745,6 +830,7 @@ export class InputController {
                 domElement.removeEventListener('touchstart', this.onTouchStart);
                 window.removeEventListener('touchmove', this.onTouchMove);
                 window.removeEventListener('touchend', this.onTouchEnd);
+                window.removeEventListener('keydown', this.onKeyDown); // Remove keydown listener
             } catch (error) {
                 if (this.game.debugManager) {
                     this.game.debugManager.warn('InputController.cleanup', 'Error removing DOM event listeners', error);
@@ -787,5 +873,39 @@ export class InputController {
                 console.error('Error during InputController cleanup:', error);
             }
         }
+    }
+
+    /**
+     * Handles keydown events, primarily for toggling Ad Inspect mode.
+     * @param {KeyboardEvent} event
+     */
+    onKeyDown(event) {
+        if (event.key.toLowerCase() === 'i') {
+            if (!this.stateManager || !this.game.cameraController?.controls) return;
+
+            const currentState = this.stateManager.getGameState();
+
+            if (currentState === GameState.AD_INSPECTING) {
+                console.log("[InputController] Exiting AD_INSPECTING state.");
+                // Restore controls setting from before aiming started (usually false)
+                // Or simply set to false if aiming should always disable controls.
+                this.game.cameraController.controls.enabled = false; 
+                // Determine appropriate state to return to (AIMING if ball stopped, otherwise maybe let it be)
+                // For now, assume we can always go back to AIMING when toggling off.
+                this.stateManager.setGameState(GameState.AIMING);
+                this.enableInput(); // Re-enable aiming input
+            } else {
+                // Enter AD_INSPECTING only if input is currently enabled (ball stopped)
+                if(this.isInputEnabled) {
+                    console.log("[InputController] Entering AD_INSPECTING state.");
+                    this.disableInput(); // Disable aiming input
+                    this.game.cameraController.controls.enabled = true; // Enable orbit controls
+                    this.stateManager.setGameState(GameState.AD_INSPECTING);
+                } else {
+                     console.log("[InputController] Cannot enter AD_INSPECTING state while input is disabled (ball might be moving).");
+                }
+            }
+        }
+        // Add other key handlers here if needed (e.g., pause)
     }
 } 
