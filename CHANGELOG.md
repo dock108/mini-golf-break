@@ -2,7 +2,14 @@
 
 All notable changes to the Mini Golf Break project will be documented in this file.
 
-## [Unreleased] - Physics Debugging & Fixes
+## [Unreleased] - 2025-04-06
+
+### Added
+- Ad Ship System Foundation:
+    - Created `src/ads/AdShipManager.js` to manage ad ship lifecycle.
+    - Created `src/ads/AdShip.js` to represent individual ad ships with placeholder geometry.
+    - Created `src/ads/adConfig.js` with mock ad data.
+    - Integrated `AdShipManager` into `Game.js` (init, update loop, cleanup) and added its group to the scene.
 
 ### Features
 - Added initial scaffolding for `NineHoleCourse.js` to support a full 9-hole course structure, including `THREE.Group` containers for each hole.
@@ -660,70 +667,6 @@ All notable changes to the Mini Golf Break project will be documented in this fi
 - Implemented debug visualization of physics bodies
 - Added console logging for tracking ball velocity and position
 - Created utility functions for streamlined development
-
-## [Unreleased] - YYYY-MM-DD
-
-### Added
-- Configurable hazard system (`HazardFactory`) supporting circle, rectangle, and compound shapes (e.g., snowman bunker).
-- Support for custom hole shapes (e.g., L-shape) via `boundaryWalls` configuration in `HoleEntity`.
-- Physics effect for bunkers (increased linear damping).
-- Visual hop effect for high-speed hole rejections.
-- `BaseElement` base class for shared course element logic.
-- `VisualEffectsManager` placeholder.
-- Logging for bunker entry/exit (position-based check in `Ball.update`).
-- Hole 3 added (copy of Hole 2 layout).
-- Water hazard type (`isWaterZone`) created via `HazardFactory`.
-- Water hazard penalty logic (1 stroke + reset to last hit position) implemented in `Ball.update`.
-
-### Changed
-- Refactored hazard creation out of `HoleEntity` into `HazardFactory`.
-- Refactored wall creation in `HoleEntity` to support `boundaryWalls`.
-- Updated hole entry logic in `Ball.update` to use speed and overlap thresholds.
-- Moved bunker state detection from `Ball.onCollide` to `Ball.update` using geometric checks.
-- Increased `HOLE_ENTRY_MAX_SPEED` allowance.
-- Consolidated documentation regarding new features.
-
-### Fixed
-- Corrected `CANNON.Cylinder` orientation for hole and bunker triggers.
-- Ensured `HoleEntity.init()` is called correctly instead of `create()`.
-- Resolved duplicate `BaseElement` declaration error.
-- Resolved `BaseElement` module not found error.
-- Improved reliability of bunker exit detection.
-- Fixed CSG subtraction for green surface to include hazard cutouts.
-
-### Removed
-- Old `createBunkerTriggers` and `createBunkerVisuals` methods from `HoleEntity`.
-- Redundant `BaseElement` definition from `HoleEntity`.
-- Collision-based bunker detection logic from `Ball.onCollide`.
-
-## [0.2.0] - 2025-04-01
-
-### Added
-- Physics debug renderer (`CannonDebugRenderer`), toggled with 'd' key.
-- 3D cylindrical interior visual for the hole cup in `HoleEntity.createHoleVisual`.
-- Metallic rim visual around the hole cup using `THREE.RingGeometry`.
-- Visual green surface now uses `CSG` subtraction to properly cut out the hole shape, preventing visual overlap.
-- Basic `CHANGELOG.md` file.
-
-### Changed
-- Updated `HoleEntity.createGreenSurfaceAndPhysics` to use `CSG` for visual mesh, keeping physics as a simple `Trimesh` plane.
-- Refined `HoleEntity` constructor and component creation logic.
-- Updated documentation (`README.md`, `PROJECT_CHECKLIST.md`, `DEVELOPMENT_GUIDE.md`) to reflect recent changes.
-
-### Fixed
-- Addressed issues where hole interior/rim were obscured or positioned incorrectly by reverting visual green to `PlaneGeometry` during debugging and then correctly implementing CSG subtraction.
-
-### Removed
-- Old `HoleCompletionManager.checkBallInHole()` method and related calls.
-- Commented-out old hole detection logic in `PhysicsWorld.setupCollideListener`.
-
-## [Pending Features]
-- Mobile-specific touch controls optimization
-- Additional course designs
-- Enhanced visual effects for successful putts
-- Sound effects for ball rolling and collisions
-- Course completion and game progression logic
-- Menu and settings interface
 
 ## [Unreleased]
 
