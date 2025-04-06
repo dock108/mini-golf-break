@@ -69,15 +69,7 @@ export class NineHoleCourse extends CoursesManager {
                         depth: 0.15
                     }
                 ],
-                bumpers: [
-                    // Outer wall bumper for ricochet
-                    {
-                        position: new THREE.Vector3(4, 0.25, 0), // Local position (right edge)
-                        size: new THREE.Vector3(0.2, 0.5, 16), // Local size (thin, tall, long)
-                        rotation: new THREE.Euler(0, 0, 0)
-                    }
-                    // Add more bumpers to define the '?' curve if needed
-                ]
+                bumpers: [] // Removed the bumper since HoleEntity already creates walls
             },
             // 🕳️ 2. Island Hop (Rectangular, water gap, angled bridge)
             {
@@ -178,49 +170,28 @@ export class NineHoleCourse extends CoursesManager {
                         position: new THREE.Vector3(0, 0, 0), // World position - Center
                         size: { radius: 3 },
                         depth: 0.15
-                    },
-                    {
-                        type: 'sand',
-                        shape: 'circle',
-                        position: new THREE.Vector3(-4, 0, -4), // World position - Bottom left
-                        size: { radius: 1.5 },
-                        depth: 0.2 // Ensure proper depth for bunker
-                    },
-                    {
-                        type: 'sand',
-                        shape: 'circle',
-                        position: new THREE.Vector3(4, 0, -4), // World position - Bottom right
-                        size: { radius: 1.5 },
-                        depth: 0.2 // Ensure proper depth for bunker
-                    },
-                    {
-                        type: 'sand',
-                        shape: 'circle',
-                        position: new THREE.Vector3(0, 0, 4), // World position - Top
-                        size: { radius: 1.5 },
-                        depth: 0.2 // Ensure proper depth for bunker
                     }
                 ],
                 bumpers: [
-                    // Create angled funnel walls
+                    // Create angled funnel walls with corrected positioning
                     { // Top Left
                         position: new THREE.Vector3(-5, 0.25, 5), // Local
-                        size: new THREE.Vector3(4, 0.5, 0.2),
+                        size: new THREE.Vector3(5.5, 0.5, 0.2),
                         rotation: new THREE.Euler(0, -Math.PI / 4, 0)
                     },
                     { // Top Right
                         position: new THREE.Vector3(5, 0.25, 5), // Local
-                        size: new THREE.Vector3(4, 0.5, 0.2),
+                        size: new THREE.Vector3(5.5, 0.5, 0.2),
                         rotation: new THREE.Euler(0, Math.PI / 4, 0)
                     },
                     { // Bottom Left
                         position: new THREE.Vector3(-5, 0.25, -5), // Local
-                        size: new THREE.Vector3(4, 0.5, 0.2),
+                        size: new THREE.Vector3(5.5, 0.5, 0.2),
                         rotation: new THREE.Euler(0, Math.PI / 4, 0)
                     },
                     { // Bottom Right
                         position: new THREE.Vector3(5, 0.25, -5), // Local
-                        size: new THREE.Vector3(4, 0.5, 0.2),
+                        size: new THREE.Vector3(5.5, 0.5, 0.2),
                         rotation: new THREE.Euler(0, -Math.PI / 4, 0)
                     }
                 ]

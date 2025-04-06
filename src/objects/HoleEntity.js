@@ -532,17 +532,22 @@ export class HoleEntity extends BaseElement {
                 
                 bumperMesh.updateMatrix();
                 
-                // Use CSG to constrain the bumper to the course boundaries
-                const finalBumperMesh = CSG.intersect(bumperMesh, boundaryMesh);
-                finalBumperMesh.material = bumperMaterial;
+                // Use CSG to constrain the bumper to the course boundaries - REMOVED as it caused visual/physics mismatch
+                // const finalBumperMesh = CSG.intersect(bumperMesh, boundaryMesh);
+                // finalBumperMesh.material = bumperMaterial;
+                bumperMesh.material = bumperMaterial; // Apply material to original mesh
                 
                 // Enable shadows
-                finalBumperMesh.castShadow = true;
-                finalBumperMesh.receiveShadow = true;
+                // finalBumperMesh.castShadow = true;
+                // finalBumperMesh.receiveShadow = true;
+                bumperMesh.castShadow = true;
+                bumperMesh.receiveShadow = true;
                 
                 // Add mesh to hole group
-                this.group.add(finalBumperMesh);
-                this.meshes.push(finalBumperMesh);
+                // this.group.add(finalBumperMesh);
+                // this.meshes.push(finalBumperMesh);
+                this.group.add(bumperMesh); // Add the original mesh
+                this.meshes.push(bumperMesh); // Track the original mesh
                 
                 // Create physics body
                 const bumperBody = new CANNON.Body({
@@ -559,23 +564,44 @@ export class HoleEntity extends BaseElement {
                 );
                 
                 const bumperShape = new CANNON.Box(halfExtents);
-                bumperBody.addShape(bumperShape);
-                
-                // Match position of visual bumper
-                bumperBody.position.copy(bumperConfig.position);
-                
-                // Match rotation if specified
+                // Add shape with NO offset rotation for now
+                bumperBody.addShape(bumperShape); 
+
+                // Calculate the BODY's world position and rotation
+                // 1. World Position: Transform local bumper position using group.localToWorld
+                const localPosVec3 = new THREE.Vector3().copy(bumperConfig.position);
+                const worldPosVec3 = this.group.localToWorld(localPosVec3.clone()); // Use localToWorld
+                bumperBody.position.set(worldPosVec3.x, worldPosVec3.y, worldPosVec3.z);
+
+                // 2. World Rotation: Combine group world rotation and bumper local rotation
+                const groupWorldQuatTHREE = new THREE.Quaternion();
+                this.group.getWorldQuaternion(groupWorldQuatTHREE); // Get group's world rotation (THREE)
+
+                const finalWorldQuatCANNON = new CANNON.Quaternion(
+                    groupWorldQuatTHREE.x,
+                    groupWorldQuatTHREE.y,
+                    groupWorldQuatTHREE.z,
+                    groupWorldQuatTHREE.w
+                );
+
                 if (bumperConfig.rotation) {
-                    // Convert euler rotation to quaternion
-                    const quaternion = new CANNON.Quaternion();
-                    quaternion.setFromEuler(
+                    const localBumperQuatCANNON = new CANNON.Quaternion();
+                    localBumperQuatCANNON.setFromEuler(
                         bumperConfig.rotation.x,
                         bumperConfig.rotation.y,
                         bumperConfig.rotation.z,
                         bumperConfig.rotation.order || 'XYZ'
                     );
-                    bumperBody.quaternion.copy(quaternion);
+                    // Multiply group world by local bumper rot
+                    finalWorldQuatCANNON.mult(localBumperQuatCANNON, finalWorldQuatCANNON);
                 }
+                bumperBody.quaternion.copy(finalWorldQuatCANNON);
+
+                // DEBUG LOGGING
+                console.log(`[HoleEntity] Bumper ${index} Physics Body PRE-ADD:`,
+                    `Pos: (${bumperBody.position.x.toFixed(2)}, ${bumperBody.position.y.toFixed(2)}, ${bumperBody.position.z.toFixed(2)}), `,
+                    `Quat: (${bumperBody.quaternion.x.toFixed(2)}, ${bumperBody.quaternion.y.toFixed(2)}, ${bumperBody.quaternion.z.toFixed(2)}, ${bumperBody.quaternion.w.toFixed(2)})`
+                );
                 
                 // Set user data
                 bumperBody.userData = {
