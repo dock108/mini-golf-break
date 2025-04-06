@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { CoursesManager } from '../managers/CoursesManager.js';
-import { HoleEntity } from './HoleEntity'; // Keep for potential future use, but maybe remove later
+import { HoleEntity } from './HoleEntity';
 
 /**
  * NineHoleCourse - A mini golf course with 9 distinct holes.
@@ -165,7 +165,27 @@ export class NineHoleCourse extends CoursesManager {
                     { position: new THREE.Vector3(5, 0.25, -5), size: new THREE.Vector3(5.5, 0.5, 0.2), rotation: new THREE.Euler(0, -Math.PI / 4, 0) }
                 ]
             },
-            // 🕳️ 6. The Labyrinth (Replaces Gauntlet)
+            // 🕳️ 6. The Bridge
+            {
+                index: 5,
+                description: "6. The Bridge",
+                par: 3,
+                courseWidth: 5,
+                courseLength: 25,
+                startPosition: new THREE.Vector3(0, 0, 11), // World
+                holePosition: new THREE.Vector3(0, 0, -11), // World
+                hazards: [
+                    {
+                        type: 'water',
+                        shape: 'rectangle',
+                        position: new THREE.Vector3(0, 0, 0), // World - Gap in the middle
+                        size: { width: 5, length: 8 },
+                        depth: 0.2
+                    }
+                ],
+                bumpers: [] // No bumpers for this simple bridge concept
+            },
+            // 🕳️ 7. The Labyrinth (Original index 6)
             {
                 index: 6,
                 description: "7. The Labyrinth",
@@ -191,7 +211,7 @@ export class NineHoleCourse extends CoursesManager {
                     { position: new THREE.Vector3(4, 0.25, -4), size: new THREE.Vector3(8, 0.5, 0.2), rotation: new THREE.Euler(0, 0, 0) }, // Bottom wall segment
                 ]
             },
-            // 🕳️ 8. Criss-Cross
+            // 🕳️ 8. Criss-Cross (Original index 7)
             {
                 index: 7,
                 description: "8. Criss-Cross",
@@ -218,7 +238,7 @@ export class NineHoleCourse extends CoursesManager {
                 ],
                 bumpers: [] // Bumpers assumed local relative to 0,0,0
             },
-            // 🕳️ 9. The Final Shot
+            // 🕳️ 9. The Final Shot (Original index 8)
             {
                 index: 8,
                 description: "9. The Final Shot",
