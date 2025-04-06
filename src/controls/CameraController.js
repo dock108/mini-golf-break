@@ -12,6 +12,10 @@ export class CameraController {
         this.scene = game.scene;
         this.renderer = null;
         
+        // Managers
+        this.ballManager = null;
+        this.adShipManager = null;
+        
         // Setup camera and controls with increased far plane
         this.camera = new THREE.PerspectiveCamera(
             60, // Field of View (remains 60)
@@ -35,6 +39,18 @@ export class CameraController {
         this._isRepositioning = false; // Flag to track camera repositioning
         this._userAdjustedCamera = false; // Flag to track if user manually adjusted camera
         this._lastManualControlTime = 0; // Track when user last manually adjusted camera
+
+        // --- Ad Focus Blending State --- 
+        this.wasBallMovingLastFrame = false;
+        this.closestAdShip = null;
+        this.targetAdFocusWeight = 0.0; // Target weight (0 or 1)
+        this.currentAdFocusWeight = 0.0; // Smoothed weight (0 to 1)
+
+        // --- Ad Focus Config --- 
+        this.ballMoveThresholdSq = 0.2 * 0.2; // Squared velocity threshold to consider ball moving
+        this.adFocusLerpFactor = 2.0;        // Speed of blending towards target weight
+        this.maxAdShipCheckDistanceSq = 70 * 70; // Don't focus on ships too far away (squared)
+        this.adFocusMaxWeight = 0.35;       // Max blend amount towards ad ship (0 to 1)
     }
     
     /**
@@ -56,6 +72,13 @@ export class CameraController {
             if (this.isInitialized) {
                  console.warn('[CameraController.init] Already initialized, skipping.');
                 return this;
+            }
+            
+            // Get manager references
+            this.ballManager = this.game.ballManager;
+            this.adShipManager = this.game.adShipManager;
+            if (!this.ballManager || !this.adShipManager) {
+                 console.warn('[CameraController.init] BallManager or AdShipManager not found!');
             }
             
             // Setup camera
@@ -233,13 +256,21 @@ export class CameraController {
         }
         
         // Update camera to follow the ball if it exists and is moving
-        this.updateCameraFollowBall();
+        this.updateCameraFollowBall(deltaTime);
     }
     
     /**
      * Position camera to view the current hole
      */
     positionCameraForHole() {
+        // --- Force Reset Ad Focus State --- 
+        this.targetAdFocusWeight = 0.0;
+        this.currentAdFocusWeight = 0.0;
+        this.closestAdShip = null;
+        this.wasBallMovingLastFrame = false; // Ensure ball state is reset too
+        console.log('[CameraController] Resetting ad focus state for new hole.');
+        // --- End Reset --- 
+
         if (!this.course) {
             console.warn("Cannot position camera: Course not available");
             return this;
@@ -329,8 +360,9 @@ export class CameraController {
 
     /**
      * Update camera position to follow the ball
+     * @param {number} deltaTime - Time since last update in seconds
      */
-    updateCameraFollowBall() {
+    updateCameraFollowBall(deltaTime) {
         // Get the ball reference from the ball manager
         const ball = this.game.ballManager ? this.game.ballManager.ball : null;
         if (!ball || !ball.mesh) return;
@@ -375,6 +407,53 @@ export class CameraController {
             return;
         }
         
+        // === Ad Focus Blending Logic ===
+        let finalLookAtTarget = ballPosition.clone();
+        finalLookAtTarget.y -= 1.5; // Default look-at point slightly below ball
+
+        if (this.adShipManager && this.ballManager && this.ballManager.ball?.body) {
+            const ballVelocitySq = this.ballManager.ball.body.velocity.lengthSquared();
+            const isBallMoving = ballVelocitySq > this.ballMoveThresholdSq;
+
+            // Detect state change: Ball starts moving
+            if (isBallMoving && !this.wasBallMovingLastFrame) {
+                this.closestAdShip = this._findClosestVisibleAdShip(ballPosition);
+                if (this.closestAdShip) {
+                    this.targetAdFocusWeight = 1.0;
+                    // console.log(`[Camera] Ball started moving. Targeting ad ship: ${this.closestAdShip.adData.title}`);
+                } else {
+                    this.targetAdFocusWeight = 0.0; // No suitable ship found
+                }
+            }
+            // Detect state change: Ball stops moving
+            else if (!isBallMoving && this.wasBallMovingLastFrame) {
+                this.targetAdFocusWeight = 0.0;
+                // Don't clear closestAdShip immediately, let weight blend out
+                // console.log("[Camera] Ball stopped moving. Blending back focus.");
+            }
+
+            // Smoothly blend the focus weight
+            this.currentAdFocusWeight = THREE.MathUtils.lerp(this.currentAdFocusWeight, this.targetAdFocusWeight, this.adFocusLerpFactor * deltaTime);
+            if (this.currentAdFocusWeight < 0.01) {
+                 this.currentAdFocusWeight = 0.0; // Snap to zero if close enough
+                 this.closestAdShip = null; // Clear target once blend is finished
+            }
+
+            // Calculate final look-at target if blending towards an ad ship
+            if (this.currentAdFocusWeight > 0 && this.closestAdShip) {
+                const baseTarget = ballPosition.clone(); // Start with ball position
+                baseTarget.y -= 1.5; // Lower target
+                const adShipTarget = this.closestAdShip.group.position.clone();
+                // Blend towards the ad ship, but apply max weight limit
+                const blendWeight = this.currentAdFocusWeight * this.adFocusMaxWeight;
+                finalLookAtTarget.lerpVectors(baseTarget, adShipTarget, blendWeight);
+                 // console.log(`[Camera] Blending focus. Weight: ${this.currentAdFocusWeight.toFixed(2)}, Blend: ${blendWeight.toFixed(2)}`);
+            }
+
+            this.wasBallMovingLastFrame = isBallMoving;
+        }
+        // === End Ad Focus Blending ===
+
         // Always reset user adjustment flag when ball is moving
         // This ensures that after a shot, the camera starts following again
         if (this.game.stateManager && this.game.stateManager.isBallInMotion()) {
@@ -420,6 +499,15 @@ export class CameraController {
             }
         } else {
             // When ball is stopped, calculate target relative to WORLD hole position
+            // Reset ad focus when ball is stopped
+            this.targetAdFocusWeight = 0.0;
+            // Smoothly blend out any remaining focus weight
+             this.currentAdFocusWeight = THREE.MathUtils.lerp(this.currentAdFocusWeight, this.targetAdFocusWeight, this.adFocusLerpFactor * deltaTime);
+             if (this.currentAdFocusWeight < 0.01) {
+                 this.currentAdFocusWeight = 0.0;
+                 this.closestAdShip = null;
+             }
+
             if (!this._userAdjustedCamera && this.controls && this.course) {
                 const worldHolePosition = this.course.getHolePosition(); // Already returns WORLD
                 if (worldHolePosition) {
@@ -610,5 +698,28 @@ export class CameraController {
         this._userAdjustedCamera = false;
         // Now it's safe to position the camera for the initial hole
         this.positionCameraForHole(); 
+    }
+
+    /** Helper to find the closest ad ship within a certain distance */
+    _findClosestVisibleAdShip(ballPosition) {
+        if (!this.adShipManager || !this.adShipManager.ships || this.adShipManager.ships.length === 0) {
+            return null;
+        }
+
+        let closestShip = null;
+        let minDistanceSq = this.maxAdShipCheckDistanceSq;
+
+        this.adShipManager.ships.forEach(ship => {
+            const distanceSq = ballPosition.distanceToSquared(ship.group.position);
+            if (distanceSq < minDistanceSq) {
+                // Basic visibility check (could be enhanced with raycasting or frustum checks)
+                // For now, just use distance
+                minDistanceSq = distanceSq;
+                closestShip = ship;
+            }
+        });
+
+        // if (closestShip) console.log(`[Camera] Closest ship found: ${closestShip.adData.title} at dist ${Math.sqrt(minDistanceSq).toFixed(1)}`);
+        return closestShip;
     }
 } 

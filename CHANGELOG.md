@@ -2,7 +2,42 @@
 
 All notable changes to the Mini Golf Break project will be documented in this file.
 
-## [Unreleased] - Physics Debugging & Fixes
+## [Unreleased] - 2025-04-06
+
+### Added
+- Ad Ship System Foundation:
+    - Created `src/ads/AdShipManager.js` to manage ad ship lifecycle.
+    - Created `src/ads/AdShip.js` to represent individual ad ships with placeholder geometry.
+    - Created `src/ads/adConfig.js` with mock ad data.
+    - Integrated `AdShipManager` into `Game.js` (init, update loop, cleanup) and added its group to the scene.
+    - Updated `AdShip.js` to generate distinct placeholder meshes (NASA, Alien, Station) based on `shipType`.
+    - Implemented dynamic canvas texture generation for ad banners in `AdShip.js` based on `adData.title`.
+    - Refactored `AdShipManager` to handle ad updates via `AdShip.updateAd`.
+    - Scaled ad ships for better visibility.
+    - Adjusted banner offsets in `AdShip.js` to prevent visual obstruction.
+    - Implemented distinct movement patterns: orbiting for 'station', linear fly-through/recycling for 'nasa'/'alien'.
+    - Added basic distance-based collision avoidance (ship slowdown) in `AdShipManager`.
+    - Assigned unique vertical offsets (`ship.verticalOffset`) to ships for better 3D separation.
+    - Implemented subtle camera target blending towards closest ad ship while ball is moving (`CameraController`).
+    - Added `AD_INSPECTING` state to `GameState.js`.
+    - Added key listener ('i') to `InputController` to toggle `AD_INSPECTING` state and camera orbit controls.
+    - Implemented raycasting in `InputController._handleAdClick` to detect clicks on ad banners when in `AD_INSPECTING` state.
+    - Added `adData` to `bannerMesh.userData` in `AdShip` for click identification.
+
+### Changed
+    - Ad ships now use canvas textures instead of image files.
+    - Ship movement is now orbital or linear based on type, replacing simple drift.
+    - Ship recycling/ad updates are handled differently for linear vs. orbital ships.
+    - Linear ships now receive a new random vertical offset upon recycling.
+
+### Fixed
+    - Ad ships disappearing after hole transition by marking `AdShipManager.group` as permanent and updating `HoleTransitionManager.cleanScene`.
+    - Increased spawn spread for ad ships in `AdShipManager.spawnShip` (later replaced by orbital/linear logic).
+    - Fixed `spread` variable scope issue in `AdShipManager.update`.
+    - Fixed `lengthSq` vs `lengthSquared` call in `CameraController`.
+    - Fixed `deltaTime` not passed to `updateCameraFollowBall` in `CameraController`.
+    - Fixed ad focus camera state not resetting correctly in `positionCameraForHole`.
+    - Fixed `getGameState` method call in `InputController` state check.
 
 ### Features
 - Added initial scaffolding for `NineHoleCourse.js` to support a full 9-hole course structure, including `THREE.Group` containers for each hole.
@@ -660,70 +695,6 @@ All notable changes to the Mini Golf Break project will be documented in this fi
 - Implemented debug visualization of physics bodies
 - Added console logging for tracking ball velocity and position
 - Created utility functions for streamlined development
-
-## [Unreleased] - YYYY-MM-DD
-
-### Added
-- Configurable hazard system (`HazardFactory`) supporting circle, rectangle, and compound shapes (e.g., snowman bunker).
-- Support for custom hole shapes (e.g., L-shape) via `boundaryWalls` configuration in `HoleEntity`.
-- Physics effect for bunkers (increased linear damping).
-- Visual hop effect for high-speed hole rejections.
-- `BaseElement` base class for shared course element logic.
-- `VisualEffectsManager` placeholder.
-- Logging for bunker entry/exit (position-based check in `Ball.update`).
-- Hole 3 added (copy of Hole 2 layout).
-- Water hazard type (`isWaterZone`) created via `HazardFactory`.
-- Water hazard penalty logic (1 stroke + reset to last hit position) implemented in `Ball.update`.
-
-### Changed
-- Refactored hazard creation out of `HoleEntity` into `HazardFactory`.
-- Refactored wall creation in `HoleEntity` to support `boundaryWalls`.
-- Updated hole entry logic in `Ball.update` to use speed and overlap thresholds.
-- Moved bunker state detection from `Ball.onCollide` to `Ball.update` using geometric checks.
-- Increased `HOLE_ENTRY_MAX_SPEED` allowance.
-- Consolidated documentation regarding new features.
-
-### Fixed
-- Corrected `CANNON.Cylinder` orientation for hole and bunker triggers.
-- Ensured `HoleEntity.init()` is called correctly instead of `create()`.
-- Resolved duplicate `BaseElement` declaration error.
-- Resolved `BaseElement` module not found error.
-- Improved reliability of bunker exit detection.
-- Fixed CSG subtraction for green surface to include hazard cutouts.
-
-### Removed
-- Old `createBunkerTriggers` and `createBunkerVisuals` methods from `HoleEntity`.
-- Redundant `BaseElement` definition from `HoleEntity`.
-- Collision-based bunker detection logic from `Ball.onCollide`.
-
-## [0.2.0] - 2025-04-01
-
-### Added
-- Physics debug renderer (`CannonDebugRenderer`), toggled with 'd' key.
-- 3D cylindrical interior visual for the hole cup in `HoleEntity.createHoleVisual`.
-- Metallic rim visual around the hole cup using `THREE.RingGeometry`.
-- Visual green surface now uses `CSG` subtraction to properly cut out the hole shape, preventing visual overlap.
-- Basic `CHANGELOG.md` file.
-
-### Changed
-- Updated `HoleEntity.createGreenSurfaceAndPhysics` to use `CSG` for visual mesh, keeping physics as a simple `Trimesh` plane.
-- Refined `HoleEntity` constructor and component creation logic.
-- Updated documentation (`README.md`, `PROJECT_CHECKLIST.md`, `DEVELOPMENT_GUIDE.md`) to reflect recent changes.
-
-### Fixed
-- Addressed issues where hole interior/rim were obscured or positioned incorrectly by reverting visual green to `PlaneGeometry` during debugging and then correctly implementing CSG subtraction.
-
-### Removed
-- Old `HoleCompletionManager.checkBallInHole()` method and related calls.
-- Commented-out old hole detection logic in `PhysicsWorld.setupCollideListener`.
-
-## [Pending Features]
-- Mobile-specific touch controls optimization
-- Additional course designs
-- Enhanced visual effects for successful putts
-- Sound effects for ball rolling and collisions
-- Course completion and game progression logic
-- Menu and settings interface
 
 ## [Unreleased]
 

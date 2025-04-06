@@ -12,7 +12,18 @@ This guide provides comprehensive information for developers who want to underst
 
 ## Architecture Overview
 
-Mini Golf Break uses a modular, event-driven architecture with clear separation of concerns, built around a central `Game` class that coordinates various managers.
+Mini Golf Break follows a component-based architecture where different systems interact primarily through an `EventManager`. The main components are coordinated by the `Game` class.
+
+1. **`Game`**: Central controller that manages game state, scene rendering, and coordinates other managers.
+2. **`NineHoleCourse` / `BasicCourse`**: Handles course generation and layout.
+3. **`HoleEntity`**: Represents a single hole with its geometry, physics, and hazards.
+4. **`Ball`**: Represents the player's ball.
+5. **`PhysicsManager` / `PhysicsWorld`**: Encapsulates the Cannon-es physics engine and manages simulation.
+6. **`InputController`**: Manages user interaction for hitting the ball and **ad banner clicks**.
+7. **`CameraController`**: Handles camera positioning, movement, **and subtle ad focus blending**.
+8. **`ScoringSystem`**: Manages scoring and display.
+9. **`AdShipManager` / `AdShip`**: Manages the lifecycle, movement, ad display, and interaction for ad ships.
+10. Various other **Managers** (`UI`, `Audio`, `HoleState`, `HoleTransition`, `HoleCompletion`, `VisualEffects`, `Hazard`, `Debug`, `Performance`, `GameLoop`, `Event`) handle specific subsystems.
 
 ### Core Managers
 - **`EventManager`**: Central hub for publishing and subscribing to game events.
@@ -114,6 +125,8 @@ this.eventSubscriptions.push(
 ## Key Classes and Responsibilities
 
 *   **`Game` (`src/scenes/Game.js`)**: Main coordinator. Initializes systems, manages core Three.js objects (scene, renderer, lights), sets up starfield, handles window resize, and orchestrates cleanup. Most direct game logic has been moved to managers.
+    - Manages restart functionality
+    - Instantiates and cleans up major managers, including `AdShipManager`.
 *   **`BasicCourse` (`src/objects/BasicCourse.js`)**: Defines the course structure (currently 2 hardcoded holes). Loads hole configurations, initializes `HoleEntity` objects for each hole, manages transitions between holes.
 *   **`HoleEntity` (`src/objects/HoleEntity.js`)**: Represents a single hole. Creates the green surface (using CSG), walls, hole trigger, start marker, and hazards (sand traps using CSG) based on configuration. Manages associated meshes and physics bodies.
 *   **`Ball` (`src/objects/Ball.js`)**: Represents the player's ball.
@@ -125,6 +138,8 @@ this.eventSubscriptions.push(
     *   **Cleanup**: `cleanup()` method disposes of mesh, body, geometry, material.
 *   **`UIManager` (`src/managers/UIManager.js`)**: Manages all DOM elements: score display, hole info, stroke count, messages, power indicator (styling likely inline), debug info (styling likely inline), and the final scorecard overlay.
 *   **`InputController` (`src/controls/InputController.js`)**: Handles mouse/touch input for aiming/hitting, calculates shot vector, manages aim/power indicators, disables/enables input based on game state.
+    - Handles ad banner clicks via raycasting when in `AD_INSPECTING` state.
+    - Toggles `AD_INSPECTING` state via key press ('i').
 *   **`CameraController` (`src/controls/CameraController.js`)**:
     *   **Core**: Manages the Three.js `PerspectiveCamera`.
     *   **Intelligent Positioning**: Positions the camera with a high overhead angle that shows the entire hole and ensures enough space behind the ball for pull-back aiming.
@@ -136,8 +151,27 @@ this.eventSubscriptions.push(
     *   **Orbit Controls**: Integrates `OrbitControls` for free look when the player is not aiming/hitting.
     *   **Initialization**: Sets initial camera position with a high angle and good framing of the course.
     *   **Cleanup**: Disposes of controls and event listeners.
+    - Respects user camera adjustments until the ball moves again
+    - Subtly blends camera target towards nearest ad ship while the ball is in motion.
+    - Resets ad focus blend state when positioning for a new hole.
 *   **`ScoringSystem` (`src/game/ScoringSystem.js`)**: Simple system to track strokes per hole and total strokes for the course.
 *   **`HoleCompletionManager` (`src/managers/HoleCompletionManager.js`)**: Central handler for the `BALL_IN_HOLE` event. Triggers effects, sound, UI messages, updates score, sets state, and initiates hole transitions or game completion.
+*   **`AdShipManager` (`src/ads/AdShipManager.js`)**: Manages the ad ship system.
+    - Spawns and despawns (or recycles) `AdShip` instances.
+    - Manages a pool of active ad ships (e.g., `maxShips`).
+    - Assigns movement patterns (orbiting for stations, linear for others) and parameters.
+    - Handles simple collision avoidance (slowdown) between ships.
+    - Rotates ads displayed on ships based on timers or recycling events.
+    - Contains the main `THREE.Group` holding all ad ships.
+*   **`AdShip` (`src/ads/AdShip.js`)**: Represents a single ad ship instance.
+    - Creates procedural placeholder mesh based on type (nasa, alien, station).
+    - Creates a `PlaneGeometry` banner mesh.
+    - Generates dynamic banner textures using the Canvas API based on `adData.title`.
+    - Updates its internal state (e.g., station rotation).
+    - Provides an `updateAd` method to change the displayed ad and regenerate the texture.
+    - Stores `adData` in banner mesh `userData` for click detection.
+*   **`adConfig` (`src/ads/adConfig.js`)**: Exports a `mockAds` array containing ad objects (`{ title, url, texturePath }`).
+    - `texturePath` is currently unused as banners are canvas-generated.
 
 ## Development Workflow
 
@@ -157,6 +191,7 @@ this.eventSubscriptions.push(
 - Press 'd' to toggle `DebugManager` overlay (physics wireframes, logs).
 - Use browser developer console for extensive logs from managers.
 - Check event flow using `EventManager` logs.
+- **Ad Inspect Mode:** Press the 'i' key when the ball is stopped to toggle Ad Inspect mode. This enables camera controls and allows clicking on ad banners.
 
 ## Testing and Debugging
 
@@ -245,3 +280,110 @@ The project includes `CannonDebugRenderer` (`src/utils/CannonDebugRenderer.js`) 
 ## Animated Scorecard Implementation
 
 The scorecard implementation is currently a static overlay. Future updates will include an animated scorecard that shows the player's progress and highlights their best shots.
+
+## Project Structure
+
+```
+mini-golf-break/
+├── src/
+│   ├── assets/          # Static assets (textures, models, sounds)
+│   │   └── textures/
+│   │       └── ads/     # Placeholder for ad banner images (if used)
+│   ├── ads/             # Ad Ship System files
+│   │   ├── AdShip.js
+│   │   ├── AdShipManager.js
+│   │   └── adConfig.js
+│   ├── config/          # Game configuration files (e.g., course layouts - if separated)
+│   ├── controls/        # InputController, CameraController
+│   ├── events/          # Event types and EventManager
+│   ├── game/            # Game-specific logic (e.g., ScoringSystem)
+│   ├── managers/        # Core game system managers (UI, Physics, Audio, State, etc.)
+│   ├── objects/         # Game objects (Ball, HoleEntity, BaseElement, Course, hazards/, etc.)
+│   │   └── hazards/
+│   ├── physics/         # Physics world setup and utilities
+│   ├── scenes/          # Main game scene (Game.js)
+│   ├── states/          # Game state definitions (GameState.js)
+│   ├── styles/          # CSS styles
+│   └── utils/           # Utility functions (math, helpers, debug renderers)
+├── docs/                # Project documentation
+├── node_modules/        # NPM dependencies
+├── public/              # Static files served by dev server (index.html)
+├── .babelrc             # Babel configuration
+├── .eslintrc.json       # ESLint configuration
+├── .gitignore           # Git ignore rules
+├── package.json         # Project metadata and dependencies
+├── package-lock.json    # Locked dependency versions
+├── PROJECT_CHECKLIST.md # Development task checklist (if used)
+├── README.md            # Project overview
+└── webpack.config.js    # Webpack build configuration
+```
+
+## Key Components
+
+*   **`src/scenes/Game.js`**: Main entry point...
+*   **`src/managers/`**: Various manager classes...
+    *   ... (existing managers) ...
+    *   `AdShipManager`: Manages the ad ship system.
+*   **`src/objects/`**: Game entities...
+    *   ... (existing objects) ...
+*   **`src/ads/`**: Classes related to the Ad Ship system:
+    *   `AdShip.js`: Represents a single ad ship instance.
+    *   `AdShipManager.js`: Manages lifecycle, movement, ads.
+    *   `adConfig.js`: Mock ad data.
+*   **`src/physics/`**: Physics setup...
+*   **`src/events/EventTypes.js`**: Event constants...
+*   **`src/states/GameState.js`**: Defines game states, including `AD_INSPECTING`.
+
+### InputController Class (`src/controls/InputController.js`)
+
+Handles user interaction:
+*   Processes mouse/touch events for aiming and hitting the ball.
+*   Calculates direction and power from drag distance.
+*   Manages visual feedback (direction line, power indicator).
+*   Disables/enables aiming input based on game state.
+*   Toggles camera orbit controls during aiming vs. free look/ad inspect.
+*   **Handles ad banner clicks via raycasting when in `AD_INSPECTING` state.**
+*   **Toggles `AD_INSPECTING` state via key press ('i').**
+
+### CameraController Class (`src/controls/CameraController.js`)
+
+Manages the camera system:
+*   **Core**: Manages the Three.js `PerspectiveCamera` and `OrbitControls`.
+*   **Ball Following**: Updates camera position and target smoothly based on ball movement (direction, speed) or a stable view when stopped.
+*   **Hole Positioning**: Sets appropriate high-angle views when a new hole starts.
+*   **User Interaction**: Respects manual camera adjustments until the ball is hit.
+*   **Ad Focus Blending**: Subtly shifts the camera's look-at target towards the nearest visible ad ship while the ball is rolling, blending back when stopped.
+*   **Cleanup**: Disposes of controls and event listeners.
+
+### ScoringSystem Class (`src/game/ScoringSystem.js`)
+// ... existing description ...
+
+### HoleCompletionManager (`src/managers/HoleCompletionManager.js`)
+// ... existing description ...
+
+### AdShipManager Class (`src/ads/AdShipManager.js`)
+
+Manages the ad ship system:
+*   Spawns and manages a pool of `AdShip` instances (`maxShips`).
+*   Assigns movement patterns (orbiting for stations, linear for others) and parameters.
+*   Handles simple distance-based collision avoidance (slowdown) between ships.
+*   Recycles linear ships when they go out of bounds.
+*   Rotates ads displayed on ships based on timers.
+*   Contains the main `THREE.Group` holding all ad ships, added to the main scene.
+
+### AdShip Class (`src/ads/AdShip.js`)
+
+Represents a single ad ship:
+*   Creates procedural placeholder mesh based on type (nasa, alien, station).
+*   Creates a `PlaneGeometry` banner mesh.
+*   Generates dynamic banner textures using the Canvas API based on `adData.title`.
+*   Updates its internal state (e.g., station rotation).
+*   Provides an `updateAd` method to change the displayed ad and regenerate the texture.
+*   Stores `adData` in banner mesh `userData` for click detection.
+
+### AdConfig File (`src/ads/adConfig.js`)
+
+*   Exports a `mockAds` array containing ad objects (`{ title, url, ... }`).
+*   (Currently uses dummy URLs).
+
+// ... rest of Key Classes ...

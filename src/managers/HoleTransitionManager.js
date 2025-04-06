@@ -235,10 +235,11 @@ export class HoleTransitionManager {
 
         // Keep track of essential objects (lights, camera, starfield, etc)
         scene.traverse((object) => {
-            if (object.isLight || 
-                object.isCamera || 
-                object.userData.permanent || 
-                (object.type === 'Points' && object.userData.type === 'starfield')) {
+            if (object.isLight ||
+                object.isCamera ||
+                object.userData.permanent || // Keep objects marked as permanent
+                (object.type === 'Points' && object.userData.type === 'starfield') ||
+                (object.type === 'Group' && object.userData.type === 'AdShipContainer')) { // Keep the AdShip container
                 objectsToKeep.push(object);
                 console.log('[HoleTransitionManager] Keeping object:', object.type, object.userData);
             }
