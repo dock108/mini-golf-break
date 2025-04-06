@@ -287,7 +287,10 @@ export class DebugManager {
         this.debugObjects.push(axesHelper);
         
         // Add grid helper
-        const gridHelper = new THREE.GridHelper(20, 20);
+        // Reduce size to 40x40 as requested
+        const gridSize = 40; // Size of the grid (e.g., 40x40)
+        const gridDivisions = 40; // Number of divisions (e.g., 40 lines)
+        const gridHelper = new THREE.GridHelper(gridSize, gridDivisions);
         this.game.scene.add(gridHelper);
         this.debugObjects.push(gridHelper);
         

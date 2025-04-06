@@ -83,20 +83,21 @@ export class BallManager {
      * @param {GameEvent} event - The hole started event
      */
     handleHoleStarted(event) {
-        console.log(`[BallManager.handleHoleStarted] Event received. isInitialized: ${this.isInitialized}, game initialized?: ${this.game.isInitialized}`); // Add game init check if available
+        console.log(`[BallManager.handleHoleStarted] Event received. isInitialized: ${this.isInitialized}, game initialized?: ${this.game.isInitialized}`);
         try {
-            // Reset ball position at the start of a new hole
-            const startPosition = this.getStartPosition();
-            if (this.ball && startPosition) {
+            // Get the WORLD start position for the new hole
+            const worldStartPosition = this.game.course.getHoleStartPosition(); // Now returns WORLD coords
+            if (this.ball && worldStartPosition) {
                 console.log('[BallManager.handleHoleStarted] Resetting existing ball position.');
-                this.ball.setPosition(startPosition.x, startPosition.y, startPosition.z);
+                this.ball.setPosition(worldStartPosition.x, worldStartPosition.y + Ball.START_HEIGHT, worldStartPosition.z);
                 this.ball.resetVelocity();
                 
-                // Publish ball reset event
+                // Publish ball reset event with the elevated position
+                const resetPosition = worldStartPosition.clone().setY(worldStartPosition.y + Ball.START_HEIGHT);
                 if (this.game.eventManager) {
                     this.game.eventManager.publish(
                         EventTypes.BALL_RESET,
-                        { position: startPosition.clone() },
+                        { position: resetPosition },
                         this
                     );
                 }
@@ -109,34 +110,30 @@ export class BallManager {
     }
     
     /**
-     * Create a new ball at the specified start position
-     * @param {THREE.Vector3} startPosition - The position where the ball should be created
+     * Create a new ball at the correct world start position
+     * @param {THREE.Vector3} worldStartPosition - The WORLD position where the ball should be created
      * @private
      */
-    createBall(startPosition) {
+    createBall(worldStartPosition) {
         // --- GUARD CLAUSE --- 
-        // Prevent creation if the course/hole isn't ready yet.
-        if (!this.game || !this.game.course || !this.game.course.currentHole || !this.game.course.startPosition) {
-            console.warn('[BallManager.createBall] Aborting: Course, current hole, or start position not ready. This might indicate a premature call.');
+        if (!this.game || !this.game.course || !this.game.course.currentHole) {
+            console.warn('[BallManager.createBall] Aborting: Course/hole not ready.');
             return null;
         }
         // --- END GUARD CLAUSE ---
 
         console.log('[BallManager] Creating new ball (Course seems ready)');
 
-        // Validate start position (passed argument)
-        if (!startPosition || !(startPosition instanceof THREE.Vector3)) {
-            console.error('[BallManager] Invalid startPosition argument provided for ball creation:', startPosition);
-            // Use course's start position as a fallback IF the argument is bad but course is ready
-            startPosition = this.game.course.startPosition;
-            console.warn('[BallManager] Using course startPosition as fallback due to invalid argument.');
-            // If even the course fallback is invalid, use absolute default
-            if (!startPosition || !(startPosition instanceof THREE.Vector3)) {
-                startPosition = new THREE.Vector3(0, Ball.START_HEIGHT, 0);
-                 console.error('[BallManager] Course startPosition fallback also invalid! Using absolute default.');
+        // Validate start position (passed argument - should be world coords)
+        if (!worldStartPosition || !(worldStartPosition instanceof THREE.Vector3)) {
+            console.error('[BallManager] Invalid worldStartPosition argument provided:', worldStartPosition);
+            // Try getting from course config as fallback
+            worldStartPosition = this.game.course?.getHoleStartPosition(); 
+            console.warn('[BallManager] Using course start position as fallback.');
+            if (!worldStartPosition) { // If fallback also fails
+                worldStartPosition = new THREE.Vector3(0, 0, 0); // Use 0,0,0 base, height added later
+                 console.error('[BallManager] Fallback start position also invalid! Using absolute default (0,0,0).');
             }
-        } else {
-            console.log('[BallManager] Ball start position argument verified:', startPosition);
         }
 
         // Clean up existing ball if any
@@ -146,41 +143,40 @@ export class BallManager {
         const physicsWorld = this.game.physicsManager.getWorld();
         if (!physicsWorld) {
             console.error('[BallManager] Physics world not available for ball creation.');
-            return null; // Cannot create ball without physics world
+            return null;
         }
 
-        // Create the Ball instance (which includes mesh and body)
-        // Ensure 'this.game' is passed correctly here
+        // Create the Ball instance
         this.ball = new Ball(this.game.scene, physicsWorld, this.game);
 
-        // --- Assign currentHolePosition to the Ball instance --- 
-        const holePosition = this.game.course ? this.game.course.getHolePosition() : null;
-        if (holePosition) {
-            this.ball.currentHolePosition = holePosition;
-            console.log(`[BallManager] Assigned currentHolePosition to Ball:`, holePosition);
+        // --- Assign current WORLD Hole Position to the Ball instance --- 
+        const worldHolePosition = this.game.course?.getHolePosition(); // Already returns WORLD coords
+
+        if (worldHolePosition) {
+            this.ball.currentHolePosition = worldHolePosition.clone(); // Store WORLD position
+            console.log(`[BallManager] Assigned WORLD holePosition to Ball:`, worldHolePosition);
         } else {
-            console.error('[BallManager] Failed to get hole position to assign to ball!');
-            // Optionally assign a default or nullify?
+            console.error('[BallManager] Failed to get world hole position to assign to ball!');
             this.ball.currentHolePosition = null;
         }
         // --- End Assignment --- 
 
         // Position the ball at the start position, slightly elevated
-        const finalPosition = new THREE.Vector3(startPosition.x, startPosition.y + Ball.START_HEIGHT, startPosition.z);
+        const finalPosition = worldStartPosition.clone().setY(worldStartPosition.y + Ball.START_HEIGHT);
         this.ball.setPosition(finalPosition.x, finalPosition.y, finalPosition.z);
 
-        console.log('[BallManager] Ball positioned at:', this.ball.mesh.position);
+        console.log('[BallManager] Ball positioned at world:', this.ball.mesh.position);
 
-        // Log distance (already exists)
-        if (holePosition) {
-            const distance = this.ball.mesh.position.distanceTo(holePosition);
+        // Log distance (now using world coordinates)
+        if (worldHolePosition) {
+            const distance = this.ball.mesh.position.distanceTo(worldHolePosition);
             console.log(`[BallManager] Ball created at distance ${distance.toFixed(2)} from hole`);
         }
 
         // Wake up the ball's physics body
         if (this.ball.body) {
             this.ball.body.wakeUp();
-            console.log('[BallManager] Ball body woken up with position:', this.ball.body.position);
+            console.log('[BallManager] Ball body woken up with world position:', this.ball.body.position);
         } else {
             console.error('[BallManager] Ball body not created or available after instantiation.');
             this.removeBall(); // Clean up partial creation
@@ -205,27 +201,6 @@ export class BallManager {
         }
 
         return this.ball;
-    }
-    
-    /**
-     * Get the starting position for the current hole - Used primarily for resets/fallbacks
-     */
-    getStartPosition() {
-        // Try getting position from the currently active course
-        if (this.game.course && typeof this.game.course.getHoleStartPosition === 'function') {
-            const startPos = this.game.course.getHoleStartPosition();
-            if (startPos) {
-                if (this.game.debugManager) this.game.debugManager.log(`[BallManager] Getting start position from course: (${startPos.x.toFixed(2)}, ${startPos.y.toFixed(2)}, ${startPos.z.toFixed(2)})`);
-                return startPos;
-            } else {
-                 if (this.game.debugManager) this.game.debugManager.warn(`[BallManager] Course returned null start position`);
-            }
-        }
-
-        // Default starting position as a fallback
-        const defaultPos = new THREE.Vector3(0, Ball.START_HEIGHT, 0);
-        if (this.game.debugManager) this.game.debugManager.log(`[BallManager] Using default start position: (0, ${Ball.START_HEIGHT}, 0)`);
-        return defaultPos;
     }
     
     /**
@@ -380,9 +355,15 @@ export class BallManager {
     resetBall(position) {
         if (!this.ball) return;
         
-        // If no position provided, use last safe position or get new start position
-        const resetPosition = position || this.lastSafePosition || this.getStartPosition();
+        // If no position provided, use last safe position or get world start position from course
+        const startPosition = this.game.course?.getHoleStartPosition();
+        const resetPosition = position || this.lastSafePosition || startPosition || new THREE.Vector3(0, Ball.START_HEIGHT, 0);
         
+        // Elevate Y if using startPosition fallback (which is base Y)
+        if (!position && !this.lastSafePosition && startPosition) {
+            resetPosition.y += Ball.START_HEIGHT;
+        }
+
         // Reset ball position
         this.ball.setPosition(resetPosition.x, resetPosition.y, resetPosition.z);
         this.ball.resetVelocity();

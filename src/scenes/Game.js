@@ -248,95 +248,40 @@ export class Game {
                 throw new Error('PhysicsManager must be initialized before creating the course.');
             }
 
-            // Check for debug override for course type
-            if (this.debugManager.enabled && 
-                this.debugManager.courseDebugState && 
-                this.debugManager.courseDebugState.courseOverrideActive) {
-                
-                console.log('[Game.createCourse] Debug course override active. Deferring to DebugManager...');
-                
-                // Let the debug manager handle course creation with the right type
-                await this.debugManager.loadCourseWithType(
-                    this.debugManager.courseDebugState.courseType, 
-                    this.debugManager.courseDebugState.currentHole
-                );
-                return true;
-            }
-
-            // Normal course creation (no debug override)
-            console.log('[Game.createCourse] Awaiting NineHoleCourse.create()...');
-            
-            try {
-                console.log('[Game.createCourse] Physics world ready?', !!this.physicsManager.getWorld());
-                console.log('[Game.createCourse] About to call NineHoleCourse.create with game context');
-                
+            const useNineHoleCourse = true; // Or based on a setting
+            if (useNineHoleCourse) {
                 this.course = await NineHoleCourse.create(this);
-                
-                if (!this.course) {
-                    console.error('[Game.createCourse] NineHoleCourse.create returned null or undefined');
-                    throw new Error('Course creation failed - returned null');
-                }
-                
-                console.log('[Game.createCourse] NineHoleCourse.create() finished successfully. Course object exists:', !!this.course);
-            } catch (courseError) {
-                console.error('[Game.createCourse] Error during NineHoleCourse.create():', courseError);
-                
-                // Try falling back to BasicCourse if NineHoleCourse fails
-                console.log('[Game.createCourse] Trying fallback to BasicCourse.create()...');
-                try {
-                    this.course = await BasicCourse.create(this);
-                    console.log('[Game.createCourse] BasicCourse.create() fallback finished. Course object:', !!this.course);
-                } catch (fallbackError) {
-                    console.error('[Game.createCourse] Fallback also failed:', fallbackError);
-                    throw new Error(`Failed to create any course: ${courseError.message}`);
-                }
+            } else {
+                this.course = await BasicCourse.create(this);
+            }
+
+            if (!this.course || !this.course.currentHoleEntity) {
+                throw new Error('Course or initial HoleEntity failed to initialize.');
+            }
+
+            // Set course ref in CameraController
+            if (this.cameraController) {
+                this.cameraController.setCourse(this.course);
             }
             
-            // Validate essential course properties after creation
-            if (!this.course.startPosition) {
-                 console.error('[Game.createCourse] Course loaded but missing startPosition!');
-                 throw new Error('Course startPosition is missing after creation.');
-            }
-            console.log('[Game.createCourse] Course start position verified:', this.course.startPosition.toArray());
-
-            // Verify that currentHole is set properly
-            if (!this.course.currentHole) {
-                console.error('[Game.createCourse] Course loaded but missing currentHole reference!');
-                // Try to set it if currentHoleEntity exists
-                if (this.course.currentHoleEntity) {
-                    console.log('[Game.createCourse] Setting currentHole to currentHoleEntity as fallback.');
-                    this.course.currentHole = this.course.currentHoleEntity;
-                } else {
-                    throw new Error('Course currentHole is missing after creation and no fallback available.');
-                }
-            }
-
-            // Create the ball at the course's start position
-            console.log('[Game.createCourse] Creating ball at start position...');
-            if (this.ballManager) {
-                await this.ballManager.createBall(this.course.startPosition);
-                console.log('[Game.createCourse] Ball created successfully.');
+            // Create ball using WORLD start position from course config
+            const worldStartPosition = this.course.getHoleStartPosition(); // Returns WORLD coords now
+            if (worldStartPosition) {
+                this.ballManager.createBall(worldStartPosition); 
             } else {
-                console.error('[Game.createCourse] BallManager not available!');
+                 throw new Error('Failed to get world start position for ball creation.');
             }
-
-            // Update camera to focus on the new position
+            
+            // Position camera for the initial hole
             if (this.cameraController) {
-                this.cameraController.setupInitialCameraPosition();
+                this.cameraController.positionCameraForHole();
             }
 
-            console.log('[Game.createCourse] Course created successfully.');
-            return true;
+            this.eventManager.publish(EventTypes.COURSE_CREATED, { course: this.course }, this);
 
         } catch (error) {
-            console.error('[Game.createCourse] Failed to create course:', error);
-            // Optionally publish an error event or update UI
-            this.eventManager.publish(EventTypes.ERROR_OCCURRED, {
-                message: 'Failed to load the golf course. Please try refreshing.',
-                error: error,
-                source: 'Game.createCourse'
-            });
-            return false; // Indicate failure
+            this.debugManager.error('Game.createCourse', 'Failed to create course', error, true);
+            console.error('CRITICAL: Failed to create course:', error);
         }
     }
     
