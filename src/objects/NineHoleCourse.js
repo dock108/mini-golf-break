@@ -51,73 +51,61 @@ export class NineHoleCourse extends CoursesManager {
 
         // Define hole configurations for 9 holes
         this.holeConfigs = [
-            // 🕳️ 1. The Gentle Starter ("?" curve, sand inside bend, outer bumper bounce)
+            // 🕳️ 1. The Gentle Starter
             {
                 index: 0,
                 description: "1. The Gentle Starter",
                 par: 2,
                 courseWidth: 8,
                 courseLength: 16,
-                startPosition: new THREE.Vector3(0, 0, 7), // World position
-                holePosition: new THREE.Vector3(2, 0, -6),  // World position
+                startPosition: new THREE.Vector3(0, 0, 7),   // World
+                holePosition: new THREE.Vector3(2, 0, -6),  // World
                 hazards: [
                     {
                         type: 'sand',
                         shape: 'circle',
-                        position: new THREE.Vector3(-1, 0, -1), // World position near inside bend
-                        size: { radius: 2.5 }, // Original size - will be clipped at course boundaries
+                        position: new THREE.Vector3(-1, 0, -1), // World
+                        size: { radius: 2.5 },
                         depth: 0.15
                     }
                 ],
-                bumpers: [
-                    // Outer wall bumper for ricochet
-                    {
-                        position: new THREE.Vector3(4, 0.25, 0), // Local position (right edge)
-                        size: new THREE.Vector3(0.2, 0.5, 16), // Local size (thin, tall, long)
-                        rotation: new THREE.Euler(0, 0, 0)
-                    }
-                    // Add more bumpers to define the '?' curve if needed
-                ]
+                bumpers: [] // Bumpers assumed local relative to 0,0,0
             },
-            // 🕳️ 2. Island Hop (Rectangular, water gap, angled bridge)
+            // 🕳️ 2. Island Hop
             {
                 index: 1,
                 description: "2. Island Hop - Bridge Challenge",
                 par: 4,
                 courseWidth: 10,
                 courseLength: 22,
-                startPosition: new THREE.Vector3(-2, 0, 10),  // Off-center to the left
-                holePosition: new THREE.Vector3(2, 0, -7), // Off-center to the right
+                startPosition: new THREE.Vector3(-2, 0, 10),  // World
+                holePosition: new THREE.Vector3(2, 0, -7), // World
                 hazards: [
-                    // Water hazards on either side of the bridge path
-                    // Left side of the bridge (extends from bottom to middle)
                     {
                         type: 'water',
                         shape: 'rectangle',
-                        position: new THREE.Vector3(-3.25, 0, -2), // Left bottom of the course
+                        position: new THREE.Vector3(-3.25, 0, -2), // World
                         size: { width: 3.5, length: 10 },
                         depth: 0.15
                     },
-                    // Right side of the bridge (extends from top to middle)
                     {
                         type: 'water',
                         shape: 'rectangle',
-                        position: new THREE.Vector3(3.25, 0, 4), // Right top of the course
+                        position: new THREE.Vector3(3.25, 0, 4), // World
                         size: { width: 3.5, length: 10 },
                         depth: 0.15
                     },
-                    // Water around the hole area
                     {
                         type: 'water',
                         shape: 'circle',
-                        position: new THREE.Vector3(0, 0, -5), // Between bridge exit and hole
+                        position: new THREE.Vector3(0, 0, -5), // World
                         size: { radius: 1.2 },
                         depth: 0.15
                     }
                 ],
-                bumpers: [] // No guardrails for extra challenge
+                bumpers: [] // Bumpers assumed local relative to 0,0,0
             },
-            // 🕳️ 3. Zig-Zag Alley (Z-shape, angled bumpers, tight corridor)
+            // 🕳️ 3. Zig-Zag Alley
             {
                 index: 2,
                 description: "3. Zig-Zag Alley",
@@ -126,23 +114,13 @@ export class NineHoleCourse extends CoursesManager {
                 courseLength: 20,
                 startPosition: new THREE.Vector3(-2, 0, 9), // World
                 holePosition: new THREE.Vector3(2, 0, -9), // World
-                hazards: [], // None
-                bumpers: [
-                    // Create the Z-shape using angled bumpers
-                    { // First angle - Left
-                        position: new THREE.Vector3(-1.5, 0.25, 5), // Local
-                        size: new THREE.Vector3(3, 0.5, 0.2),
-                        rotation: new THREE.Euler(0, Math.PI / 4, 0) // 45 degrees
-                    },
-                    { // Second angle - Right
-                        position: new THREE.Vector3(1.5, 0.25, -5), // Local
-                        size: new THREE.Vector3(3, 0.5, 0.2),
-                        rotation: new THREE.Euler(0, -Math.PI / 4, 0) // -45 degrees
-                    }
-                    // Add outer walls/bumpers if not using HoleEntity default walls
+                hazards: [],
+                bumpers: [ // Bumpers assumed local relative to 0,0,0
+                    { position: new THREE.Vector3(-1.5, 0.25, 5), size: new THREE.Vector3(3, 0.5, 0.2), rotation: new THREE.Euler(0, Math.PI / 4, 0) },
+                    { position: new THREE.Vector3(1.5, 0.25, -5), size: new THREE.Vector3(3, 0.5, 0.2), rotation: new THREE.Euler(0, -Math.PI / 4, 0) }
                 ]
             },
-            // 🕳️ 4. Sinking Sands (Straight, big sand middle, power vs bank)
+            // 🕳️ 4. Sinking Sands
             {
                 index: 3,
                 description: "4. Sinking Sands",
@@ -155,197 +133,119 @@ export class NineHoleCourse extends CoursesManager {
                     {
                         type: 'sand',
                         shape: 'rectangle',
-                        position: new THREE.Vector3(0, 0, 0), // World position - Center
-                        size: { width: 7, length: 12 }, // Large central sand trap
+                        position: new THREE.Vector3(0, 0, 0), // World
+                        size: { width: 7, length: 12 },
                         depth: 0.15
                     }
                 ],
-                bumpers: [] // Rely on outer walls from HoleEntity
+                bumpers: [] // Bumpers assumed local relative to 0,0,0
             },
-            // 🕳️ 5. Funnel Trouble (Cone/funnel, water center, rim bounce)
+            // 🕳️ 5. Funnel Trouble
             {
                 index: 4,
                 description: "5. Funnel Trouble",
-                par: 3, // Adjusted par
+                par: 3,
                 courseWidth: 14,
                 courseLength: 14,
                 startPosition: new THREE.Vector3(0, 0, 6), // World
-                holePosition: new THREE.Vector3(0, 0, -5), // World, moved further back
+                holePosition: new THREE.Vector3(0, 0, -5), // World
                 hazards: [
                     {
                         type: 'water',
                         shape: 'circle',
-                        position: new THREE.Vector3(0, 0, 0), // World position - Center
+                        position: new THREE.Vector3(0, 0, 0), // World
                         size: { radius: 3 },
                         depth: 0.15
-                    },
-                    {
-                        type: 'sand',
-                        shape: 'circle',
-                        position: new THREE.Vector3(-4, 0, -4), // World position - Bottom left
-                        size: { radius: 1.5 },
-                        depth: 0.2 // Ensure proper depth for bunker
-                    },
-                    {
-                        type: 'sand',
-                        shape: 'circle',
-                        position: new THREE.Vector3(4, 0, -4), // World position - Bottom right
-                        size: { radius: 1.5 },
-                        depth: 0.2 // Ensure proper depth for bunker
-                    },
-                    {
-                        type: 'sand',
-                        shape: 'circle',
-                        position: new THREE.Vector3(0, 0, 4), // World position - Top
-                        size: { radius: 1.5 },
-                        depth: 0.2 // Ensure proper depth for bunker
                     }
                 ],
-                bumpers: [
-                    // Create angled funnel walls
-                    { // Top Left
-                        position: new THREE.Vector3(-5, 0.25, 5), // Local
-                        size: new THREE.Vector3(4, 0.5, 0.2),
-                        rotation: new THREE.Euler(0, -Math.PI / 4, 0)
-                    },
-                    { // Top Right
-                        position: new THREE.Vector3(5, 0.25, 5), // Local
-                        size: new THREE.Vector3(4, 0.5, 0.2),
-                        rotation: new THREE.Euler(0, Math.PI / 4, 0)
-                    },
-                    { // Bottom Left
-                        position: new THREE.Vector3(-5, 0.25, -5), // Local
-                        size: new THREE.Vector3(4, 0.5, 0.2),
-                        rotation: new THREE.Euler(0, Math.PI / 4, 0)
-                    },
-                    { // Bottom Right
-                        position: new THREE.Vector3(5, 0.25, -5), // Local
-                        size: new THREE.Vector3(4, 0.5, 0.2),
-                        rotation: new THREE.Euler(0, -Math.PI / 4, 0)
-                    }
+                bumpers: [ // Bumpers assumed local relative to 0,0,0
+                    { position: new THREE.Vector3(-5, 0.25, 5), size: new THREE.Vector3(5.5, 0.5, 0.2), rotation: new THREE.Euler(0, -Math.PI / 4, 0) },
+                    { position: new THREE.Vector3(5, 0.25, 5), size: new THREE.Vector3(5.5, 0.5, 0.2), rotation: new THREE.Euler(0, Math.PI / 4, 0) },
+                    { position: new THREE.Vector3(-5, 0.25, -5), size: new THREE.Vector3(5.5, 0.5, 0.2), rotation: new THREE.Euler(0, Math.PI / 4, 0) },
+                    { position: new THREE.Vector3(5, 0.25, -5), size: new THREE.Vector3(5.5, 0.5, 0.2), rotation: new THREE.Euler(0, -Math.PI / 4, 0) }
                 ]
             },
-            // 🕳️ 6. The Spiral (Spiral/snail, sand patches, tight turns, finesse)
-            {
-                index: 5,
-                description: "6. The Spiral",
-                par: 4,
-                courseWidth: 18,
-                courseLength: 18,
-                startPosition: new THREE.Vector3(7, 0, 7), // World - Outer start
-                holePosition: new THREE.Vector3(0, 0, 0),  // World - Center hole
-                hazards: [
-                    // Add several small sand patches along the spiral path
-                    { type: 'sand', shape: 'circle', position: new THREE.Vector3(5, 0, 0), size: { radius: 1.5 }, depth: 0.1 },
-                    { type: 'sand', shape: 'circle', position: new THREE.Vector3(0, 0, -5), size: { radius: 1.5 }, depth: 0.1 },
-                    { type: 'sand', shape: 'circle', position: new THREE.Vector3(-3, 0, 0), size: { radius: 1 }, depth: 0.1 },
-                    { type: 'sand', shape: 'circle', position: new THREE.Vector3(0, 0, 3), size: { radius: 1 }, depth: 0.1 },
-                ],
-                bumpers: [
-                    // Build the spiral walls using multiple bumper segments
-                    // Outer layer
-                    { position: new THREE.Vector3(0, 0.25, 8.9), size: new THREE.Vector3(18, 0.5, 0.2), rotation: new THREE.Euler(0, 0, 0) },
-                    { position: new THREE.Vector3(-8.9, 0.25, 0), size: new THREE.Vector3(0.2, 0.5, 18), rotation: new THREE.Euler(0, 0, 0) },
-                    // Mid layer
-                    { position: new THREE.Vector3(0, 0.25, -6.9), size: new THREE.Vector3(14, 0.5, 0.2), rotation: new THREE.Euler(0, 0, 0) },
-                    { position: new THREE.Vector3(6.9, 0.25, -1), size: new THREE.Vector3(0.2, 0.5, 12), rotation: new THREE.Euler(0, 0, 0) },
-                     // Inner layer
-                     { position: new THREE.Vector3(0.1, 0.25, 4.9), size: new THREE.Vector3(10, 0.5, 0.2), rotation: new THREE.Euler(0, 0, 0) },
-                     { position: new THREE.Vector3(-4.9, 0.25, 1), size: new THREE.Vector3(0.2, 0.5, 8), rotation: new THREE.Euler(0, 0, 0) },
-                     // Center block
-                     { position: new THREE.Vector3(2, 0.25, -2.9), size: new THREE.Vector3(6, 0.5, 0.2), rotation: new THREE.Euler(0, 0, 0) }
-                ]
-            },
-            // 🕳️ 7. The Gauntlet (Long, narrow, staggered bumpers, water one side)
+            // 🕳️ 6. The Labyrinth (Replaces Gauntlet)
             {
                 index: 6,
-                description: "7. The Gauntlet",
-                par: 3,
-                courseWidth: 5,
-                courseLength: 28,
-                startPosition: new THREE.Vector3(0, 0, 13), // World
-                holePosition: new THREE.Vector3(0, 0, -13), // World
-                hazards: [
-                    {
-                        type: 'water',
-                        shape: 'rectangle',
-                        position: new THREE.Vector3(3.5, 0, 0), // World position along the right side
-                        size: { width: 2, length: 28 }, // Narrow strip of water
-                        depth: 0.15
-                    }
+                description: "7. The Labyrinth",
+                par: 5, // Increased par due to complexity
+                courseWidth: 16,
+                courseLength: 16,
+                startPosition: new THREE.Vector3(-7, 0, 7), // Top-left corner (World)
+                holePosition: new THREE.Vector3(7, 0, -7), // Bottom-right corner (World)
+                hazards: [ // Sand traps in dead ends (World positions)
+                    { type: 'sand', shape: 'rectangle', position: new THREE.Vector3(0, 0, 7), size: { width: 2, length: 2 }, depth: 0.1 },
+                    { type: 'sand', shape: 'rectangle', position: new THREE.Vector3(-7, 0, 0), size: { width: 2, length: 2 }, depth: 0.1 },
+                    { type: 'sand', shape: 'rectangle', position: new THREE.Vector3(7, 0, 0), size: { width: 2, length: 2 }, depth: 0.1 },
+                    { type: 'sand', shape: 'rectangle', position: new THREE.Vector3(0, 0, -7), size: { width: 2, length: 2 }, depth: 0.1 },
                 ],
-                bumpers: [
-                    // Staggered bumpers on the left side
-                    { position: new THREE.Vector3(-2.4, 0.25, 8), size: new THREE.Vector3(0.2, 0.5, 4), rotation: new THREE.Euler(0, 0, 0) },
-                    { position: new THREE.Vector3(-2.4, 0.25, 0), size: new THREE.Vector3(0.2, 0.5, 4), rotation: new THREE.Euler(0, 0, 0) },
-                    { position: new THREE.Vector3(-2.4, 0.25, -8), size: new THREE.Vector3(0.2, 0.5, 4), rotation: new THREE.Euler(0, 0, 0) }
-                    // Right side is the water hazard edge (no bumper needed if hazard provides collision)
-                    // If HazardFactory doesn't add physics, add a bumper along water edge:
-                    // { position: new THREE.Vector3(2.4, 0.25, 0), size: new THREE.Vector3(0.2, 0.5, 28), rotation: new THREE.Euler(0, 0, 0) }
+                bumpers: [ // Maze walls (World positions relative to 0,0,0)
+                    // Vertical Walls
+                    { position: new THREE.Vector3(-4, 0.25, 4), size: new THREE.Vector3(0.2, 0.5, 8), rotation: new THREE.Euler(0, 0, 0) }, // Left wall segment
+                    { position: new THREE.Vector3(0, 0.25, -4), size: new THREE.Vector3(0.2, 0.5, 8), rotation: new THREE.Euler(0, 0, 0) },  // Center wall segment
+                    { position: new THREE.Vector3(4, 0.25, 4), size: new THREE.Vector3(0.2, 0.5, 8), rotation: new THREE.Euler(0, 0, 0) },  // Right wall segment
+                    // Horizontal Walls
+                    { position: new THREE.Vector3(0, 0.25, 4), size: new THREE.Vector3(8, 0.5, 0.2), rotation: new THREE.Euler(0, 0, 0) },   // Top wall segment
+                    { position: new THREE.Vector3(-4, 0.25, 0), size: new THREE.Vector3(8, 0.5, 0.2), rotation: new THREE.Euler(0, 0, 0) },  // Middle wall segment
+                    { position: new THREE.Vector3(4, 0.25, -4), size: new THREE.Vector3(8, 0.5, 0.2), rotation: new THREE.Euler(0, 0, 0) }, // Bottom wall segment
                 ]
             },
-            // 🕳️ 8. Criss-Cross (X-paths, sand vs water path choice)
+            // 🕳️ 8. Criss-Cross
             {
                 index: 7,
                 description: "8. Criss-Cross",
                 par: 3,
                 courseWidth: 15,
                 courseLength: 15,
-                startPosition: new THREE.Vector3(-6, 0, 6), // World - Top Left
-                holePosition: new THREE.Vector3(6, 0, -6), // World - Bottom Right
+                startPosition: new THREE.Vector3(-6, 0, 6), // World
+                holePosition: new THREE.Vector3(6, 0, -6), // World
                 hazards: [
-                    // Define simpler paths without rotation for now
-                    { // Water path
+                    {
                         type: 'water',
                         shape: 'rectangle',
-                        position: new THREE.Vector3(3, 0, -3), // Bottom right quadrant
-                        size: { width: 4, length: 12 }, // Simpler water rectangle
+                        position: new THREE.Vector3(3, 0, -3), // World
+                        size: { width: 4, length: 12 },
                         depth: 0.15
                     },
-                    { // Sand path
+                    {
                         type: 'sand',
                         shape: 'rectangle',
-                        position: new THREE.Vector3(-3, 0, 3), // Top left quadrant
+                        position: new THREE.Vector3(-3, 0, 3), // World
                         size: { width: 4, length: 12 },
                         depth: 0.15
                     }
                 ],
-                bumpers: [] // Rely on outer walls and hazard edges
-                 // NOTE: HazardFactory needs modification to apply rotation to the hazard body/visuals.
-                 // If HazardFactory doesn't support rotation, this setup won't work as intended.
+                bumpers: [] // Bumpers assumed local relative to 0,0,0
             },
-            // 🕳️ 9. The Final Shot (Arena, water moat, center platform bounce/putt)
+            // 🕳️ 9. The Final Shot
             {
                 index: 8,
                 description: "9. The Final Shot",
                 par: 4,
                 courseWidth: 20,
                 courseLength: 20,
-                startPosition: new THREE.Vector3(0, 0, 9), // World - Edge start
-                holePosition: new THREE.Vector3(0, 0, 0),  // World - Center hole on platform
+                startPosition: new THREE.Vector3(0, 0, 9), // World
+                holePosition: new THREE.Vector3(0, 0, 0),  // World
                 hazards: [
                     {
                         type: 'water',
-                        shape: 'circle', // Using circle instead of ring for now
-                        position: new THREE.Vector3(0, 0, 0), // World center
-                        size: { radius: 7 }, // Large circular water hazard
+                        shape: 'circle',
+                        position: new THREE.Vector3(0, 0, 0), // World
+                        size: { radius: 7 },
                         depth: 0.15
                     }
                 ],
-                bumpers: [
-                    // Optional outer arena wall/bumper if not using default walls
+                bumpers: [ // Bumpers assumed local relative to 0,0,0
                      { position: new THREE.Vector3(0, 0.25, 9.9), size: new THREE.Vector3(20, 0.5, 0.2), rotation: new THREE.Euler(0, 0, 0) },
                      { position: new THREE.Vector3(0, 0.25, -9.9), size: new THREE.Vector3(20, 0.5, 0.2), rotation: new THREE.Euler(0, 0, 0) },
                      { position: new THREE.Vector3(9.9, 0.25, 0), size: new THREE.Vector3(0.2, 0.5, 20), rotation: new THREE.Euler(0, 0, 0) },
                      { position: new THREE.Vector3(-9.9, 0.25, 0), size: new THREE.Vector3(0.2, 0.5, 20), rotation: new THREE.Euler(0, 0, 0) },
-                     // Bumpers around the central platform
                      { position: new THREE.Vector3(0, 0.25, 3.9), size: new THREE.Vector3(8, 0.5, 0.2), rotation: new THREE.Euler(0, 0, 0) },
                      { position: new THREE.Vector3(0, 0.25, -3.9), size: new THREE.Vector3(8, 0.5, 0.2), rotation: new THREE.Euler(0, 0, 0) },
                      { position: new THREE.Vector3(3.9, 0.25, 0), size: new THREE.Vector3(0.2, 0.5, 8), rotation: new THREE.Euler(0, 0, 0) },
                      { position: new THREE.Vector3(-3.9, 0.25, 0), size: new THREE.Vector3(0.2, 0.5, 8), rotation: new THREE.Euler(0, 0, 0) }
                 ]
-                 // NOTE: HazardFactory needs modification to support shape: 'ring'.
-                 // Alternatively, approximate the moat using multiple rectangular water hazards.
             }
         ];
          // Ensure totalHoles matches the number of configs provided
@@ -726,7 +626,7 @@ export class NineHoleCourse extends CoursesManager {
     // --- Overrides/Implementations for CoursesManager methods ---
 
     /**
-     * Get the current hole position from the config
+     * Get the current hole position (WORLD coordinates) from the config
      * @returns {THREE.Vector3 | null}
      */
     getHolePosition() {

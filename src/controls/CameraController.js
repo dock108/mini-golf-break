@@ -12,8 +12,13 @@ export class CameraController {
         this.scene = game.scene;
         this.renderer = null;
         
-        // Setup camera and controls with a narrower FOV for better course visibility
-        this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // Setup camera and controls with increased far plane
+        this.camera = new THREE.PerspectiveCamera(
+            60, // Field of View (remains 60)
+            window.innerWidth / window.innerHeight, // Aspect Ratio
+            0.1, // Near Clipping Plane
+            5000 // Far Clipping Plane (Increased significantly from 1000)
+        );
         this.controls = null;
         
         // Game references
@@ -240,95 +245,75 @@ export class CameraController {
             return this;
         }
         
-        // Get the hole position
-        const holePosition = this.course.getHolePosition();
-        if (!holePosition) {
+        // Get WORLD hole and start positions directly from course manager
+        const worldHolePosition = this.course.getHolePosition();
+        if (!worldHolePosition) {
             console.warn("Cannot position camera: Hole position not available");
             return this;
         }
-        
-        // Get the start position
-        const startPosition = this.course.getHoleStartPosition();
-        if (!startPosition) {
+        const worldStartPosition = this.course.getHoleStartPosition();
+        if (!worldStartPosition) {
             console.warn("Cannot position camera: Start position not available");
             return this;
         }
         
-        console.log(`Positioning camera for hole at ${holePosition.x.toFixed(2)}, ${holePosition.y.toFixed(2)}, ${holePosition.z.toFixed(2)}`);
+        console.log(`Positioning camera for hole. ` +
+                    `World Start: ${worldStartPosition.toArray().join(',')}, World Hole: ${worldHolePosition.toArray().join(',')}`);
         
-        // Calculate midpoint between tee and hole
-        const midpoint = new THREE.Vector3().addVectors(startPosition, holePosition).multiplyScalar(0.5);
+        // Calculate midpoint between WORLD tee and hole
+        const midpoint = new THREE.Vector3().addVectors(worldStartPosition, worldHolePosition).multiplyScalar(0.5);
         
+        // --- Calculate course dimensions (using WORLD coordinates) ---
+        const width = Math.abs(worldStartPosition.x - worldHolePosition.x);
+        const length = Math.abs(worldStartPosition.z - worldHolePosition.z);
+        const diagonal = Math.sqrt(width * width + length * length);
+
         // Temporarily adjust controls to allow more flexible camera placement
         let originalMaxPolarAngle = Math.PI / 2;
         if (this.controls) {
             originalMaxPolarAngle = this.controls.maxPolarAngle;
             this.controls.maxPolarAngle = Math.PI; // Allow full rotation for initial positioning
         }
-
-        // --- Calculate course dimensions ---
-        const width = Math.abs(startPosition.x - holePosition.x);
-        const length = Math.abs(startPosition.z - holePosition.z);
-        const diagonal = Math.sqrt(width * width + length * length);
         
-        // --- Calculate viewing parameters ---
-        // Camera properties
+        // --- Calculate viewing parameters (using WORLD coordinates) ---
         const fovYRad = THREE.MathUtils.degToRad(this.camera.fov);
-        
-        // Increased height for a more pulled-back, overhead view
-        const minHeight = 12.0; // Significantly increased minimum height
-        const baseHeight = Math.max((diagonal * 1.0), minHeight); // Further increased height multiplier
-        
-        // Calculate direction from tee to hole
-        const courseDirection = new THREE.Vector3().subVectors(holePosition, startPosition).normalize();
-        
-        // Pull camera back much further and higher to see the entire hole
-        // Use increased offset to ensure there's room to pull back on the ball
+        const minHeight = 12.0;
+        const baseHeight = Math.max((diagonal * 1.0), minHeight);
+        const courseDirection = new THREE.Vector3().subVectors(worldHolePosition, worldStartPosition).normalize();
         const cameraOffset = new THREE.Vector3(
-            -courseDirection.z * 0.6, // Increased perpendicular component for more sideview
-            baseHeight,                // Much higher elevation
-            courseDirection.x * 0.6    // Increased perpendicular component for more sideview
-        ).normalize().multiplyScalar(diagonal * 1.2); // Increased scale for a more pulled-back view
-        
-        // Shift the weighted midpoint further back from the ball to see more space behind it
-        const weightToStart = 0.65; // Increased from 0.55 to 0.65 (more weight to start position)
+            -courseDirection.z * 0.6,
+            baseHeight, 
+            courseDirection.x * 0.6 
+        ).normalize().multiplyScalar(diagonal * 1.2); 
+        const weightToStart = 0.65;
         const weightedMidpoint = new THREE.Vector3().lerpVectors(
             midpoint,
-            startPosition,
+            worldStartPosition,
             weightToStart
         );
-        
-        // Add extra space behind the ball to ensure room for aiming
-        const behindBallDirection = new THREE.Vector3().subVectors(startPosition, holePosition).normalize();
-        const behindBallOffset = behindBallDirection.multiplyScalar(diagonal * 0.2); // Add space behind ball
+        const behindBallDirection = new THREE.Vector3().subVectors(worldStartPosition, worldHolePosition).normalize();
+        const behindBallOffset = behindBallDirection.multiplyScalar(diagonal * 0.2);
         const adjustedMidpoint = weightedMidpoint.clone().add(behindBallOffset);
-        
-        // Calculate final camera position
         const cameraPosition = adjustedMidpoint.clone().add(cameraOffset);
         
         // Set camera position
         this.camera.position.copy(cameraPosition);
         
-        // Look at a point that ensures we can see the entire hole
-        // Center more between the midpoint and start position to ensure ball aiming space is visible
+        // Look at a point that ensures we can see the entire hole (WORLD coordinates)
         const lookAtPoint = new THREE.Vector3().lerpVectors(
             midpoint,
-            startPosition,
-            0.2 // 20% weight toward start position - ensures we see most of the hole
+            worldStartPosition,
+            0.2
         );
-        
-        // Shift the look-at point down by 15% to show more of the hole and less of the starfield
-        lookAtPoint.y -= 1.5; // Lower the look-at point to shift view down
+        lookAtPoint.y -= 1.5; // Lower the look-at point
         
         this.camera.lookAt(lookAtPoint);
         
         // Update orbit controls target
         if (this.controls) {
             this.controls.target.copy(lookAtPoint);
-            this.controls.update(); // Apply the new position/target
-            
-            // Restore original angle limit AFTER update
-            this.controls.maxPolarAngle = originalMaxPolarAngle;
+            this.controls.update();
+            this.controls.maxPolarAngle = originalMaxPolarAngle; // Restore angle limit
         }
         
         return this;
@@ -350,9 +335,8 @@ export class CameraController {
         const ball = this.game.ballManager ? this.game.ballManager.ball : null;
         if (!ball || !ball.mesh) return;
         
-        // Get the ball's position
-        const ballPosition = ball.mesh.position.clone();
-        
+        const ballPosition = ball.mesh.position.clone(); // Ball position is already WORLD
+
         // During transition, always follow the ball regardless of user adjustment
         if (this.isTransitioning) {
             // Position camera slightly above and behind ball with high angle
@@ -398,108 +382,66 @@ export class CameraController {
             this._userAdjustedCamera = false;
             
             if (this.controls) {
-                // Calculate target point slightly ahead of the ball
-                let targetPosition = ballPosition; // Default to ball position
+                // Calculate target point slightly ahead of the ball (WORLD)
+                let targetPosition = ballPosition.clone(); // Default to ball world position
                 const velocity = ball.body.velocity;
                 const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
-                const lookAheadDistance = 1.5; // Increased from 0.5
-                const minSpeedForLookAhead = 0.1; // Only look ahead if moving fast enough
+                const lookAheadDistance = 1.5;
+                const minSpeedForLookAhead = 0.1;
 
                 if (speed > minSpeedForLookAhead) {
                     const lookAheadDirection = new THREE.Vector3(velocity.x, 0, velocity.z).normalize();
-                    targetPosition = ballPosition.clone().add(lookAheadDirection.multiplyScalar(lookAheadDistance));
+                    targetPosition.add(lookAheadDirection.multiplyScalar(lookAheadDistance));
                 }
-
-                // Shift target position down to show more of the course
-                targetPosition.y -= 1.5;
-
-                // Update the orbit controls target to follow the ball
+                targetPosition.y -= 1.5; // Lower target
                 this.controls.target.lerp(targetPosition, 0.1);
 
-                // ADDED: Actually move the camera with the ball, not just update the target
-                // Calculate an ideal camera position relative to the ball
-                const cameraDistance = 8; // Distance from ball
-                const cameraHeight = 6;   // Height above ball
-                
-                // Calculate camera position that follows the ball from behind and above
+                // Calculate ideal camera position (WORLD)
+                const cameraDistance = 8;
+                const cameraHeight = 6;
                 let idealCameraPosition;
                 if (speed > minSpeedForLookAhead) {
-                    // When moving fast, position camera behind the ball based on velocity direction
                     const cameraOffset = new THREE.Vector3(-velocity.x, cameraHeight, -velocity.z).normalize().multiplyScalar(cameraDistance);
                     idealCameraPosition = ballPosition.clone().add(cameraOffset);
                 } else {
-                    // When slow/stopped, maintain a position above and behind relative to current camera
-                    const currentDir = new THREE.Vector3();
-                    currentDir.subVectors(this.camera.position, ballPosition).normalize();
-                    // Keep horizontal direction but enforce height
+                    const currentDir = new THREE.Vector3().subVectors(this.camera.position, ballPosition).normalize();
                     currentDir.y = 0;
                     currentDir.normalize().multiplyScalar(cameraDistance * 0.7);
                     currentDir.y = cameraHeight;
                     idealCameraPosition = ballPosition.clone().add(currentDir);
                 }
-                
-                // Smoothly move camera toward the ideal position
                 this.camera.position.lerp(idealCameraPosition, 0.05);
                 this.controls.update();
-            } else {
-                // If no controls, update camera position directly to follow the ball
-                // Use higher angle for better visibility
+            } else { 
+                // Fallback if no controls (position relative to WORLD ball pos)
                 const cameraTargetPosition = ballPosition.clone().add(new THREE.Vector3(3, 15, 8));
                 this.camera.position.lerp(cameraTargetPosition, 0.1);
                 this.camera.lookAt(ballPosition);
             }
         } else {
-            // When ball is stopped, only reposition if user hasn't manually adjusted
+            // When ball is stopped, calculate target relative to WORLD hole position
             if (!this._userAdjustedCamera && this.controls && this.course) {
-                const holePosition = this.course.getHolePosition();
-                if (holePosition) {
-                    // Get direction from ball to hole
-                    const directionToHole = new THREE.Vector3().subVectors(holePosition, ballPosition).normalize();
-                    
-                    // Calculate a target point that keeps both the ball and enough of the hole in view
-                    // Weight less toward the hole to ensure more space is visible behind the ball
-                    const weightedMidpoint = new THREE.Vector3().lerpVectors(
-                        ballPosition,
-                        holePosition,
-                        0.4 // 40% weight toward hole position - ensure more space behind ball
-                    );
-                    
-                    // Shift the weighted midpoint down to show more of the course and less starfield
+                const worldHolePosition = this.course.getHolePosition(); // Already returns WORLD
+                if (worldHolePosition) {
+                    const directionToHole = new THREE.Vector3().subVectors(worldHolePosition, ballPosition).normalize();
+                    const weightedMidpoint = new THREE.Vector3().lerpVectors(ballPosition, worldHolePosition, 0.4);
                     weightedMidpoint.y -= 1.5;
-                    
-                    // Gradually shift target toward this point when stopped
-                    this.controls.target.lerp(weightedMidpoint, 0.03); // Slower to avoid jarring changes
-                    
-                    // When ball is stopped, we should also ensure camera is positioned
-                    // to provide good viewing angle for the next shot
+                    this.controls.target.lerp(weightedMidpoint, 0.03);
+
+                    // Calculate ideal stopped camera position (using WORLD coordinates)
                     if (this.camera && !this._isRepositioning) {
-                        // Calculate distance to hole for scaling
-                        const distanceToHole = ballPosition.distanceTo(holePosition);
-                        
-                        // Calculate reversed direction (from hole to ball)
+                        const distanceToHole = ballPosition.distanceTo(worldHolePosition);
                         const reversedDirection = directionToHole.clone().negate().normalize();
-                        
-                        // Calculate ideal position with higher elevation and further back
                         const idealOffset = new THREE.Vector3(
-                            -directionToHole.z * 0.4, // Perpendicular component for side view 
-                            Math.max(12, distanceToHole * 0.8), // Higher elevation
-                            directionToHole.x * 0.4  // Perpendicular component for side view
+                            -directionToHole.z * 0.4, 
+                            Math.max(12, distanceToHole * 0.8), 
+                            directionToHole.x * 0.4 
                         ).normalize().multiplyScalar(distanceToHole * 1.2);
-                        
-                        // Position further behind ball for more aiming space
-                        // Use a larger multiplier to pull back more
-                        const behindBallOffset = reversedDirection.multiplyScalar(Math.max(4, distanceToHole * 0.3));
-                        
-                        // Calculate final desired camera position
+                        // Increase minimum distance behind ball from 4 to 6
+                        const behindBallOffset = reversedDirection.multiplyScalar(Math.max(6, distanceToHole * 0.3));
                         const desiredCameraPos = ballPosition.clone().add(behindBallOffset).add(idealOffset);
-                        
-                        // Smooth camera movement to this position when ball stops
-                        this.camera.position.lerp(desiredCameraPos, 0.02); // Very slow transition
+                        this.camera.position.lerp(desiredCameraPos, 0.02);
                     }
-                } else {
-                    // Fallback: If hole position isn't available, target the ball itself
-                    // Only if user hasn't manually adjusted
-                    this.controls.target.lerp(ballPosition, 0.1);
                 }
             } else if (this.controls && !this._userAdjustedCamera) {
                 // Fallback: If course isn't available but user hasn't adjusted camera
