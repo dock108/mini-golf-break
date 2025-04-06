@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { DebugErrorOverlay } from './debug/DebugErrorOverlay';
+import { DebugCourseUI } from './debug/DebugCourseUI';
 
 /**
  * Configuration for debug functionality
@@ -49,14 +51,14 @@ export class DebugManager {
         // Debug state
         this.enabled = DEBUG_CONFIG.enabled;
         
-        // Track debug objects for easy removal
+        // Track debug objects (3D helpers) for easy removal
         this.debugObjects = [];
         
         // Velocity logging data
         this.velocityHistory = [];
         this.maxHistoryLength = 10;
         
-        // Error tracking
+        // Error tracking state (kept in main manager)
         this.errorHistory = new Map(); // Maps error messages to count
         this.errorsByLevel = {
             [ERROR_LEVELS.ERROR]: 0,
@@ -65,163 +67,72 @@ export class DebugManager {
             [ERROR_LEVELS.DEBUG]: 0
         };
         
-        // UI elements for displaying errors
-        this.errorOverlay = null;
-        
-        // Course debug state
+        // Course debug state (kept in main manager)
         this.courseDebugState = {
-            active: false,                // Whether course debug mode is active
-            courseType: 'NineHoleCourse', // 'BasicCourse' or 'NineHoleCourse'
-            currentHole: 1,               // Currently loaded hole number (1-based)
-            previousCourseType: null,     // Store previous course type when overriding
-            courseOverrideActive: false   // Flag to indicate an active course debug override
+            active: false, // Not actively used now, state driven by UI module
+            courseType: 'NineHoleCourse', 
+            currentHole: 1,
+            previousCourseType: null,
+            courseOverrideActive: false
         };
         
-        // UI elements for course debugging
+        // UI Submodules
+        this.errorOverlay = null;
         this.courseDebugUI = null;
+
+        // Bound key handler for main debug toggle
+        this.boundHandleMainKey = this.handleMainDebugKey.bind(this);
     }
     
     /**
      * Initialize debug functionality
      */
     init() {
-        // Listen for debug key press only if not in production
-        if (process.env.NODE_ENV !== 'production' || DEBUG_CONFIG.enabled) {
-            window.addEventListener('keydown', this.handleKeyPress.bind(this));
-            console.log("Debug mode available - press '" + DEBUG_CONFIG.enableKey + "' to toggle");
-            
-            // Log course debug controls if enabled
-            if (DEBUG_CONFIG.courseDebug.enabled) {
-                console.log(`Course debug controls:
-                - Toggle debug mode: '${DEBUG_CONFIG.enableKey}'
-                - Toggle course type: '${DEBUG_CONFIG.courseDebug.toggleCourseTypeKey}'
-                - Load specific hole: '${DEBUG_CONFIG.courseDebug.loadSpecificHoleKey}'
-                - Quick load holes: number keys 1-9`);
-            }
+        console.log('[DebugManager.init] Initializing...');
+        // Listen for main debug key press
+        this.addMainKeyListener();
+
+        // Initialize UI Submodules
+        console.log('[DebugManager.init] Initializing Error Overlay...');
+        this.errorOverlay = new DebugErrorOverlay(this); // Pass self
+        this.errorOverlay.init();
+
+        if (DEBUG_CONFIG.courseDebug.enabled) {
+            console.log('[DebugManager.init] Initializing Course Debug UI...');
+            this.courseDebugUI = new DebugCourseUI(this); // Pass self
+            this.courseDebugUI.init();
+        } else {
+             console.log('[DebugManager.init] Course Debug UI disabled by config.');
         }
         
-        // Set up initial debug state if enabled
+        // Set up initial 3D helpers if enabled by default
         if (this.enabled) {
             this.setupDebugHelpers();
         }
-        
-        // Create error overlay container (hidden initially)
-        this.createErrorOverlay();
-        
-        // Create course debug UI (hidden initially)
-        if (DEBUG_CONFIG.courseDebug.enabled) {
-            this.createCourseDebugUI();
-        }
-        
+
+        console.log('[DebugManager.init] Finished.');
         return this;
     }
-    
-    /**
-     * Create the error overlay for displaying critical errors to the user
-     */
-    createErrorOverlay() {
-        if (document.getElementById('error-overlay')) {
-            this.errorOverlay = document.getElementById('error-overlay');
-            return;
+
+    /** Add listener for the main debug toggle key */
+    addMainKeyListener() {
+         if (process.env.NODE_ENV !== 'production' || DEBUG_CONFIG.enabled) {
+            window.addEventListener('keydown', this.boundHandleMainKey);
+            console.log("[DebugManager] Debug mode available - press '" + DEBUG_CONFIG.enableKey + "' to toggle");
         }
-        
-        this.errorOverlay = document.createElement('div');
-        this.errorOverlay.id = 'error-overlay';
-        this.errorOverlay.style.position = 'fixed';
-        this.errorOverlay.style.bottom = '10px';
-        this.errorOverlay.style.left = '10px';
-        this.errorOverlay.style.right = '10px';
-        this.errorOverlay.style.backgroundColor = 'rgba(255, 0, 0, 0.8)';
-        this.errorOverlay.style.color = 'white';
-        this.errorOverlay.style.padding = '10px';
-        this.errorOverlay.style.fontFamily = 'monospace';
-        this.errorOverlay.style.fontSize = '14px';
-        this.errorOverlay.style.zIndex = '1000';
-        this.errorOverlay.style.display = 'none';
-        this.errorOverlay.style.borderRadius = '5px';
-        this.errorOverlay.style.maxHeight = '30%';
-        this.errorOverlay.style.overflowY = 'auto';
-        
-        // Add close button
-        const closeButton = document.createElement('button');
-        closeButton.textContent = 'X';
-        closeButton.style.position = 'absolute';
-        closeButton.style.right = '5px';
-        closeButton.style.top = '5px';
-        closeButton.style.background = 'transparent';
-        closeButton.style.border = 'none';
-        closeButton.style.color = 'white';
-        closeButton.style.cursor = 'pointer';
-        closeButton.style.fontSize = '18px';
-        closeButton.addEventListener('click', () => {
-            this.errorOverlay.style.display = 'none';
-        });
-        
-        this.errorOverlay.appendChild(closeButton);
-        document.body.appendChild(this.errorOverlay);
     }
-    
-    /**
-     * Display a critical error in the UI error overlay
-     * @param {string} message - Error message to display
-     */
-    showErrorInUI(message) {
-        if (!this.errorOverlay) {
-            this.createErrorOverlay();
-        }
-        
-        // Create error message element
-        const errorElement = document.createElement('div');
-        errorElement.textContent = message;
-        errorElement.style.marginBottom = '5px';
-        errorElement.style.borderBottom = '1px solid rgba(255,255,255,0.3)';
-        errorElement.style.paddingBottom = '5px';
-        
-        // Add to overlay
-        this.errorOverlay.appendChild(errorElement);
-        this.errorOverlay.style.display = 'block';
-        
-        // Auto-hide after 10 seconds if not interacted with
-        setTimeout(() => {
-            if (errorElement.parentNode) {
-                errorElement.parentNode.removeChild(errorElement);
-                
-                // Hide overlay if no more errors
-                if (this.errorOverlay.children.length <= 1) { // Only close button remaining
-                    this.errorOverlay.style.display = 'none';
-                }
-            }
-        }, 10000);
+
+    /** Remove listener for the main debug toggle key */
+    removeMainKeyListener() {
+        window.removeEventListener('keydown', this.boundHandleMainKey);
     }
-    
-    /**
-     * Handle key press for debug toggle
-     * @param {KeyboardEvent} e - Keyboard event
-     */
-    handleKeyPress(e) {
-        // Toggle debug mode
+
+    /** Handle only the main debug toggle key press */
+    handleMainDebugKey(e) {
         if (e.key === DEBUG_CONFIG.enableKey) {
             this.toggleDebugMode();
         }
-        
-        // Only process course debug keys if debug mode is enabled
-        if (!this.enabled || !DEBUG_CONFIG.courseDebug.enabled) return;
-        
-        // Toggle course type (c key)
-        if (e.key === DEBUG_CONFIG.courseDebug.toggleCourseTypeKey) {
-            this.toggleCourseType();
-        }
-        
-        // Load specific hole (h key)
-        if (e.key === DEBUG_CONFIG.courseDebug.loadSpecificHoleKey) {
-            this.promptForHoleNumber();
-        }
-        
-        // Quick load specific hole (number keys 1-9)
-        if (Object.keys(DEBUG_CONFIG.courseDebug.quickLoadKeys).includes(e.key)) {
-            const holeNumber = DEBUG_CONFIG.courseDebug.quickLoadKeys[e.key];
-            this.loadSpecificHole(holeNumber);
-        }
+        // NOTE: Course debug keys are handled by DebugCourseUI
     }
     
     /**
@@ -232,24 +143,24 @@ export class DebugManager {
         console.log("Debug mode:", this.enabled ? "ON" : "OFF");
         
         // Update debug mode for components that need it
-        if (this.game.cameraController) {
-            this.game.cameraController.setDebugMode(this.enabled);
-        }
+        this.game.cameraController?.setDebugMode(this.enabled);
+        this.game.adShipManager?.setDebugMode(this.enabled); // Example: Toggle ad ship debug visuals
         
-        // Toggle debug visuals
+        // Toggle 3D debug helpers
         if (this.enabled) {
             this.setupDebugHelpers();
         } else {
             this.removeDebugHelpers();
-            
             // Explicitly clear CannonDebugRenderer meshes when turning off debug mode
-            if (this.game.cannonDebugRenderer) {
-                this.game.cannonDebugRenderer.clearMeshes();
-            }
+            this.game.cannonDebugRenderer?.clearMeshes();
         }
         
-        // Update course debug UI visibility
-        this.updateCourseDebugUI();
+        // Update visibility/state of the Course Debug UI (if it exists)
+        this.courseDebugUI?.updateDisplay();
+
+        // Inform UIManager's Debug Overlay (if it exists)
+        // This might trigger showing/hiding the FPS counter etc.
+        this.game.uiManager?.updateDebugDisplay(this.getDebugInfo()); 
         
         return this;
     }
@@ -302,7 +213,10 @@ export class DebugManager {
      */
     removeDebugHelpers() {
         // Only remove if we have a scene
-        if (!this.game || !this.game.scene) return;
+        if (!this.game || !this.game.scene) {
+            console.warn('[DebugManager] Cannot remove helpers, game or scene missing.');
+            return this;
+        }
         
         // Remove all debug objects from the scene
         this.debugObjects.forEach(obj => {
@@ -351,7 +265,12 @@ export class DebugManager {
      */
     logWithLevel(level, source, message, data = null, showInUI = false) {
         // Always log critical errors, otherwise respect debug mode
-        if (level !== ERROR_LEVELS.ERROR && !this.enabled) return this;
+        if (level !== ERROR_LEVELS.ERROR && !this.enabled && !DEBUG_CONFIG.logCriticalErrors) {
+             // Allow critical errors even if main debug is off, if configured
+             if (level !== ERROR_LEVELS.ERROR || !DEBUG_CONFIG.logCriticalErrors) {
+                return this;
+             }
+        }
         
         // Format message with source
         const formattedMessage = `[${level}] ${source}: ${message}`;
@@ -381,53 +300,11 @@ export class DebugManager {
         
         // Show in UI if requested and it's a critical error
         if (showInUI && level === ERROR_LEVELS.ERROR) {
-            this.showErrorInUI(formattedMessage);
+            // Delegate to the error overlay module
+            this.showErrorInUI(formattedMessage); 
         }
         
         return this;
-    }
-    
-    /**
-     * Log a critical error (always logged, even when debug is disabled)
-     * @param {string} source - Source of the error (class or method name)
-     * @param {string} message - Error message
-     * @param {any} data - Optional data related to the error
-     * @param {boolean} showInUI - Whether to show in the UI error overlay
-     * @returns {DebugManager} this for chaining
-     */
-    error(source, message, data = null, showInUI = false) {
-        return this.logWithLevel(ERROR_LEVELS.ERROR, source, message, data, showInUI);
-    }
-    
-    /**
-     * Log a warning (only when debug is enabled)
-     * @param {string} source - Source of the warning
-     * @param {string} message - Warning message
-     * @param {any} data - Optional data to include
-     * @returns {DebugManager} this for chaining
-     */
-    warn(source, message, data = null) {
-        return this.logWithLevel(ERROR_LEVELS.WARNING, source, message, data);
-    }
-    
-    /**
-     * Log an informational message (only when debug is enabled)
-     * @param {string} source - Source of the info
-     * @param {string} message - Info message
-     * @param {any} data - Optional data to include
-     * @returns {DebugManager} this for chaining
-     */
-    info(source, message, data = null) {
-        return this.logWithLevel(ERROR_LEVELS.INFO, source, message, data);
-    }
-    
-    /**
-     * Log debug message if debug mode is enabled (legacy method for compatibility)
-     * @param {string} message - Message to log
-     * @param {any} data - Optional data to log
-     */
-    log(message, data = null) {
-        return this.logWithLevel(ERROR_LEVELS.DEBUG, 'Debug', message, data);
     }
     
     /**
@@ -514,29 +391,28 @@ export class DebugManager {
      */
     cleanup() {
         // Remove event listeners
-        window.removeEventListener('keydown', this.handleKeyPress.bind(this));
+        this.removeMainKeyListener();
         
-        // Remove debug objects from scene
+        // Cleanup UI submodules
+        this.errorOverlay?.cleanup();
+        this.courseDebugUI?.cleanup();
+        
+        // Remove 3D debug objects from scene
         this.removeDebugHelpers();
         
-        // Remove UI elements
-        if (this.errorOverlay && this.errorOverlay.parentNode) {
-            this.errorOverlay.parentNode.removeChild(this.errorOverlay);
-            this.errorOverlay = null;
-        }
-        
-        // Remove course debug UI
-        if (this.courseDebugUI && this.courseDebugUI.parentNode) {
-            this.courseDebugUI.parentNode.removeChild(this.courseDebugUI);
-            this.courseDebugUI = null;
-        }
-        
+        // Remove UI elements (redundant if submodules handle it, but safe)
+        // document.getElementById('error-overlay')?.remove();
+        // document.getElementById('course-debug-overlay')?.remove();
+            
         // Clear references
         this.game = null;
         this.debugObjects = [];
         this.velocityHistory = [];
         this.errorHistory.clear();
+        this.errorOverlay = null; // Clear submodule ref
+        this.courseDebugUI = null; // Clear submodule ref
         
+        console.log('[DebugManager] Cleanup finished.');
         return this;
     }
     
@@ -556,7 +432,7 @@ export class DebugManager {
         this.loadCourseWithType(newCourseType);
         
         // Update debug UI if it exists
-        this.updateCourseDebugUI();
+        this.courseDebugUI?.updateDisplay();
     }
     
     /**
@@ -602,7 +478,7 @@ export class DebugManager {
         }
         
         // Update debug UI
-        this.updateCourseDebugUI();
+        this.courseDebugUI?.updateDisplay();
     }
     
     /**
@@ -703,88 +579,60 @@ export class DebugManager {
             return false;
         }
     }
-    
+
     /**
-     * Create the course debug UI overlay
+     * Display a critical error in the UI error overlay (Delegated)
+     * @param {string} message - Error message to display
      */
-    createCourseDebugUI() {
-        if (document.getElementById('course-debug-overlay')) {
-            this.courseDebugUI = document.getElementById('course-debug-overlay');
-            return;
-        }
-        
-        this.courseDebugUI = document.createElement('div');
-        this.courseDebugUI.id = 'course-debug-overlay';
-        this.courseDebugUI.style.position = 'fixed';
-        this.courseDebugUI.style.top = '10px';
-        this.courseDebugUI.style.right = '10px';
-        this.courseDebugUI.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-        this.courseDebugUI.style.color = '#00FF00';
-        this.courseDebugUI.style.padding = '10px';
-        this.courseDebugUI.style.fontFamily = 'monospace';
-        this.courseDebugUI.style.fontSize = '14px';
-        this.courseDebugUI.style.zIndex = '1000';
-        this.courseDebugUI.style.borderRadius = '5px';
-        this.courseDebugUI.style.display = 'none';
-        this.courseDebugUI.style.minWidth = '200px';
-        
-        // Add header
-        const header = document.createElement('div');
-        header.textContent = 'COURSE DEBUG';
-        header.style.fontWeight = 'bold';
-        header.style.marginBottom = '5px';
-        header.style.borderBottom = '1px solid #00FF00';
-        this.courseDebugUI.appendChild(header);
-        
-        // Add course type info
-        const courseTypeContainer = document.createElement('div');
-        courseTypeContainer.id = 'course-debug-type';
-        courseTypeContainer.style.marginBottom = '5px';
-        this.courseDebugUI.appendChild(courseTypeContainer);
-        
-        // Add current hole info
-        const holeContainer = document.createElement('div');
-        holeContainer.id = 'course-debug-hole';
-        holeContainer.style.marginBottom = '5px';
-        this.courseDebugUI.appendChild(holeContainer);
-        
-        // Add controls info
-        const controlsContainer = document.createElement('div');
-        controlsContainer.style.marginTop = '10px';
-        controlsContainer.style.fontSize = '12px';
-        controlsContainer.style.color = '#AAAAAA';
-        controlsContainer.innerHTML = `
-            <div>C: Toggle course type</div>
-            <div>H: Load specific hole</div>
-            <div>1-9: Quick load hole</div>
-        `;
-        this.courseDebugUI.appendChild(controlsContainer);
-        
-        document.body.appendChild(this.courseDebugUI);
+    showErrorInUI(message) {
+        this.errorOverlay?.showError(message);
+    }
+    
+    // RE-ADD Convenience Logging Methods
+
+    /**
+     * Log a critical error (always logged, even when debug is disabled)
+     * @param {string} source - Source of the error (class or method name)
+     * @param {string} message - Error message
+     * @param {any} data - Optional data related to the error
+     * @param {boolean} showInUI - Whether to show in the UI error overlay
+     * @returns {DebugManager} this for chaining
+     */
+    error(source, message, data = null, showInUI = false) {
+        return this.logWithLevel(ERROR_LEVELS.ERROR, source, message, data, showInUI);
     }
     
     /**
-     * Update course debug UI with current state
+     * Log a warning (only when debug is enabled, unless critical errors are forced)
+     * @param {string} source - Source of the warning
+     * @param {string} message - Warning message
+     * @param {any} data - Optional data to include
+     * @returns {DebugManager} this for chaining
      */
-    updateCourseDebugUI() {
-        if (!this.courseDebugUI) return;
-        
-        // Show UI only when debug mode is enabled
-        this.courseDebugUI.style.display = this.enabled ? 'block' : 'none';
-        if (!this.enabled) return;
-        
-        // Update course type
-        const courseTypeEl = document.getElementById('course-debug-type');
-        if (courseTypeEl) {
-            courseTypeEl.textContent = `Course: ${this.courseDebugState.courseType}`;
-            courseTypeEl.style.color = this.courseDebugState.courseType === 'BasicCourse' ? '#FFAA00' : '#00FFAA';
-        }
-        
-        // Update current hole
-        const holeEl = document.getElementById('course-debug-hole');
-        if (holeEl) {
-            const maxHole = this.courseDebugState.courseType === 'BasicCourse' ? 3 : 9;
-            holeEl.textContent = `Hole: ${this.courseDebugState.currentHole} / ${maxHole}`;
-        }
+    warn(source, message, data = null) {
+        return this.logWithLevel(ERROR_LEVELS.WARNING, source, message, data);
     }
+    
+    /**
+     * Log an informational message (only when debug is enabled)
+     * @param {string} source - Source of the info
+     * @param {string} message - Info message
+     * @param {any} data - Optional data to include
+     * @returns {DebugManager} this for chaining
+     */
+    info(source, message, data = null) {
+        return this.logWithLevel(ERROR_LEVELS.INFO, source, message, data);
+    }
+    
+    /**
+     * Log debug message if debug mode is enabled (legacy method for compatibility)
+     * @param {string} message - Message to log
+     * @param {any} data - Optional data to log
+     */
+    log(message, data = null) {
+        // Use a generic source like 'Log' or 'Debug' if source isn't provided
+        return this.logWithLevel(ERROR_LEVELS.DEBUG, 'Log', message, data);
+    }
+
+    // END Convenience Logging Methods
 } 
