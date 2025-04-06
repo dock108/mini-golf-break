@@ -1,0 +1,232 @@
+import { EventTypes } from '../../events/EventTypes';
+
+/**
+ * UIScoreOverlay - Handles score, strokes, hole info, and final scorecard UI.
+ */
+export class UIScoreOverlay {
+    constructor(game, parentContainer) {
+        this.game = game;
+        this.parentContainer = parentContainer;
+
+        // UI Elements
+        this.scoreElement = null;
+        this.strokesElement = null;
+        this.holeInfoElement = null;
+        this.scorecardElement = null; // For final scorecard
+
+        // Add state to track last displayed value to reduce log spam
+        this.lastDisplayedStrokes = null; 
+
+        // Styling constants
+        this.INFO_BOX_CLASS = 'info-box';
+        this.TOP_RIGHT_CONTAINER_CLASS = 'top-right-container';
+        this.SCORECARD_CLASS = 'scorecard-overlay';
+        this.SCORECARD_VISIBLE_CLASS = 'visible';
+        this.SCORECARD_CONTENT_CLASS = 'scorecard-content';
+        this.SCORECARD_TITLE_CLASS = 'scorecard-title';
+        this.SCORECARD_TABLE_CLASS = 'scorecard-table';
+        this.SCORECARD_BUTTON_CLASS = 'scorecard-button';
+    }
+
+    /**
+     * Initialize and create UI elements.
+     */
+    init() {
+        // Create top-right container if it doesn't exist (should be handled by UIManager ideally)
+        let topRightContainer = this.parentContainer.querySelector(`.${this.TOP_RIGHT_CONTAINER_CLASS}`);
+        if (!topRightContainer) {
+            topRightContainer = document.createElement('div');
+            topRightContainer.classList.add(this.TOP_RIGHT_CONTAINER_CLASS);
+            this.parentContainer.appendChild(topRightContainer);
+        }
+
+        // 1. Create hole info element
+        this.holeInfoElement = document.createElement('div');
+        this.holeInfoElement.classList.add(this.INFO_BOX_CLASS);
+        this.holeInfoElement.style.marginBottom = '2px'; // Adjust spacing
+        topRightContainer.appendChild(this.holeInfoElement);
+
+        // 2. Create strokes element
+        this.strokesElement = document.createElement('div');
+        this.strokesElement.classList.add(this.INFO_BOX_CLASS);
+        this.strokesElement.style.marginBottom = '2px'; // Adjust spacing
+        topRightContainer.appendChild(this.strokesElement);
+
+        // 3. Create score element (Total Strokes)
+        this.scoreElement = document.createElement('div');
+        this.scoreElement.classList.add(this.INFO_BOX_CLASS);
+        this.scoreElement.style.marginBottom = '0px'; // No margin for the last item
+        topRightContainer.appendChild(this.scoreElement);
+
+        this.updateScore();
+        this.updateStrokes();
+        this.updateHoleInfo();
+
+        console.log('[UIScoreOverlay] Initialized.');
+    }
+
+    /**
+     * Update the score display.
+     */
+    updateScore() {
+        if (!this.scoreElement || !this.game.scoringSystem) return;
+        const totalStrokes = this.game.scoringSystem.getTotalStrokes();
+        this.scoreElement.textContent = `Total Strokes: ${totalStrokes}`;
+        console.log(`[UIScoreOverlay.updateScore] Updated to: ${totalStrokes}`);
+    }
+
+    /**
+     * Update the strokes display for the current hole.
+     */
+    updateStrokes() {
+        if (!this.strokesElement || !this.game.scoringSystem) return;
+        
+        const currentStrokes = this.game.scoringSystem.getCurrentStrokes();
+
+        // OPTIMIZATION: Only update DOM and log if the value has changed
+        if (currentStrokes !== this.lastDisplayedStrokes) {
+            this.strokesElement.textContent = `Strokes: ${currentStrokes}`;
+            console.log(`[UIScoreOverlay.updateStrokes] Updated to: ${currentStrokes}`);
+            this.lastDisplayedStrokes = currentStrokes; // Update the last displayed value
+        }
+    }
+
+    /**
+     * Update the hole information display.
+     */
+    updateHoleInfo() {
+        if (!this.holeInfoElement || !this.game.course) return;
+        const holeNumber = this.game.course.getCurrentHoleNumber ? this.game.course.getCurrentHoleNumber() : '-';
+        let description = this.game.course.getCurrentHoleConfig ? this.game.course.getCurrentHoleConfig()?.description : 'Loading...';
+
+        // Use regex to remove leading number, period, and space (e.g., "1. ")
+        const match = description.match(/^\d+\.\s*(.*)$/);
+        if (match && match[1]) {
+            description = match[1]; // Use the captured group
+        }
+        // If no match, use the original description (fallback)
+
+        this.holeInfoElement.textContent = `Hole ${holeNumber}: ${description}`;
+        console.log(`[UIScoreOverlay.updateHoleInfo] Updated to: Hole ${holeNumber}: ${description}`);
+    }
+
+    // Placeholder - UIManager will call this
+    updateScorecard() {
+        // This was originally part of UIManager, intended for maybe a dynamic scorecard
+        // Keep as placeholder or integrate into showFinalScorecard if needed.
+        console.log('[UIScoreOverlay.updateScorecard] Placeholder called.');
+    }
+
+
+    /**
+     * Show the final scorecard overlay.
+     */
+    showFinalScorecard() {
+        if (this.scorecardElement) {
+            console.log('[UIScoreOverlay] Final scorecard already exists. Making visible.');
+            this.scorecardElement.classList.add(this.SCORECARD_VISIBLE_CLASS);
+            return;
+        }
+
+        console.log('[UIScoreOverlay] Creating and showing final scorecard...');
+        this.scorecardElement = document.createElement('div');
+        this.scorecardElement.id = 'scorecard-overlay';
+        this.scorecardElement.classList.add(this.SCORECARD_CLASS);
+
+        const content = document.createElement('div');
+        content.classList.add(this.SCORECARD_CONTENT_CLASS);
+
+        const title = document.createElement('h2');
+        title.classList.add(this.SCORECARD_TITLE_CLASS);
+        title.textContent = 'Course Complete!';
+        content.appendChild(title);
+
+        // Display final score details
+        const scoreTable = document.createElement('table');
+        scoreTable.classList.add(this.SCORECARD_TABLE_CLASS);
+        const tbody = document.createElement('tbody');
+
+        // Example: Add total score row
+        const totalStrokesValue = this.game.scoringSystem.getTotalStrokes();
+        const scoreRow = document.createElement('tr');
+        scoreRow.innerHTML = `<td>Total Strokes</td><td>${totalStrokesValue}</td>`;
+        tbody.appendChild(scoreRow);
+
+        scoreTable.appendChild(tbody);
+        content.appendChild(scoreTable);
+
+        // Add buttons
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.marginTop = '20px';
+
+        const menuButton = document.createElement('button');
+        menuButton.textContent = 'Back to Menu'; // Assuming a menu state exists
+        menuButton.classList.add(this.SCORECARD_BUTTON_CLASS);
+        menuButton.addEventListener('click', () => {
+            console.log('[UIScoreOverlay] Back to Menu clicked.');
+            // UIManager should handle the state change via event or direct call
+             this.game.eventManager.publish(EventTypes.UI_REQUEST_MAIN_MENU); // Example event
+            this.hideFinalScorecard();
+        });
+        buttonContainer.appendChild(menuButton);
+
+        // Optional: Add a "Play Again" button
+        const playAgainButton = document.createElement('button');
+        playAgainButton.textContent = 'Play Again';
+        playAgainButton.classList.add(this.SCORECARD_BUTTON_CLASS);
+        playAgainButton.style.marginLeft = '10px';
+        playAgainButton.addEventListener('click', () => {
+             console.log('[UIScoreOverlay] Play Again clicked.');
+            // UIManager should handle restart via event or direct call
+             this.game.eventManager.publish(EventTypes.UI_REQUEST_RESTART_GAME); // Example event
+             this.hideFinalScorecard();
+        });
+        buttonContainer.appendChild(playAgainButton);
+
+
+        content.appendChild(buttonContainer);
+        this.scorecardElement.appendChild(content);
+        this.parentContainer.appendChild(this.scorecardElement);
+
+        // Add visible class with a slight delay for transition effect
+        requestAnimationFrame(() => {
+            this.scorecardElement.classList.add(this.SCORECARD_VISIBLE_CLASS);
+        });
+
+         console.log('[UIScoreOverlay] Final scorecard shown.');
+    }
+
+    /**
+     * Hide the final scorecard overlay.
+     */
+    hideFinalScorecard() {
+        if (this.scorecardElement) {
+            this.scorecardElement.classList.remove(this.SCORECARD_VISIBLE_CLASS);
+            // Optionally remove the element after transition
+            this.scorecardElement.addEventListener('transitionend', () => {
+                if (this.scorecardElement && !this.scorecardElement.classList.contains(this.SCORECARD_VISIBLE_CLASS)) {
+                    this.scorecardElement.remove();
+                    this.scorecardElement = null;
+                    console.log('[UIScoreOverlay] Final scorecard removed from DOM.');
+                }
+            }, { once: true });
+        }
+    }
+
+    /**
+     * Cleanup UI elements.
+     */
+    cleanup() {
+        this.scoreElement?.remove();
+        this.strokesElement?.remove();
+        this.holeInfoElement?.remove();
+        this.hideFinalScorecard(); // Ensure scorecard is hidden/removed
+
+        this.scoreElement = null;
+        this.strokesElement = null;
+        this.holeInfoElement = null;
+        this.scorecardElement = null;
+
+        console.log('[UIScoreOverlay] Cleaned up.');
+    }
+} 

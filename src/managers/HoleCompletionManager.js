@@ -150,9 +150,6 @@ export class HoleCompletionManager {
         };
 
         animate();
-
-        // Update score display
-        this.updateScore();
     }
 
     /**
@@ -173,19 +170,6 @@ export class HoleCompletionManager {
 
         // Update UI
         this.game.uiManager.updateScore();
-    }
-
-    /**
-     * Update score
-     */
-    updateScore() {
-        const holeNumber = this.game.stateManager.getCurrentHoleNumber();
-        const strokes = this.game.scoringSystem.getCurrentStrokes();
-        const par = this.game.course.getHolePar(holeNumber);
-
-        // Update UI with score
-        this.game.uiManager.updateScorecard();
-        this.game.uiManager.showMessage(`Hole ${holeNumber} completed in ${strokes} strokes! (Par: ${par})`);
     }
 
     /**
@@ -239,27 +223,7 @@ export class HoleCompletionManager {
      * @param {number} dt - Delta time in seconds
      */
     update(dt) {
-        // REMOVE checkBallInHole call from here
-        /*
-        if (!this.game.course || !this.game.ballManager) return;
-        
-        // Check if ball is in hole
-        if (!this.isHoleComplete) { // isHoleComplete doesn't seem to exist? Maybe meant isHoleCompleted()
-            // This logic is redundant now
-            // const ball = this.game.ballManager.getBall();
-            // const holePosition = this.game.course.getHolePosition();
-            // 
-            // if (ball && holePosition) {
-            //     const distance = ball.position.distanceTo(holePosition);
-            //     if (distance < this.holeRadius) {
-            //         this.completeHole();
-            //     }
-            // }
-            // Replaced by event-driven logic in handleBallInHole
-            // this.checkBallInHole(); // Remove this call
-        }
-        */
-        // Update method can likely be empty or removed if nothing else needs polling
+        // REMOVE commented-out, redundant ball-in-hole check
     }
 
     /**

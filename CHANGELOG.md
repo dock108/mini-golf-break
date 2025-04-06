@@ -12,7 +12,6 @@ All notable changes to the Mini Golf Break project will be documented in this fi
     - Integrated `AdShipManager` into `Game.js` (init, update loop, cleanup) and added its group to the scene.
     - Updated `AdShip.js` to generate distinct placeholder meshes (NASA, Alien, Station) based on `shipType`.
     - Implemented dynamic canvas texture generation for ad banners in `AdShip.js` based on `adData.title`.
-    - Refactored `AdShipManager` to handle ad updates via `AdShip.updateAd`.
     - Scaled ad ships for better visibility.
     - Adjusted banner offsets in `AdShip.js` to prevent visual obstruction.
     - Implemented distinct movement patterns: orbiting for 'station', linear fly-through/recycling for 'nasa'/'alien'.
@@ -23,55 +22,44 @@ All notable changes to the Mini Golf Break project will be documented in this fi
     - Added key listener ('i') to `InputController` to toggle `AD_INSPECTING` state and camera orbit controls.
     - Implemented raycasting in `InputController._handleAdClick` to detect clicks on ad banners when in `AD_INSPECTING` state.
     - Added `adData` to `bannerMesh.userData` in `AdShip` for click identification.
+- **Ad Ship System Optimization:**
+    - Optimized `AdShipManager` collision check loop using squared distance checks.
+    - Added comments documenting `maxShips` limit rationale and O(N^2) complexity.
+    - Added basic distance check from origin for future visibility culling.
 
 ### Changed
-    - Ad ships now use canvas textures instead of image files.
-    - Ship movement is now orbital or linear based on type, replacing simple drift.
-    - Ship recycling/ad updates are handled differently for linear vs. orbital ships.
-    - Linear ships now receive a new random vertical offset upon recycling.
+- Ad ships now use canvas textures instead of image files.
+- Ship movement is now orbital or linear based on type, replacing simple drift.
+- Ship recycling/ad updates are handled differently for linear vs. orbital ships.
+- Linear ships now receive a new random vertical offset upon recycling.
+- Refactored `AdShipManager` to handle ad updates via `AdShip.updateAd`.
+- **Architecture Refactor:**
+    - Cleaned up dead code, comments, and unused variables/imports.
+    - Refactored `UIManager` into orchestrator with `UIScoreOverlay` and `UIDebugOverlay` submodules.
+    - Refactored `DebugManager` into orchestrator with `DebugErrorOverlay` and `DebugCourseUI` submodules.
+- **UI Updates:**
+    - Reordered score display: Hole Name, Strokes, Total Strokes.
+    - Cleaned hole description text in UI.
+    - Reduced log spam from UI updates.
 
 ### Fixed
-    - Ad ships disappearing after hole transition by marking `AdShipManager.group` as permanent and updating `HoleTransitionManager.cleanScene`.
-    - Increased spawn spread for ad ships in `AdShipManager.spawnShip` (later replaced by orbital/linear logic).
-    - Fixed `spread` variable scope issue in `AdShipManager.update`.
-    - Fixed `lengthSq` vs `lengthSquared` call in `CameraController`.
-    - Fixed `deltaTime` not passed to `updateCameraFollowBall` in `CameraController`.
-    - Fixed ad focus camera state not resetting correctly in `positionCameraForHole`.
-    - Fixed `getGameState` method call in `InputController` state check.
+- Ad ships disappearing after hole transition (marked `AdShipManager.group` as permanent).
+- Various `AdShipManager` logic issues (scope, parameter passing).
+- `CameraController` logic errors (`lengthSq`, `deltaTime`, ad focus reset).
+- `InputController` state check error (`getGameState`).
+- **Refactoring Errors:** Resolved multiple runtime errors from method name changes (`getTotalScore`, `getCurrentStrokes`, `setState`, `restartGame`, `updateScorecard`).
+- **Hole Cleanup:** Fixed `NineHoleCourse` parent groups being removed by overriding `HoleEntity.destroy()`.
+- **UI Logging:** Reduced excessive console logs from `UIScoreOverlay.updateStrokes`.
 
 ### Features
-- Added initial scaffolding for `NineHoleCourse.js` to support a full 9-hole course structure, including `THREE.Group` containers for each hole.
+- (Retained from original 04-06 entry if applicable) Added initial scaffolding for `NineHoleCourse.js` to support a full 9-hole course structure, including `THREE.Group` containers for each hole.
 
 ### Debugging & Fixes
-- Integrated `CannonDebugRenderer` to visualize physics bodies in the Three.js scene.
-- Diagnosed ball falling through floor issue:
-  - Confirmed initial ball position was correct relative to floor physics mesh.
-  - Identified that the `Trimesh` physics body for the floor (generated via CSG) was incorrectly oriented/causing collision failure.
-  - Confirmed `CANNON.Body` for static geometry like the floor must have `type: CANNON.Body.STATIC` set.
-- Implemented temporary workaround using a `CANNON.Trimesh` generated directly from the visual `THREE.PlaneGeometry` for the floor, which resolves the collision issue.
-- Corrected the Y-position calculation for the physical `holeCupBody` to align properly below the green surface.
-- Fixed and re-enabled hole completion logic in `Ball.js` (calculating `distanceToHoleCenter`).
-- Refactored hole detection logic:
-  - Removed old physical `holeCupBody` and reliance on `PhysicsWorld` collision listener.
-  - Implemented hole detection based on proximity, speed, and impact angle within `Ball.update()`.
-  - Added physics utility functions (`calculateImpactAngle`, `isLipOut`) in `src/physics/utils.js`.
-  - Defined configurable thresholds in `Ball.js` for tuning hole entry/lip-out behavior.
-  - Added `currentHolePosition` property to `Ball` and ensured it's set correctly by `BallManager`.
-- Fixed UI display for current hole number and current strokes:
-  - Modified `UIManager.updateScore` to use `StateManager` for hole number.
-  - Added `currentHoleStrokes` tracking and `resetCurrentStrokes` method to `ScoringSystem`.
-  - Ensured `StateManager.resetForNextHole` calls `resetCurrentStrokes` and publishes `HOLE_STARTED` event.
-- Fixed `CannonDebugRenderer` behavior:
-  - Ensured it updates correctly after hole transitions by updating its `world` reference in `HoleTransitionManager`.
-  - Ensured it toggles on/off correctly with the 'd' key by calling `clearMeshes` in `DebugManager`.
-  - Added `clearMeshes` method to `CannonDebugRenderer`.
-- Fixed `PhysicsManager.resetWorld` error by adding a `cleanup` method to `PhysicsWorld`.
-- Removed redundant hole checking logic from `HoleCompletionManager`.
+- (Retained from original 04-06 entry) Integrated `CannonDebugRenderer`, diagnosed/fixed floor collision, refactored hole detection logic, fixed UI displays, fixed physics world reset.
 
 ### Documentation
-- Updated README, Project Checklist, and Development Guide to reflect the addition of physics debugging and the current state of floor physics (using simple Trimesh).
-- Updated Development Guide physics section to detail the new hole detection logic in `Ball.update`.
-- Updated Changelog with recent physics, UI, and debug fixes.
+- (Retained from original 04-06 entry) Updated README, Project Checklist, and Dev Guide for physics debugging.
+- **Documentation Pass (Phase 4):** Updated `DEVELOPMENT_GUIDE.md` with current architecture, system interactions, game flow, manager responsibilities, and `NineHoleCourse` status.
 
 ## [0.9.3] - Camera System Overhaul
 

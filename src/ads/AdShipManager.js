@@ -16,6 +16,9 @@ export class AdShipManager {
         this.isInitialized = false;
 
         // --- Configuration ---
+        // PERFORMANCE NOTE: maxShips is currently low (4) because the collision avoidance
+        // check in update() is O(N^2). Increasing this significantly without further
+        // optimization (e.g., spatial partitioning) will impact performance.
         this.maxShips = 4;
         this.minVerticalOffset = -15;
         this.maxVerticalOffset = -25;
@@ -163,7 +166,22 @@ export class AdShipManager {
     update(deltaTime) {
         if (!this.isInitialized || this.ships.length === 0) return;
 
+        // OPTIMIZATION: Define a max distance from origin beyond which we skip updates
+        const MAX_UPDATE_DISTANCE_SQ = (this.movementAreaSize * 1.5) * (this.movementAreaSize * 1.5); // e.g., 1.5x the main movement area size, squared
+        const worldOrigin = new THREE.Vector3(0, 0, 0); // Reusable vector
+
         this.ships.forEach((ship, i) => {
+
+            // --- OPTIMIZATION: Basic Visibility/Relevance Check --- 
+            const distFromOriginSq = ship.group.position.distanceToSquared(worldOrigin);
+            if (distFromOriginSq > MAX_UPDATE_DISTANCE_SQ) {
+                // Ship is very far from the center, potentially skip its update?
+                // For now, we'll just log it. A more robust implementation could fully skip.
+                // console.log(`Ship ${ship.adData.title} is far (${Math.sqrt(distFromOriginSq).toFixed(0)} units), potential update skip.`);
+                 // If skipping, ensure timers don't advance inappropriately, might need separate logic
+                // continue; // Uncomment to actually skip the rest of the loop for this ship
+            }
+
             let effectiveDeltaTime = deltaTime;
             const currentY = ship.verticalOffset || this.minVerticalOffset; // Ensure Y is consistent
 
@@ -181,16 +199,31 @@ export class AdShipManager {
             }
 
             // --- Simple Collision Avoidance Check --- 
+            // PERFORMANCE NOTE: This is an O(N^2) check (N=number of ships).
+            // It includes a distanceToSquared optimization to quickly discard far ships,
+            // but will still scale poorly with a large number of ships.
+            // Consider spatial partitioning (e.g., grid or octree) for larger N.
             if (!ship.isSlowedDown) {
+                // OPTIMIZATION: Only check against ships within a certain range
+                const checkRadiusSq = (this.shipSafetyRadius * 2.5) * (this.shipSafetyRadius * 2.5); // Check slightly larger radius, squared
+
                 for (let j = i + 1; j < this.ships.length; j++) {
                     const otherShip = this.ships[j];
                     if (otherShip.isSlowedDown) continue; // Don't check against already slowed ships
 
-                    const distance = ship.group.position.distanceTo(otherShip.group.position);
+                    // OPTIMIZATION 1: Rough distance check first (squared distance is cheaper)
+                    const distSq = ship.group.position.distanceToSquared(otherShip.group.position);
+                    if (distSq > checkRadiusSq) {
+                        continue; // Too far apart, skip detailed check
+                    }
+
+                    // OPTIMIZATION 2: If close enough for potential collision, use exact distance
+                    // (Could also use a simpler bounding box check here if ships have known dimensions)
+                    const distance = Math.sqrt(distSq);
 
                     if (distance < this.shipSafetyRadius) {
                         // Too close - slow down the current ship (ship `i`)
-                        console.warn(`Ships ${ship.adData.title} and ${otherShip.adData.title} too close (${distance.toFixed(1)} < ${this.shipSafetyRadius}). Slowing ${ship.adData.title}.`);
+                        // console.warn(`Ships ${ship.adData.title} and ${otherShip.adData.title} too close (${distance.toFixed(1)} < ${this.shipSafetyRadius}). Slowing ${ship.adData.title}.`);
                         ship.isSlowedDown = true;
                         ship.slowdownTimer = this.slowdownDuration;
                         effectiveDeltaTime *= this.slowdownFactor;

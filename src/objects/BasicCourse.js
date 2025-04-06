@@ -233,14 +233,7 @@ export class BasicCourse extends CoursesManager {
             // Simplified Check: Trust getWorld() to return valid world or null
             if (!currentCannonWorld) {
                 console.error('[BasicCourse] Failed to get valid physics world from manager. Aborting hole creation.');
-                // Optional: Attempt ONE reset here if world is truly missing
-                // console.log('[BasicCourse] Attempting emergency world reset...');
-                // await this.game.physicsManager.resetWorld();
-                // currentCannonWorld = this.game.physicsManager.getWorld(); 
-                // if (!currentCannonWorld) {
-                    throw new Error('Physics world is unavailable even after check.');
-                // }
-                // console.log('[BasicCourse] Proceeding after emergency reset.');
+                throw new Error('Physics world is unavailable even after check.');
             }
 
             // Update the instance's physics world reference *before* initializing hole

@@ -352,8 +352,53 @@ export class HoleEntity extends BaseElement {
         });
     }
 
+    /**
+     * Destroy the HoleEntity's internal components (meshes, bodies)
+     * but leaves the main container group (this.group or this.parentGroup) intact.
+     */
     destroy() {
-        console.log(`[HoleEntity] Destroying Hole ${this.config.index + 1}`);
-        super.destroy(); // BaseElement handles removing bodies/meshes/group
+        console.log(`[HoleEntity] Destroying components for Hole ${this.config.index + 1}`);
+
+        // Remove physics bodies
+        for (let i = this.bodies.length - 1; i >= 0; i--) {
+            const body = this.bodies[i];
+            if (body && this.world) {
+                this.world.removeBody(body);
+            }
+        }
+        this.bodies = [];
+
+        // Remove meshes from the hole's group (this.group or this.parentGroup)
+        const containerGroup = this.parentGroup || this.group;
+        for (let i = this.meshes.length - 1; i >= 0; i--) {
+            const mesh = this.meshes[i];
+            if (mesh) {
+                // Meshes should be children of the containerGroup
+                if (mesh.parent === containerGroup) {
+                    containerGroup.remove(mesh);
+                } else if (mesh.parent) {
+                    // If parented elsewhere unexpectedly, still remove
+                    console.warn(`[HoleEntity] Mesh ${mesh.name} had unexpected parent during cleanup.`);
+                    mesh.parent.remove(mesh);
+                }
+                
+                // Dispose geometry and material
+                if (mesh.geometry) mesh.geometry.dispose();
+                if (mesh.material) {
+                    if (Array.isArray(mesh.material)) {
+                        mesh.material.forEach(mat => mat?.dispose());
+                    } else if (mesh.material.dispose) {
+                        mesh.material.dispose();
+                    }
+                }
+            }
+        }
+        this.meshes = [];
+
+        // DO NOT remove this.group or this.parentGroup from the scene here.
+        // The NineHoleCourse manages those groups.
+        console.log(`[HoleEntity] Component cleanup complete for Hole ${this.config.index + 1}`);
+        // Setting group to null might cause issues if reused, let NineHoleCourse manage it.
+        // this.group = null; 
     }
 } 
