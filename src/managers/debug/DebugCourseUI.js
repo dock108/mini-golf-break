@@ -13,7 +13,7 @@ export class DebugCourseUI {
         this.OVERLAY_ID = 'course-debug-overlay';
         this.STYLE = `
             position: fixed;
-            top: 10px;
+            bottom: 10px;
             right: 10px;
             background-color: rgba(0, 0, 0, 0.7);
             color: #00FF00; /* Green text */

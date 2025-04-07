@@ -144,7 +144,6 @@ export class DebugManager {
         
         // Update debug mode for components that need it
         this.game.cameraController?.setDebugMode(this.enabled);
-        this.game.adShipManager?.setDebugMode(this.enabled); // Example: Toggle ad ship debug visuals
         
         // Toggle 3D debug helpers
         if (this.enabled) {
