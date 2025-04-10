@@ -352,9 +352,10 @@ export class InputController {
         // Only handle left mouse button (or touch equivalent)
         if (event.button !== 0) return;
 
-        // --- Ad Click Check (Perform FIRST, regardless of state or dragging) ---
         let adClicked = false;
-        if (this.isEventInsideCanvas(event)) {
+        // --- Ad Click Check (Only perform if NOT dragging for a shot) ---
+        if (!this.isDragging && this.isEventInsideCanvas(event)) {
+            // Perform raycast for ad banners
             this.pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
             this.pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
             this.raycaster.setFromCamera(this.pointer, this.camera);
@@ -373,48 +374,40 @@ export class InputController {
                         try {
                             window.open(adData.url, "_blank");
                             adClicked = true; // Flag that an ad was successfully clicked
-                            // Optional: Log analytics event here
                         } catch (e) {
                             console.error("[InputController] Error opening ad URL:", e);
                         }
-                    } else {
-                        console.log("[InputController] Click intersected ad banner mesh, but no valid adData/URL found.");
-                    }
-                } else {
-                    // console.log("[InputController] Click did not intersect any ad banner mesh.");
+                    } 
                 }
-            } else {
-                 // console.log("[InputController] No ad banner meshes available to check for click.");
-            }
+            } 
         }
+        // --- End Ad Click Check ---
 
-        // If an ad was successfully clicked, prevent ball shooting and restore controls
+        // If an ad was clicked (meaning !isDragging was true), reset states and return
         if (adClicked) {
-            this.isPointerDown = false; // Reset pointer state
-            this.isDragging = false; // Reset drag state
-            this.removeAimLine(); // Remove aim line if visible
-             // Restore camera controls state
+            this.isPointerDown = false; 
+            this.isDragging = false; 
+            this.removeAimLine(); 
             if (this.game.cameraController?.controls) {
                 this.game.cameraController.controls.enabled = this.controlsWereEnabled;
             }
             event.preventDefault();
-            return; // Stop further processing
+            return; 
         }
-        // --- End Ad Click Check ---
 
-        // --- Original Aiming/Shooting Logic (Only if pointer was down and ad wasn't clicked) ---
+        // --- Aiming/Shooting Logic (Proceed if pointer was down and no ad was clicked) ---
         if (!this.isPointerDown) {
-            // Restore controls if pointer wasn't down but they were disabled
-            if (this.game.cameraController && this.game.cameraController.controls && !this.controlsWereEnabled) {
+            // Restore controls if pointer wasn't down but they were disabled (e.g., clicked outside canvas)
+            if (this.game.cameraController?.controls && !this.controlsWereEnabled) {
                  this.game.cameraController.controls.enabled = this.controlsWereEnabled; 
             }
             return;
         }
 
-        // Reset pointer down flag AFTER checking if we should proceed
+        // Reset pointer down flag AFTER evaluating dragging state
         this.isPointerDown = false;
 
-        // If dragging occurred and input is enabled, attempt to hit the ball
+        // If dragging occurred (and ad wasn't clicked), attempt to hit the ball
         if (this.isDragging && this.isInputEnabled && this.hitPower > 0.05) {
             // Hide direction line
             this.removeDirectionLine(); 
@@ -432,6 +425,7 @@ export class InputController {
                 this.disableInput(); 
             }
         } else {
+            // If not dragging (and wasn't an ad click) or power too low, just remove aim line
              this.removeAimLine();
         }
         
@@ -448,8 +442,8 @@ export class InputController {
         this.hitPower = 0;
         this.intersectionPoint = null;
 
-        // Prevent default behavior
-        event.preventDefault();
+        // Prevent default browser behavior (important to keep at the end)
+        event.preventDefault(); 
     }
     
     onTouchStart(event) {
