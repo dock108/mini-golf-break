@@ -5,7 +5,7 @@
 export const mockAds = [
     {
         title: "Watch Mostly Sports",
-        url: "https://www.youtube.com/@MostlySports",
+        url: "https://www.youtube.com/@MostlySportsTitusandWalker",
         texturePath: "assets/textures/ads/mostly-sports-banner.png"
     },
     {

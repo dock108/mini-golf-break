@@ -186,7 +186,9 @@ export class UIScoreOverlay {
 
         content.appendChild(buttonContainer);
         this.scorecardElement.appendChild(content);
-        this.parentContainer.appendChild(this.scorecardElement);
+        // Append to body instead of parentContainer to ensure it overlays everything
+        // this.parentContainer.appendChild(this.scorecardElement);
+        document.body.appendChild(this.scorecardElement);
 
         // Add visible class with a slight delay for transition effect
         requestAnimationFrame(() => {
