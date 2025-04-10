@@ -2,6 +2,23 @@
 
 All notable changes to the Mini Golf Break project will be documented in this file.
 
+## [Unreleased] - 2025-04-10
+
+### Added
+- **Feedback Form Integration:** Added feedback form functionality accessible through a dedicated ad ship.
+
+### Changed
+- **AdShip Path Routing:** Modified path generation for ships at the -5 level (closest to the course) to ensure they always pass behind the hole boundary:
+  - Ships at the -5 level now follow horizontal paths (left-to-right or right-to-left) along the +Z axis
+  - Restricted Z-position range to 30-40 units behind the hole to prevent obstruction of gameplay
+  - Added custom path recycling logic specifically for ships at the -5 level
+  - Reduced Z velocity variance for top-level ships to maintain consistent background paths
+- **Ad URL Updates:** Removed "www." prefix from the ToneElevate.com URL.
+- **Ad Click Handling:** Fixed ad click handling to properly route special URLs (like feedback form) through the AdShip's handleAdClick method.
+
+### Fixed
+- **Ad URL Navigation:** Fixed issue where clicking the feedback ad would navigate to "#feedback-form" instead of opening the feedback form.
+
 ## [Unreleased] - 2025-04-09
 
 ### Added

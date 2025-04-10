@@ -17,6 +17,8 @@
 *   **Scoring System:** Tracks strokes per hole and total score.
 *   **Basic UI:** Displays current hole, stroke count, and total score.
 *   **In-World Ad System:** Features dynamic ad ships (NASA, Alien, Station types) flying beneath the course, displaying dynamically generated, clickable banners that rotate to face the player.
+*   **User Feedback System:** Provides easy access to a dedicated feedback form through an in-game ad ship.
+*   **Optimized Ad Ship Paths:** Ensures ad ships at the level closest to the course pass behind the hole boundary for unobstructed gameplay.
 *   **AdSense Integration:** Includes standard Google AdSense script and placeholder for HTML overlay ads (e.g., bottom banner) separate from the in-game AdShips.
 *   **Debug Mode:** Includes physics debugging visuals (toggle with 'd') and Ad Inspect mode (toggle with 'i').
 
@@ -44,8 +46,9 @@
 3.  **Shoot:** Release the mouse button to hit the ball.
 4.  **Goal:** Get the ball into the hole in the fewest strokes possible.
 5.  Navigate through the different holes using the UI prompts after completing each hole.
-6.  **(Optional) Click Ads:** Clicking on an ad ship's banner during gameplay will open its link in a new tab and cancel the current shot action.
-7.  **(Optional) Inspect Ads:** Press the 'i' key to toggle Ad Inspect mode. In this mode, camera controls are enabled. Press 'i' again to return to aiming mode. *Note: Clicking ads works outside this mode too.*
+6.  **Ad Interaction:** Click on an ad ship's banner to open its linked content in a new tab.
+7.  **Submit Feedback:** Click on the "Feedback & Ideas?" ad ship to access the feedback form.
+8.  **Ad Inspect Mode:** Press the 'i' key to toggle Ad Inspect mode with free camera controls. Press 'i' again to return to gameplay.
 
 ## Development
 

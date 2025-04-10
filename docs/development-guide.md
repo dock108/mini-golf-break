@@ -1,6 +1,6 @@
 # Developer Guide for Mini Golf Break
 
-*Last Updated: 2025-04-06*
+*Last Updated: 2025-04-10*
 
 This guide provides comprehensive information for developers who want to understand, modify, or extend the Mini Golf Break project.
 
@@ -93,6 +93,17 @@ Mini Golf Break follows a component-based architecture where different systems i
 - Display shows real-time metrics, often color-coded based on performance budgets (e.g., FPS target > 30).
 - Provides warnings via `DebugManager` when budgets are exceeded.
 
+### Feedback System
+- Accessible through a dedicated "Feedback & Ideas?" ad ship visible in the game.
+- Implementation in `public/feedback.html` with matching visual style to the main game.
+- Access triggered through special URL handling in `AdShip.handleAdClick()`.
+- Form collects:
+  - User name and email
+  - Feedback type (Bug Report, Feature Request, Game Suggestion, Other)
+  - Detailed feedback message
+- Current implementation simulates submission with client-side handling.
+- Structure allows for future backend integration to store and process feedback.
+
 ## Game Flow
 
 1.  **Initialization (`main.js` -> `Game.init`)**:
@@ -177,6 +188,15 @@ Mini Golf Break follows a component-based architecture where different systems i
     -   **Update Loop**: `update(deltaTime)` method called by `GameLoopManager`. Moves ships, handles simple N^2 collision avoidance (with `distanceToSquared` optimization), recycles linear ships, rotates ads based on timers.
     -   **Communication**: Instantiated by `Game`. `CameraController` may query it for ship positions. `InputController` interacts via raycasting against `AdShip` banner meshes.
     -   **Configuration**: `maxShips` (currently 4 due to O(N^2) collision), movement parameters defined internally.
+    -   **Path Optimization**: Ships at the -5 vertical level (closest to the course) follow optimized paths:
+        - Restricted to horizontal paths (left-to-right or right-to-left) along the +Z axis (behind the hole)
+        - Z-position confined to 30-40 units behind the hole to prevent obstruction of gameplay
+        - Custom path routing in `_getLinearStartPosAndVel()` specifically for -5 level ships
+        - Special recycling logic ensures paths stay behind the hole throughout gameplay
+    -   **Feedback Integration**: Provides a dedicated "Feedback & Ideas?" ad ship that opens the feedback form when clicked:
+        - Special URL handling in `AdShip.handleAdClick()` detects "#feedback-form" URLs
+        - Opens `/feedback.html` in a new tab instead of navigating directly
+        - Form designed to match game's visual theme with proper error handling
 *   **`AdShip` (`src/ads/AdShip.js`)**: Represents a single ad ship instance.
     -   **Scene Graph**: Creates its own `THREE.Group` containing body mesh and banner mesh. This group is added to the `AdShipManager.group`.
     -   **Update Loop**: `update(deltaTime)` method called by `AdShipManager`, currently only used for station rotation animation.
