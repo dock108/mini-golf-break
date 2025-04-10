@@ -21,6 +21,20 @@ class App {
         }
     }
     
+    /**
+     * Opens the feedback form in a new tab
+     */
+    openFeedbackForm() {
+        console.log('[App] Opening feedback form...');
+        // Open feedback form in new tab
+        const feedbackWindow = window.open('/feedback.html', '_blank');
+        
+        // Fallback if browser blocks popups
+        if (!feedbackWindow) {
+            window.location.href = '/feedback.html';
+        }
+    }
+    
     async startCourse() {
         console.log('[App] startCourse called.');
         // Hide the menu screen

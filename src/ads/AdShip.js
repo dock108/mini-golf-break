@@ -375,4 +375,35 @@ export class AdShip {
         }
          this.canvasTexture = null; // Clear reference
     }
+
+    /**
+     * Handle click on the ad banner, opening URL in a new window/tab
+     * @param {Object} event - Click event
+     */
+    handleAdClick(event) {
+        event.preventDefault();
+        
+        if (!this.adData || !this.adData.url) {
+            console.warn("Ad clicked but no URL available");
+            return;
+        }
+        
+        try {
+            // Check if this is the feedback link
+            if (this.adData.url === "#feedback-form" || this.adData.title.toLowerCase().includes("feedback")) {
+                // Open feedback form in new background tab
+                const feedbackWindow = window.open("/feedback.html", "_blank");
+                // If browser blocks new window, fallback to regular open
+                if (!feedbackWindow) {
+                    window.location.href = "/feedback.html";
+                }
+            } else {
+                // Regular ad link - open in new tab
+                window.open(this.adData.url, "_blank");
+            }
+            console.log(`Ad clicked: ${this.adData.title}, opening: ${this.adData.url}`);
+        } catch (error) {
+            console.error("Error opening ad URL:", error);
+        }
+    }
 } 

@@ -407,7 +407,15 @@ export class InputController {
                         const adData = hitObject.userData.adData;
                         console.log(`[InputController] Clicked on Ad: "${adData.title}". Opening URL: ${adData.url}`);
                         try {
-                            window.open(adData.url, "_blank");
+                            // Find the ship that owns this banner mesh
+                            const adShip = this.adShipManager?.ships?.find(ship => ship.bannerMesh === hitObject);
+                            if (adShip) {
+                                // Use the ship's handleAdClick method which handles special URLs like #feedback-form
+                                adShip.handleAdClick(event);
+                            } else {
+                                // Fallback to direct URL opening if ship not found
+                                window.open(adData.url, "_blank");
+                            }
                             adClicked = true; // Flag that an ad was successfully clicked
                         } catch (e) {
                             console.error("[InputController] Error opening ad URL:", e);

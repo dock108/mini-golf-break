@@ -208,29 +208,88 @@ export class AdShipManager {
     _getLinearStartPosAndVel() {
         const position = new THREE.Vector3();
         const velocity = new THREE.Vector3();
-        const edge = Math.floor(Math.random() * 4); // 0: +X, 1: -X, 2: +Z, 3: -Z
-        const randPosAlongEdge = (Math.random() - 0.5) * this.movementAreaSize;
+        
+        // For the highest level (-5), we only want to use edges 0 and 1 (left-right paths)
+        // that pass behind the hole (viewed from the tee)
+        // The tee is typically at the -Z position, and the hole at +Z, so we want
+        // ships to pass along the +Z edge (behind the hole from player perspective)
+        
+        let edge;
+        if (this.ships.length > 0) {
+            // Check if this will be assigned to -5 vertical level
+            const isForTopLevel = this.ships.some(ship => ship.verticalOffset === -5);
+            
+            if (isForTopLevel) {
+                // For -5 level ships, always use paths along +Z (behind hole)
+                edge = Math.random() < 0.5 ? 0 : 1; // 0: +X edge to -X, 1: -X edge to +X
+                
+                // Use a more restricted Z position range that's further back (higher Z)
+                const behindHoleZ = Math.random() * 10 + 30; // Z range from +30 to +40
+                position.z = behindHoleZ;
+            } else {
+                // For other levels, use any edge as before
+                edge = Math.floor(Math.random() * 4); // 0: +X, 1: -X, 2: +Z, 3: -Z
+                const randPosAlongEdge = (Math.random() - 0.5) * this.movementAreaSize;
+                
+                switch (edge) {
+                    case 0: // Start at +X edge, move -X
+                    case 1: // Start at -X edge, move +X
+                        position.z = randPosAlongEdge;
+                        break;
+                    case 2: // Start at +Z edge, move -Z
+                    case 3: // Start at -Z edge, move +Z
+                        position.x = randPosAlongEdge;
+                        break;
+                }
+            }
+        } else {
+            // If no ships exist yet (initial setup), use any edge
+            edge = Math.floor(Math.random() * 4);
+            const randPosAlongEdge = (Math.random() - 0.5) * this.movementAreaSize;
+            
+            switch (edge) {
+                case 0: // Start at +X edge, move -X
+                case 1: // Start at -X edge, move +X
+                    position.z = randPosAlongEdge;
+                    break;
+                case 2: // Start at +Z edge, move -Z
+                case 3: // Start at -Z edge, move +Z
+                    position.x = randPosAlongEdge;
+                    break;
+            }
+        }
 
-        // Y is set later using ship.verticalOffset
-
+        // Set X position for edges 0 and 1
+        if (edge === 0) position.x = this.maxBound - 1;
+        if (edge === 1) position.x = this.minBound + 1;
+        
+        // Set Z position for edges 2 and 3
+        if (edge === 2) position.z = this.maxBound - 1;
+        if (edge === 3) position.z = this.minBound + 1;
+        
+        // Set velocity based on edge
         switch (edge) {
             case 0: // Start at +X edge, move -X
-                position.set(this.maxBound - 1, 0, randPosAlongEdge); // Set Y to 0 temporarily
-                velocity.set(-this.linearShipSpeed, 0, (Math.random() - 0.5) * 0.2 * this.linearShipSpeed); // Slight Z variance
+                velocity.set(-this.linearShipSpeed, 0, 0);
                 break;
             case 1: // Start at -X edge, move +X
-                position.set(this.minBound + 1, 0, randPosAlongEdge);
-                velocity.set(this.linearShipSpeed, 0, (Math.random() - 0.5) * 0.2 * this.linearShipSpeed);
+                velocity.set(this.linearShipSpeed, 0, 0);
                 break;
             case 2: // Start at +Z edge, move -Z
-                position.set(randPosAlongEdge, 0, this.maxBound - 1);
-                velocity.set((Math.random() - 0.5) * 0.2 * this.linearShipSpeed, 0, -this.linearShipSpeed);
+                velocity.set(0, 0, -this.linearShipSpeed);
                 break;
             case 3: // Start at -Z edge, move +Z
-                position.set(randPosAlongEdge, 0, this.minBound + 1);
-                velocity.set((Math.random() - 0.5) * 0.2 * this.linearShipSpeed, 0, this.linearShipSpeed);
+                velocity.set(0, 0, this.linearShipSpeed);
                 break;
         }
+        
+        // Add a slight random variance to the path
+        if (edge === 0 || edge === 1) {
+            velocity.z = (Math.random() - 0.5) * 0.1 * this.linearShipSpeed;
+        } else {
+            velocity.x = (Math.random() - 0.5) * 0.1 * this.linearShipSpeed;
+        }
+        
         velocity.normalize().multiplyScalar(this.linearShipSpeed);
         return { position, velocity };
     }
@@ -411,9 +470,35 @@ export class AdShipManager {
                     ship.adDisplayTime = 0;
                     ship.adDisplayDuration = this.minAdDuration + Math.random() * (this.maxAdDuration - this.minAdDuration);
 
-                    const newStart = this._getLinearStartPosAndVel();
-                    // Use the ship's ALREADY ASSIGNED vertical offset when recycling
-                    // ship.verticalOffset = this.minVerticalOffset + Math.random() * (this.maxVerticalOffset - this.minVerticalOffset);
+                    // Special handling for -5 level ships (closest to the course)
+                    let newStart;
+                    if (ship.verticalOffset === -5) {
+                        // Create a custom path for -5 level ships that ensures they stay behind the hole
+                        const customStart = { position: new THREE.Vector3(), velocity: new THREE.Vector3() };
+                        
+                        // Determine whether to go left-to-right or right-to-left
+                        const goLeftToRight = Math.random() < 0.5;
+                        
+                        if (goLeftToRight) {
+                            // Start on the left (-X) side
+                            customStart.position.set(this.minBound + 1, ship.verticalOffset, Math.random() * 10 + 30); // +Z behind hole
+                            customStart.velocity.set(this.linearShipSpeed, 0, 0); // Move right (+X)
+                        } else {
+                            // Start on the right (+X) side
+                            customStart.position.set(this.maxBound - 1, ship.verticalOffset, Math.random() * 10 + 30); // +Z behind hole
+                            customStart.velocity.set(-this.linearShipSpeed, 0, 0); // Move left (-X)
+                        }
+                        
+                        // Add slight randomness to Z velocity component
+                        customStart.velocity.z = (Math.random() - 0.5) * 0.1 * this.linearShipSpeed;
+                        customStart.velocity.normalize().multiplyScalar(this.linearShipSpeed);
+                        
+                        newStart = customStart;
+                    } else {
+                        // For other levels, use the normal recycling logic
+                        newStart = this._getLinearStartPosAndVel();
+                    }
+                    
                     ship.group.position.set(newStart.position.x, ship.verticalOffset, newStart.position.z); // Use existing offset
                     ship.velocity = newStart.velocity;
                     this._orientShip(ship); // Re-orient for new path

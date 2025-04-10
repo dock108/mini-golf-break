@@ -10,7 +10,7 @@ export const mockAds = [
     },
     {
         title: "ToneElevate.com",
-        url: "https://www.toneelevate.com",
+        url: "https://toneelevate.com",
         texturePath: "assets/textures/ads/tone-elevate-banner.png"
     },
     {
