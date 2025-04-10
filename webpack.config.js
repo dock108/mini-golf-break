@@ -1,5 +1,6 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = {
   entry: './src/main.js',
@@ -30,6 +31,26 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: './public/index.html',
       filename: 'index.html'
+    }),
+    new CopyWebpackPlugin({
+      patterns: [
+        { 
+          from: 'public/assets', 
+          to: 'assets' 
+        },
+        {
+          from: 'public/robots.txt',
+          to: 'robots.txt'
+        },
+        {
+          from: 'public/sitemap.xml',
+          to: 'sitemap.xml'
+        },
+        {
+          from: 'public/ads.txt',
+          to: 'ads.txt'
+        }
+      ]
     })
   ],
   devServer: {
