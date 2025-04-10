@@ -1,5 +1,5 @@
 import { Game } from './scenes/Game';
-import './utils/styles.css';
+import '../public/style.css';
 
 class App {
     constructor() {
