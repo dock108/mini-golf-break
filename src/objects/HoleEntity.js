@@ -4,6 +4,20 @@ import { CSG } from 'three-csg-ts';
 import { BaseElement } from './BaseElement';
 import { createHazard } from './hazards/HazardFactory';
 
+// Helper function to get bounding box of the shape
+function getShapeBounds(shapePoints) {
+    if (!shapePoints || shapePoints.length === 0) {
+        return { min: new THREE.Vector2(0, 0), max: new THREE.Vector2(0, 0), center: new THREE.Vector2(0, 0), size: new THREE.Vector2(0, 0) };
+    }
+    const bounds = new THREE.Box2();
+    bounds.setFromPoints(shapePoints);
+    const center = new THREE.Vector2();
+    bounds.getCenter(center);
+    const size = new THREE.Vector2();
+    bounds.getSize(size);
+    return { min: bounds.min, max: bounds.max, center, size };
+}
+
 /**
  * HoleEntity - Encapsulates all resources and physics for a single hole
  * Now extends BaseElement
@@ -39,9 +53,16 @@ export class HoleEntity extends BaseElement {
              this.parentGroup = null;
         }
         
+        // Validate boundary shape
+        this.boundaryShape = Array.isArray(config.boundaryShape) && config.boundaryShape.length >= 3 
+            ? config.boundaryShape.map(p => new THREE.Vector2(p.x, p.y)) // Ensure Vector2, use y for world z
+            : [ // Default rectangular shape if invalid
+                new THREE.Vector2(-2, -10), new THREE.Vector2(-2, 10),
+                new THREE.Vector2(2, 10), new THREE.Vector2(2, -10),
+                new THREE.Vector2(-2, -10) 
+              ];
+
         // Hole-specific properties
-        this.width = Math.max(1, config.courseWidth || 4);
-        this.length = Math.max(1, config.courseLength || 20);
         this.wallHeight = 1.0;
         this.wallThickness = 0.2;
         this.holeRadius = 0.35; // Physics radius
@@ -56,7 +77,7 @@ export class HoleEntity extends BaseElement {
             ? config.holePosition.clone()
             : new THREE.Vector3(config.holePosition?.x || 0, config.holePosition?.y || 0, config.holePosition?.z || 0);
         
-        console.log(`[HoleEntity] Created for hole index ${config.index}. Group at (0,0,0).`);
+        console.log(`[HoleEntity] Created for hole index ${config.index + 1}. Group at (0,0,0).`);
         console.log(`[HoleEntity] World Start: (${this.worldStartPosition.x}, ${this.worldStartPosition.z}), World Hole: (${this.worldHolePosition.x}, ${this.worldHolePosition.z})`);
     }
 
@@ -87,29 +108,58 @@ export class HoleEntity extends BaseElement {
 
     createGreenSurfaceAndPhysics() {
         const greenMaterial = new THREE.MeshStandardMaterial({ color: 0x2ecc71, roughness: 0.8, metalness: 0.1 });
-        const greenDepth = 0.01;
-        const baseGreenGeometry = new THREE.BoxGeometry(this.width, greenDepth, this.length);
+        const greenDepth = 0.01; // Thickness for extrusion
+
+        // Create shape from boundary points (using Vector2's y as world z)
+        let shape;
+        if (this.config.boundaryShapeDef && this.config.boundaryShapeDef.outer) {
+            // New method: Use outer shape and holes
+            shape = new THREE.Shape(this.config.boundaryShapeDef.outer);
+            if (this.config.boundaryShapeDef.holes) {
+                this.config.boundaryShapeDef.holes.forEach(holePoints => {
+                    const holePath = new THREE.Path(holePoints);
+                    shape.holes.push(holePath);
+                });
+            }
+        } else if (this.config.boundaryShape) {
+            // Original method: Use a single boundary path
+            shape = new THREE.Shape(this.config.boundaryShape);
+        } else {
+            console.error(`[HoleEntity] No valid boundaryShape or boundaryShapeDef found for hole ${this.config.index}`);
+            return; // Cannot create green without shape definition
+        }
+
+        // Extrude the shape slightly to give it depth
+        const extrudeSettings = { depth: greenDepth, bevelEnabled: false };
+        const baseGreenGeometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+
+        // ExtrudeGeometry creates in XY plane, rotate to XZ plane
+        baseGreenGeometry.rotateX(-Math.PI / 2);
+
         const baseGreenMesh = new THREE.Mesh(baseGreenGeometry);
         // Position mesh LOCALLY relative to group (0,0,0)
-        baseGreenMesh.position.y = this.surfaceHeight;
+        // Need to offset slightly because extrusion depth goes in +Y after rotation
+        baseGreenMesh.position.y = this.surfaceHeight - greenDepth / 2; 
         baseGreenMesh.updateMatrix();
 
         // --- Cutters (use WORLD coords from config) ---
         const cutters = [];
         // Hole Cutter
         const visualHoleRadius = 0.40;
-        const mainHoleCutterHeight = greenDepth + 0.1;
+        // Make cutter height slightly larger than extrusion depth + buffer
+        const mainHoleCutterHeight = greenDepth + 0.1; 
         const mainHoleCutterGeometry = new THREE.CylinderGeometry(visualHoleRadius, visualHoleRadius, mainHoleCutterHeight, 32);
         const mainHoleCutterMesh = new THREE.Mesh(mainHoleCutterGeometry);
         // Position cutter at WORLD hole position, adjusted for local surface height
-        mainHoleCutterMesh.position.set(this.worldHolePosition.x, this.surfaceHeight, this.worldHolePosition.z);
+        // Center cutter vertically relative to the green surface mesh's center
+        mainHoleCutterMesh.position.set(this.worldHolePosition.x, baseGreenMesh.position.y, this.worldHolePosition.z);
         mainHoleCutterMesh.updateMatrix();
         cutters.push(mainHoleCutterMesh);
 
         // Hazard Cutters
         (this.config.hazards || []).forEach(hazardConfig => {
             if (hazardConfig.type === 'sand' || hazardConfig.type === 'water') {
-                const hazardCutterHeight = greenDepth + 0.1;
+                const hazardCutterHeight = greenDepth + 0.1; // Match main cutter height
                 // Ensure hazard position is WORLD Vector3
                 const hazardWorldPos = hazardConfig.position instanceof THREE.Vector3
                     ? hazardConfig.position.clone()
@@ -118,13 +168,15 @@ export class HoleEntity extends BaseElement {
                 if (hazardConfig.shape === 'circle' && hazardConfig.size?.radius) {
                     const cutterGeom = new THREE.CylinderGeometry(hazardConfig.size.radius, hazardConfig.size.radius, hazardCutterHeight, 32);
                     const cutterMesh = new THREE.Mesh(cutterGeom);
-                    cutterMesh.position.set(hazardWorldPos.x, this.surfaceHeight, hazardWorldPos.z);
+                    // Position cutter vertically centered with the green mesh
+                    cutterMesh.position.set(hazardWorldPos.x, baseGreenMesh.position.y, hazardWorldPos.z); 
                     cutterMesh.updateMatrix();
                     cutters.push(cutterMesh);
                 } else if (hazardConfig.shape === 'rectangle' && hazardConfig.size?.width && hazardConfig.size?.length) {
                     const cutterGeom = new THREE.BoxGeometry(hazardConfig.size.width, hazardCutterHeight, hazardConfig.size.length);
                     const cutterMesh = new THREE.Mesh(cutterGeom);
-                    cutterMesh.position.set(hazardWorldPos.x, this.surfaceHeight, hazardWorldPos.z);
+                    // Position cutter vertically centered with the green mesh
+                    cutterMesh.position.set(hazardWorldPos.x, baseGreenMesh.position.y, hazardWorldPos.z);
                     if (hazardConfig.rotation) cutterMesh.rotation.copy(hazardConfig.rotation);
                     cutterMesh.updateMatrix();
                     cutters.push(cutterMesh);
@@ -143,20 +195,24 @@ export class HoleEntity extends BaseElement {
         this.group.add(finalVisualGreenMesh);
         this.meshes.push(finalVisualGreenMesh);
 
-        // --- Physics Body (Trimesh at WORLD origin 0,0,0) ---
-        const physicsPlaneGeom = new THREE.PlaneGeometry(this.width, this.length, 1, 1);
+        // --- Physics Body (Simple large plane for now, rely on walls for containment) ---
+        // Get bounds of the shape to make a reasonable plane size
+        const shapeBounds = getShapeBounds(this.boundaryShape);
+        const physicsPlaneWidth = shapeBounds.size.x > 0 ? shapeBounds.size.x + 10 : 20; // Add padding
+        const physicsPlaneLength = shapeBounds.size.y > 0 ? shapeBounds.size.y + 10 : 40; // Add padding
+        
+        const physicsPlaneGeom = new THREE.PlaneGeometry(physicsPlaneWidth, physicsPlaneLength, 1, 1);
         const physicsGroundMaterial = this.world.groundMaterial;
         const vertices = physicsPlaneGeom.attributes.position.array;
         const indices = physicsPlaneGeom.index.array;
         const groundShape = new CANNON.Trimesh(vertices, indices);
         const groundBody = new CANNON.Body({ mass: 0, type: CANNON.Body.STATIC, material: physicsGroundMaterial });
         
-        // Plane needs local rotation to lie flat
+        // Plane needs local rotation to lie flat on XZ
         const planeLocalRotation = new CANNON.Quaternion().setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
         groundBody.addShape(groundShape, new CANNON.Vec3(0,0,0), planeLocalRotation);
         
-        // Position body at WORLD origin (0,0,0) + surfaceHeight offset
-        // Since the group is at (0,0,0), worldPos is effectively (0,0,0)
+        // Position the physics plane at the correct height, centered based on shape bounds
         groundBody.position.set(0, this.surfaceHeight, 0);
         groundBody.quaternion.set(0, 0, 0, 1); // No world rotation for the body itself
 
@@ -201,36 +257,52 @@ export class HoleEntity extends BaseElement {
     createWalls() {
         // Wall definitions use LOCAL offsets from the edges (relative to 0,0,0 group center)
         const wallMaterial = new THREE.MeshStandardMaterial({ color: 0xA0522D, roughness: 0.7, metalness: 0.3 });
-        const walls = [
-            // Note: Y position is adjusted by surfaceHeight
-            { size: [this.wallThickness, this.wallHeight, this.length], position: [-this.width/2, this.wallHeight/2 + this.surfaceHeight, 0], type: 'wall_left' },
-            { size: [this.wallThickness, this.wallHeight, this.length], position: [this.width/2, this.wallHeight/2 + this.surfaceHeight, 0], type: 'wall_right' },
-            { size: [this.width, this.wallHeight, this.wallThickness], position: [0, this.wallHeight/2 + this.surfaceHeight, -this.length/2], type: 'wall_back' },
-            { size: [this.width, this.wallHeight, this.wallThickness], position: [0, this.wallHeight/2 + this.surfaceHeight, this.length/2], type: 'wall_front' }
-        ];
-        
-        walls.forEach(wall => {
-            // Create visual mesh (position is local relative to group 0,0,0)
-            const geometry = new THREE.BoxGeometry(...wall.size);
+
+        // Iterate through the boundary shape segments
+        for (let i = 0; i < this.boundaryShape.length - 1; i++) {
+            const startPoint = this.boundaryShape[i]; // Vector2 (x, z)
+            const endPoint = this.boundaryShape[i + 1]; // Vector2 (x, z)
+
+            const segmentVector = new THREE.Vector2().subVectors(endPoint, startPoint);
+            const length = segmentVector.length();
+            if (length < 0.01) continue; // Skip zero-length segments
+
+            const angle = Math.atan2(segmentVector.y, segmentVector.x); // Angle in XZ plane
+
+            const midPoint = new THREE.Vector2().addVectors(startPoint, endPoint).multiplyScalar(0.5);
+            const wallYPosition = this.surfaceHeight + this.wallHeight / 2;
+
+            // Create visual mesh
+            // Geometry is created along X-axis, then rotated
+            const geometry = new THREE.BoxGeometry(length, this.wallHeight, this.wallThickness);
             const mesh = new THREE.Mesh(geometry, wallMaterial);
-            mesh.position.set(...wall.position); // Set LOCAL position within group
+
+            // Position mesh at midpoint, adjusted for height
+            mesh.position.set(midPoint.x, wallYPosition, midPoint.y); // Use Vector2's y for world z
+            mesh.rotation.y = angle; // Rotate around Y-axis
             mesh.castShadow = true;
             mesh.receiveShadow = true;
             this.group.add(mesh);
             this.meshes.push(mesh);
-            
-            // Create physics body (position is ABSOLUTE WORLD)
+
+            // Create physics body
             const body = new CANNON.Body({ mass: 0, type: CANNON.Body.STATIC, material: this.world.bumperMaterial });
-            body.addShape(new CANNON.Box(new CANNON.Vec3(wall.size[0] / 2, wall.size[1] / 2, wall.size[2] / 2)));
-            
-            // Position body directly at WORLD coordinates (local offset from 0,0,0)
-            body.position.set(...wall.position); 
-            body.quaternion.set(0,0,0,1); // No rotation needed as walls are axis-aligned relative to world
-            
-            body.userData = { type: wall.type, holeIndex: this.config.index };
+            // CANNON Box extents are half-sizes
+            const halfExtents = new CANNON.Vec3(length / 2, this.wallHeight / 2, this.wallThickness / 2);
+            body.addShape(new CANNON.Box(halfExtents));
+
+            // Position body at the same world location as the mesh
+            body.position.set(midPoint.x, wallYPosition, midPoint.y);
+
+            // Set rotation using quaternion from angle around Y axis
+            const wallQuaternion = new CANNON.Quaternion();
+            wallQuaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), angle);
+            body.quaternion.copy(wallQuaternion);
+
+            body.userData = { type: `wall_segment_${i}`, holeIndex: this.config.index };
             this.world.addBody(body);
             this.bodies.push(body);
-        });
+        }
     }
     
     createHoleTrigger() {
@@ -269,7 +341,6 @@ export class HoleEntity extends BaseElement {
         // FOR NOW: Assuming HazardFactory adds meshes/bodies directly to world using config coords.
         const hazardConfigs = this.config.hazards || [];
         if (hazardConfigs.length === 0) return;
-        const courseBounds = { width: this.width, length: this.length }; // Still useful for potential clipping
         
         hazardConfigs.forEach(hazardConfig => {
             try {
@@ -290,7 +361,6 @@ export class HoleEntity extends BaseElement {
                     this.group, // Pass group (at 0,0,0) - Factory might ignore this for positioning now
                     factoryConfig, 
                     this.visualGreenY, // Pass surface height relative to 0
-                    courseBounds
                 );
                 this.meshes.push(...meshes); // Track meshes created by factory
                 this.bodies.push(...bodies); // Track bodies created by factory

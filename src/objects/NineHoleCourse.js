@@ -56,8 +56,9 @@ export class NineHoleCourse extends CoursesManager {
                 index: 0,
                 description: "1. The Gentle Starter",
                 par: 2,
-                courseWidth: 8,
-                courseLength: 16,
+                boundaryShape: [
+                    new THREE.Vector2(-4, -8), new THREE.Vector2(-4, 8), new THREE.Vector2(4, 8), new THREE.Vector2(4, -8), new THREE.Vector2(-4, -8)
+                ],
                 startPosition: new THREE.Vector3(0, 0, 7),   // World
                 holePosition: new THREE.Vector3(2, 0, -6),  // World
                 hazards: [
@@ -76,8 +77,9 @@ export class NineHoleCourse extends CoursesManager {
                 index: 1,
                 description: "2. Island Hop - Bridge Challenge",
                 par: 4,
-                courseWidth: 10,
-                courseLength: 22,
+                boundaryShape: [
+                    new THREE.Vector2(-5, -11), new THREE.Vector2(-5, 11), new THREE.Vector2(5, 11), new THREE.Vector2(5, -11), new THREE.Vector2(-5, -11)
+                ],
                 startPosition: new THREE.Vector3(-2, 0, 10),  // World
                 holePosition: new THREE.Vector3(2, 0, -7), // World
                 hazards: [
@@ -110,8 +112,9 @@ export class NineHoleCourse extends CoursesManager {
                 index: 2,
                 description: "3. Zig-Zag Alley",
                 par: 2,
-                courseWidth: 6,
-                courseLength: 20,
+                boundaryShape: [
+                    new THREE.Vector2(-3, -10), new THREE.Vector2(-3, 10), new THREE.Vector2(3, 10), new THREE.Vector2(3, -10), new THREE.Vector2(-3, -10)
+                ],
                 startPosition: new THREE.Vector3(-2, 0, 9), // World
                 holePosition: new THREE.Vector3(2, 0, -9), // World
                 hazards: [],
@@ -125,8 +128,9 @@ export class NineHoleCourse extends CoursesManager {
                 index: 3,
                 description: "4. Sinking Sands",
                 par: 3,
-                courseWidth: 7,
-                courseLength: 24,
+                boundaryShape: [
+                    new THREE.Vector2(-3.5, -12), new THREE.Vector2(-3.5, 12), new THREE.Vector2(3.5, 12), new THREE.Vector2(3.5, -12), new THREE.Vector2(-3.5, -12)
+                ],
                 startPosition: new THREE.Vector3(0, 0, 11), // World
                 holePosition: new THREE.Vector3(0, 0, -11), // World
                 hazards: [
@@ -145,8 +149,9 @@ export class NineHoleCourse extends CoursesManager {
                 index: 4,
                 description: "5. Narrow Escape",
                 par: 3,
-                courseWidth: 8,
-                courseLength: 20,
+                boundaryShape: [
+                    new THREE.Vector2(-4, -10), new THREE.Vector2(-4, 10), new THREE.Vector2(4, 10), new THREE.Vector2(4, -10), new THREE.Vector2(-4, -10)
+                ],
                 startPosition: new THREE.Vector3(0, 0, 9),
                 holePosition: new THREE.Vector3(0, 0, -9),
                 hazards: [
@@ -169,24 +174,23 @@ export class NineHoleCourse extends CoursesManager {
                 index: 5,
                 description: "6. Channel Obstacles",
                 par: 4,
-                courseWidth: 7,
-                courseLength: 25,
+                boundaryShape: [
+                    new THREE.Vector2(-3.5, -12.5), new THREE.Vector2(-3.5, 12.5), new THREE.Vector2(3.5, 12.5), new THREE.Vector2(3.5, -12.5), new THREE.Vector2(-3.5, -12.5)
+                ],
                 startPosition: new THREE.Vector3(0, 0, 11),
                 holePosition: new THREE.Vector3(0, 0, -11),
                 hazards: [
                     {
-                        type: 'water', shape: 'rectangle', position: new THREE.Vector3(-2.5, 0, 0), size: { width: 2, length: 25 }, depth: 0.2
+                        type: 'water', shape: 'rectangle', position: new THREE.Vector3(-2.75, 0, 0), size: { width: 1.5, length: 25 }, depth: 0.2
                     },
                     {
-                        type: 'water', shape: 'rectangle', position: new THREE.Vector3(2.5, 0, 0), size: { width: 2, length: 25 }, depth: 0.2
+                        type: 'water', shape: 'rectangle', position: new THREE.Vector3(2.75, 0, 0), size: { width: 1.5, length: 25 }, depth: 0.2
                     },
                     { 
                         type: 'sand', shape: 'circle', position: new THREE.Vector3(0, 0, -5), size: { radius: 1.5 }, depth: 0.15
                     }
                 ],
                 bumpers: [
-                    { position: new THREE.Vector3(-1.75, 0.25, 0), size: new THREE.Vector3(0.2, 0.5, 25), rotation: new THREE.Euler(0, 0, 0) },
-                    { position: new THREE.Vector3(1.75, 0.25, 0), size: new THREE.Vector3(0.2, 0.5, 25), rotation: new THREE.Euler(0, 0, 0) },
                     { position: new THREE.Vector3(0, 0.25, 3), size: new THREE.Vector3(2, 0.5, 0.2), rotation: new THREE.Euler(0, Math.PI / 4, 0) },
                     { position: new THREE.Vector3(0, 0.25, -3), size: new THREE.Vector3(2, 0.5, 0.2), rotation: new THREE.Euler(0, -Math.PI / 4, 0) }
                 ]
@@ -197,8 +201,9 @@ export class NineHoleCourse extends CoursesManager {
                 index: 6,
                 description: "7. The Labyrinth",
                 par: 5,
-                courseWidth: 16,
-                courseLength: 16,
+                boundaryShape: [
+                    new THREE.Vector2(-8, -8), new THREE.Vector2(-8, 8), new THREE.Vector2(8, 8), new THREE.Vector2(8, -8), new THREE.Vector2(-8, -8)
+                ],
                 startPosition: new THREE.Vector3(-7, 0, 7),
                 holePosition: new THREE.Vector3(7, 0, -7),
                 hazards: [
@@ -216,24 +221,26 @@ export class NineHoleCourse extends CoursesManager {
                 index: 7,
                 description: "8. Criss-Cross",
                 par: 3,
-                courseWidth: 15,
-                courseLength: 15,
+                boundaryShape: [
+                    new THREE.Vector2(-7.5, -7.5), new THREE.Vector2(-7.5, 7.5), new THREE.Vector2(7.5, 7.5), new THREE.Vector2(7.5, -7.5), new THREE.Vector2(-7.5, -7.5)
+                ],
                 startPosition: new THREE.Vector3(-6, 0, 6),
                 holePosition: new THREE.Vector3(6, 0, -6),
                 hazards: [
-                    { type: 'water', shape: 'rectangle', position: new THREE.Vector3(3, 0, -3), size: { width: 4, length: 12 }, depth: 0.15 },
-                    { type: 'sand', shape: 'rectangle', position: new THREE.Vector3(-3, 0, 3), size: { width: 4, length: 12 }, depth: 0.15 }
+                    { type: 'water', shape: 'rectangle', position: new THREE.Vector3(3, 0, -3), size: { width: 4, length: 9 }, depth: 0.15 },
+                    { type: 'sand', shape: 'rectangle', position: new THREE.Vector3(-3, 0, 3), size: { width: 4, length: 9 }, depth: 0.15 }
                 ],
                 bumpers: []
             },
 
-            // 🕳️ 9. The Final Shot (fixed)
+            // 🕳️ 9. The Final Shot (original)
             {
                 index: 8,
                 description: "9. The Final Shot",
                 par: 4,
-                courseWidth: 20,
-                courseLength: 20,
+                boundaryShape: [
+                    new THREE.Vector2(-10, -10), new THREE.Vector2(-10, 10), new THREE.Vector2(10, 10), new THREE.Vector2(10, -10), new THREE.Vector2(-10, -10)
+                ],
                 startPosition: new THREE.Vector3(0, 0, 9),
                 holePosition: new THREE.Vector3(0, 0, -7), // Adjusted to be playable
                 hazards: [

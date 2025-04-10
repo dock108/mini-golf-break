@@ -5,17 +5,17 @@
 export const mockAds = [
     {
         title: "Watch Mostly Sports",
-        url: "https://www.google.com", // Dummy URL for testing
-        texturePath: "assets/textures/ads/mostly-sports-banner.png" // Placeholder path
+        url: "https://www.youtube.com/@MostlySports",
+        texturePath: "assets/textures/ads/mostly-sports-banner.png"
     },
     {
-        title: "Try Prompt Crafter",
-        url: "https://www.google.com", // Dummy URL for testing
-        texturePath: "assets/textures/ads/prompt-crafter-banner.png" // Placeholder path
+        title: "ToneElevate.com",
+        url: "https://www.toneelevate.com",
+        texturePath: "assets/textures/ads/tone-elevate-banner.png"
     },
     {
-        title: "Mini Golf Break Pro",
-        url: "https://www.google.com", // Dummy URL for testing
-        texturePath: "assets/textures/ads/mgb-pro-banner.png" // Placeholder path
+        title: "Feedback & Ideas?",
+        url: "#feedback-form",
+        texturePath: "assets/textures/ads/feedback-banner.png"
     }
 ]; 

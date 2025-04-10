@@ -2,6 +2,29 @@
 
 All notable changes to the Mini Golf Break project will be documented in this file.
 
+## [Unreleased] - 2025-04-09
+
+### Added
+- **AdSense Integration:** Added standard Google AdSense script to `index.html` and a placeholder for a bottom banner ad unit (HTML overlay, separate from 3D AdShips).
+
+### Changed
+- **Hole 6 Layout:** Removed channel bumpers and narrowed water hazards.
+- **Ball Physics:** Increased default linear/angular damping and adjusted sleep/stop thresholds for faster ball stopping.
+- **AdShip Banners:** 
+    - Changed to a standard, flat billboard style (long/narrow 5:1 plane) positioned dynamically above each ship.
+    - Implemented dynamic rotation: Banners now rotate on their Y-axis to face the ball's position for better readability.
+    - Updated banner texture generation (aspect ratio, font size, color, glow).
+- **Ad Configuration:** Updated mock ad content and URLs in `adConfig.js` (Mostly Sports, ToneElevate, Feedback link).
+- **Ad Click Handling:** Modified `InputController` to allow clicking on ad banners during normal gameplay (not restricted to AD_INSPECTING state). Clicks now open the URL and prevent the current shot.
+
+### Fixed
+- **Hole 8 Hazards:** Corrected size (`length`) of rectangular hazards to prevent them from extending outside course boundaries.
+- **AdShip Spawning:** Fixed `ReferenceError: Can't find variable: geometry` in `AdShip.js` that prevented ships from spawning.
+- **AdShip Banner Rotation:** Fixed issues with previous banner rotation attempts (`lookAt`, local rotation) to correctly face the ball while tilted.
+
+### Internal
+- Reverted multiple L-shape redesign attempts for Hole 9 back to its original configuration due to rendering issues with complex shapes/holes.
+
 ## [Unreleased] - 2025-04-06
 
 ### Added
