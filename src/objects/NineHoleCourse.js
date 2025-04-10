@@ -140,7 +140,7 @@ export class NineHoleCourse extends CoursesManager {
                         type: 'sand',
                         shape: 'rectangle',
                         position: new THREE.Vector3(0, 0, 0), // World
-                        size: { width: 7, length: 12 },
+                        size: { width: 7, length: 6 }, // Reduced length from 8 to 6
                         depth: 0.15
                     }
                 ],

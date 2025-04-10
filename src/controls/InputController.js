@@ -314,6 +314,41 @@ export class InputController {
         this.pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
         this.pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
         
+        // --- Edge Detection for Camera Panning ---
+        if (this.isDragging) {
+            const edgeThreshold = 0.15; // How close to the edge before panning (0-1)
+            const panSpeed = 0.03; // How fast to pan
+            let panX = 0;
+            let panZ = 0;
+            
+            // Convert normalized pointer (-1 to 1) to 0-1 range for easier edge detection
+            const screenX = (this.pointer.x + 1) / 2;
+            const screenY = (this.pointer.y + 1) / 2;
+            
+            // Check if cursor is near any edge
+            const nearLeft = screenX < edgeThreshold;
+            const nearRight = screenX > (1 - edgeThreshold);
+            const nearTop = screenY > (1 - edgeThreshold);
+            const nearBottom = screenY < edgeThreshold;
+            
+            // Calculate pan direction and strength
+            if (nearLeft) panX = -panSpeed * (1 - (screenX / edgeThreshold));
+            if (nearRight) panX = panSpeed * (1 - ((1 - screenX) / edgeThreshold));
+            if (nearTop) panZ = -panSpeed * (1 - ((1 - screenY) / edgeThreshold));
+            if (nearBottom) panZ = panSpeed * (1 - (screenY / edgeThreshold));
+            
+            // Apply panning if needed
+            if (panX !== 0 || panZ !== 0) {
+                // Only pan if we have the camera controller
+                if (this.game.cameraController) {
+                    const panDirection = new THREE.Vector3(panX, 0, panZ).normalize();
+                    const panAmount = Math.sqrt(panX*panX + panZ*panZ);
+                    this.game.cameraController.panCameraOnEdge(panDirection, panAmount);
+                }
+            }
+        }
+        // --- End Edge Detection Logic ---
+        
         // Update the position in 3D space
         this.raycaster.setFromCamera(this.pointer, this.camera);
         
@@ -486,6 +521,8 @@ export class InputController {
 
             // Call the existing onMouseMove logic
             this.onMouseMove(simulatedMouseEvent);
+            
+            // Edge detection is handled in onMouseMove, no need to duplicate it here
         }
     }
     

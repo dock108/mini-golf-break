@@ -722,4 +722,66 @@ export class CameraController {
         // if (closestShip) console.log(`[Camera] Closest ship found: ${closestShip.adData.title} at dist ${Math.sqrt(minDistanceSq).toFixed(1)}`);
         return closestShip;
     }
+
+    /**
+     * Pans the camera when user aims near the edge of the screen
+     * @param {THREE.Vector3} direction - Normalized direction to pan
+     * @param {number} amount - Strength of the pan (0-1)
+     */
+    panCameraOnEdge(direction, amount) {
+        // Ignore if in transition or user is manually adjusting camera
+        if (this.isTransitioning || this._isRepositioning) return;
+        
+        // Get ball reference if available
+        const ball = this.game.ballManager ? this.game.ballManager.ball : null;
+        if (!ball || !ball.mesh) return;
+        
+        // Get current camera and target positions
+        const ballPosition = ball.mesh.position.clone();
+        
+        // Scale direction to world space (adjust for camera's local coordinate system)
+        // We need to convert screen space direction to world space
+        const cameraDirection = new THREE.Vector3();
+        this.camera.getWorldDirection(cameraDirection);
+        cameraDirection.y = 0; // Keep horizontal
+        cameraDirection.normalize();
+        
+        // Get the right vector of the camera (perpendicular to direction)
+        const cameraRight = new THREE.Vector3(
+            -cameraDirection.z,
+            0,
+            cameraDirection.x
+        ).normalize();
+        
+        // Compose the pan movement using the camera's own axes
+        const panMove = new THREE.Vector3();
+        panMove.addScaledVector(cameraRight, direction.x);
+        panMove.addScaledVector(cameraDirection, -direction.z);
+        
+        // Calculate pan amount with some limits to prevent moving too far from the ball
+        const maxPanDistance = 5.0; // Maximum pan distance from ball
+        const panAmountScaled = amount * 0.15; // Scale amount for smoother motion
+        
+        // Apply pan to camera position
+        if (this.controls) {
+            // Move the orbit controls target to pan the view
+            this.controls.target.add(panMove.clone().multiplyScalar(panAmountScaled));
+            
+            // Keep camera at reasonable distance from ball
+            const currentTargetToBallDist = this.controls.target.distanceTo(ballPosition);
+            if (currentTargetToBallDist > maxPanDistance) {
+                // If we've panned too far, move the target back towards ball
+                const correction = new THREE.Vector3().subVectors(ballPosition, this.controls.target);
+                correction.normalize().multiplyScalar(currentTargetToBallDist - maxPanDistance);
+                this.controls.target.add(correction);
+            }
+            
+            // Make sure camera updates
+            this.controls.update();
+        } else {
+            // If no orbit controls, move camera directly
+            this.camera.position.add(panMove.clone().multiplyScalar(panAmountScaled));
+            this.camera.lookAt(ballPosition);
+        }
+    }
 } 
