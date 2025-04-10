@@ -43,8 +43,8 @@ export class Ball {
         this.lastHitPosition = new THREE.Vector3(); // Store position before hit
         
         // Damping values
-        this.defaultLinearDamping = 0.7; // Store the default
-        this.bunkerLinearDamping = 0.98; // Higher value for sand effect (Increased from 0.95)
+        this.defaultLinearDamping = 0.85; // Increased from 0.7 for faster stopping
+        this.bunkerLinearDamping = 0.98;
         
         // Create materials for the ball
         this.defaultMaterial = new THREE.MeshStandardMaterial({ 
@@ -169,12 +169,15 @@ export class Ball {
             shape: new CANNON.Sphere(this.radius),
             material: this.game.physicsManager.world.ballMaterial,
             linearDamping: this.defaultLinearDamping, // Use stored default
-            angularDamping: 0.3,
+            angularDamping: 0.5, // Increased from 0.3 for faster stopping
             collisionFilterGroup: 4,
             collisionFilterMask: -1,
             allowSleep: true, // Ensure sleep is allowed
-            sleepSpeedLimit: 0.05, // Sleep if speed drops below this (more aggressive)
-            sleepTimeLimit: 0.5    // Time required below speed limit to sleep (seconds)
+            sleepSpeedLimit: 0.03, // Reduced from 0.05 to sleep sooner
+            sleepTimeLimit: 0.3,    // Reduced from 0.5 to sleep sooner
+            // Enable CCD (Continuous Collision Detection) to prevent tunneling through barriers
+            ccdSpeedThreshold: 1.0, // Enable CCD when moving faster than 1 unit per second 
+            ccdIterations: 10       // Number of CCD "substeps" - higher values increase accuracy but cost performance
         });
         
         // Log assigned material ID
@@ -341,101 +344,107 @@ export class Ball {
      * and updates the isInBunker state and physics properties accordingly.
      */
     checkAndUpdateBunkerState() {
+        // Ensure game, course, and currentHole are valid
         if (!this.game || !this.game.course || !this.game.course.currentHole) {
             return; // Cannot check without course/hole context
         }
 
+        // Get bunker trigger bodies from the current hole
         const currentHole = this.game.course.currentHole;
-        // Assuming currentHole.bodies contains all physics bodies for the hole
-        const bunkerTriggers = currentHole.bodies.filter(body => body.userData?.isBunkerZone);
+        if (!currentHole || !Array.isArray(currentHole.bodies)) {
+            return;
+        }
+        const bunkerTriggers = currentHole.bodies.filter(body => body?.userData?.isBunkerZone);
 
         if (bunkerTriggers.length === 0) {
             // If no bunkers on this hole, ensure state is false
             if (this.isInBunker) {
                 console.log('[Ball.update] Exited bunker zone (no bunkers on hole).');
                 this.isInBunker = false;
-                this.body.linearDamping = this.defaultLinearDamping; 
+                if (this.body) { 
+                    this.body.linearDamping = this.defaultLinearDamping;
+                }
             }
             return;
         }
 
-        let isCurrentlyInsideBunker = false;
-        const ballPos = this.body.position;
-        
-        // --- Log Throttling --- 
-        const currentTime = Date.now();
-        const logThisFrame = (currentTime - this.lastBunkerLogTime > 1000); // Log approx once per second
-        if (logThisFrame) {
-            this.lastBunkerLogTime = currentTime;
+        // If we don't have a body, we can't check
+        if (!this.body) {
+            return;
         }
-        // --- End Log Throttling --- 
+        const ballPos = this.body.position;
+        let isCurrentlyInsideBunker = false;
 
+        // Check each bunker trigger
         for (const trigger of bunkerTriggers) {
-            // Check if ballPos is inside the trigger shape
-            if (trigger.shapes.length > 0) {
-                const shape = trigger.shapes[0];
-                const triggerPos = trigger.position;
+            if (!trigger || !trigger.shapes || trigger.shapes.length === 0) {
+                continue;
+            }
 
-                if (shape instanceof CANNON.Cylinder) {
-                    const radius = shape.radiusTop;
-                    const halfHeight = shape.height / 2;
-                    // Log only if throttled
-                    // if (logThisFrame) console.log(`[Ball Check] Cylinder Trigger: Radius=${radius.toFixed(3)}, CenterY=${triggerPos.y.toFixed(3)}, HalfHeight=${halfHeight.toFixed(3)}`);
-                    
-                    // Cylinder check
-                    const dx = ballPos.x - triggerPos.x;
-                    const dz = ballPos.z - triggerPos.z;
-                    const distSq = dx * dx + dz * dz;
-                    const radiusSq = radius * radius;
-                    const dy = Math.abs(ballPos.y - triggerPos.y);
-                    const isWithinVerticalBounds = dy <= halfHeight;
-                    // Log only if throttled
-                    // if (logThisFrame) console.log(`[Ball Check] Cylinder Check: DistSq=${distSq.toFixed(3)} (RadiusSq=${radiusSq.toFixed(3)}), DeltaY=${dy.toFixed(3)} (HalfHeight=${halfHeight.toFixed(3)}), InVertical=${isWithinVerticalBounds}`);
-                    
-                    if (distSq <= radiusSq) { // Simplified check: Ignore vertical bounds for ground triggers
-                        // Log only if throttled
-                        // if (logThisFrame) console.log('[Ball Check] ---> INSIDE CYLINDER (Horizontal Only)');
-                        isCurrentlyInsideBunker = true;
-                        break; 
-                    }
-                } else if (shape instanceof CANNON.Box) {
-                    const halfExtents = shape.halfExtents;
-                    // Log only if throttled
-                    // if (logThisFrame) console.log(`[Ball Check] Box Trigger: CenterY=${triggerPos.y.toFixed(3)}, HalfExtents=(${halfExtents.x.toFixed(3)}, ${halfExtents.y.toFixed(3)}, ${halfExtents.z.toFixed(3)})`);
-                    
-                    // Box check
-                    const dx = Math.abs(ballPos.x - triggerPos.x);
-                    const dy = Math.abs(ballPos.y - triggerPos.y);
-                    const dz = Math.abs(ballPos.z - triggerPos.z);
-                    const isWithinX = dx <= halfExtents.x;
-                    const isWithinY = dy <= halfExtents.y;
-                    const isWithinZ = dz <= halfExtents.z;
-                    // Log only if throttled
-                    // if (logThisFrame) console.log(`[Ball Check] Box Check: DeltaX=${dx.toFixed(3)}, DeltaY=${dy.toFixed(3)}, DeltaZ=${dz.toFixed(3)}, InX=${isWithinX}, InY=${isWithinY}, InZ=${isWithinZ}`);
+            const shape = trigger.shapes[0];
+            const triggerPos = trigger.position;
 
-                    if (isWithinX && isWithinY && isWithinZ) {
-                        // Log only if throttled
-                        // if (logThisFrame) console.log('[Ball Check] ---> INSIDE BOX');
-                        isCurrentlyInsideBunker = true;
-                        break; 
-                    }
+            // Simple world-space checks based on shape type
+            if (shape instanceof CANNON.Cylinder) {
+                // For cylinders, just check horizontal distance (ignore Y/height)
+                const dx = ballPos.x - triggerPos.x;
+                const dz = ballPos.z - triggerPos.z;
+                const horizontalDistSq = dx * dx + dz * dz;
+                const radius = shape.radiusTop;
+                
+                if (horizontalDistSq <= radius * radius) {
+                    isCurrentlyInsideBunker = true;
+                    break;
+                }
+            } 
+            else if (shape instanceof CANNON.Box) {
+                // For boxes, check all axes but with a simplified approach
+                // This assumes the box is axis-aligned (not rotated)
+                const halfExtents = shape.halfExtents;
+                
+                const dx = Math.abs(ballPos.x - triggerPos.x);
+                const dz = Math.abs(ballPos.z - triggerPos.z);
+                
+                // For sand bunkers, we primarily care about XZ plane overlap
+                // Since the ball is always on the ground, just check if it's horizontally inside
+                // Only use a very basic vertical check to ensure the ball isn't way above/below the bunker
+                const ballIsAboveBunker = ballPos.y > triggerPos.y + halfExtents.y + this.radius * 2;
+                const ballIsBelowBunker = ballPos.y < triggerPos.y - halfExtents.y - this.radius * 2;
+                const verticalOverlap = !ballIsAboveBunker && !ballIsBelowBunker;
+                
+                // Debug logging - only once per second using lastBunkerLogTime
+                const currentTime = Date.now();
+                if (currentTime - this.lastBunkerLogTime > 1000) {
+                    this.lastBunkerLogTime = currentTime;
+                    const dy = Math.abs(ballPos.y - triggerPos.y); // Calculate dy only for logging
+                    console.log(`[BUNKER DEBUG] Box check - ballPos: (${ballPos.x.toFixed(2)}, ${ballPos.y.toFixed(2)}, ${ballPos.z.toFixed(2)})`);
+                    console.log(`[BUNKER DEBUG] Box check - triggerPos: (${triggerPos.x.toFixed(2)}, ${triggerPos.y.toFixed(2)}, ${triggerPos.z.toFixed(2)})`);
+                    console.log(`[BUNKER DEBUG] Box check - halfExtents: (${halfExtents.x.toFixed(2)}, ${halfExtents.y.toFixed(2)}, ${halfExtents.z.toFixed(2)})`);
+                    console.log(`[BUNKER DEBUG] Box check - distances: dx: ${dx.toFixed(2)}, dy: ${dy.toFixed(2)}, dz: ${dz.toFixed(2)}`);
+                    console.log(`[BUNKER DEBUG] Box check - isWithinX=${dx <= halfExtents.x}, isAboveBunker=${ballIsAboveBunker}, isBelowBunker=${ballIsBelowBunker}, isWithinZ=${dz <= halfExtents.z}`);
+                    console.log(`[BUNKER DEBUG] Box check - verticalOverlap=${verticalOverlap}, finalResult=${dx <= halfExtents.x && dz <= halfExtents.z && verticalOverlap}`);
+                }
+                
+                if (dx <= halfExtents.x && dz <= halfExtents.z && verticalOverlap) {
+                    isCurrentlyInsideBunker = true;
+                    break;
                 }
             }
         }
 
-        // Compare current state with previous state
+        // Update state if changed
         if (isCurrentlyInsideBunker && !this.isInBunker) {
             // Just entered a bunker
-            console.log('[Ball.update] Entered bunker zone (position check).');
+            console.log('[Ball.update] Entered bunker zone.');
             this.isInBunker = true;
             this.body.linearDamping = this.bunkerLinearDamping; // Apply higher damping
-        } else if (!isCurrentlyInsideBunker && this.isInBunker) {
+        } 
+        else if (!isCurrentlyInsideBunker && this.isInBunker) {
             // Just exited a bunker
-            console.log('[Ball.update] Exited bunker zone (position check).');
+            console.log('[Ball.update] Exited bunker zone.');
             this.isInBunker = false;
             this.body.linearDamping = this.defaultLinearDamping; // Restore default damping
         }
-        // If state hasn't changed, do nothing
     }
 
     /**
@@ -450,6 +459,13 @@ export class Ball {
         const waterTriggers = this.game.course.currentHole.bodies.filter(body => body.userData?.isWaterZone);
         if (waterTriggers.length === 0) {
             return; // No water hazards on this hole
+        }
+
+        // Check if we have a valid last hit position
+        if (!this.lastHitPosition || 
+            (this.lastHitPosition.x === 0 && this.lastHitPosition.y === 0 && this.lastHitPosition.z === 0)) {
+            // No valid last hit position, store current position as fallback
+            this.storeLastHitPosition();
         }
 
         const ballPos = this.body.position;
@@ -487,7 +503,8 @@ export class Ball {
                 }
 
                 if (isOverlapping) {
-                    console.log("Water penalty applied at hole 3"); // Assuming this logic only runs on hole 3 for now
+                    console.log(`[WATER HAZARD] Ball in water! Current position: (${ballPos.x.toFixed(2)}, ${ballPos.y.toFixed(2)}, ${ballPos.z.toFixed(2)})`);
+                    console.log(`[WATER HAZARD] Last hit position: (${this.lastHitPosition.x.toFixed(2)}, ${this.lastHitPosition.y.toFixed(2)}, ${this.lastHitPosition.z.toFixed(2)})`);
                     
                     // Apply penalty
                     if (this.game.scoringSystem) {
@@ -508,17 +525,30 @@ export class Ball {
     storeLastHitPosition() {
         if (this.body) {
             this.lastHitPosition.copy(this.body.position);
-             console.log(`[Ball] Stored last hit position: (${this.lastHitPosition.x.toFixed(2)}, ${this.lastHitPosition.y.toFixed(2)}, ${this.lastHitPosition.z.toFixed(2)})`);
+            console.log(`[Ball] 📍 Stored last hit position: (${this.lastHitPosition.x.toFixed(2)}, ${this.lastHitPosition.y.toFixed(2)}, ${this.lastHitPosition.z.toFixed(2)})`);
         }
     }
 
     // Method to reset the ball to the last hit position
     resetToLastHitPosition() {
+        console.log(`[Ball] ⚠️ Attempting to reset to last hit position...`);
+        
         if (this.body && this.lastHitPosition) {
-            console.log(`[Ball] Resetting to last hit position: (${this.lastHitPosition.x.toFixed(2)}, ${this.lastHitPosition.y.toFixed(2)}, ${this.lastHitPosition.z.toFixed(2)})`);
+            console.log(`[Ball] ⚠️ Resetting to last hit position: (${this.lastHitPosition.x.toFixed(2)}, ${this.lastHitPosition.y.toFixed(2)}, ${this.lastHitPosition.z.toFixed(2)})`);
             // Ensure reset position is slightly above ground
             const resetY = Math.max(this.lastHitPosition.y, this.radius + Ball.START_HEIGHT);
+            
+            // We're going to use our internal setPosition method to ensure the physics body is properly updated
             this.setPosition(this.lastHitPosition.x, resetY, this.lastHitPosition.z);
+            
+            // Update mesh position to match physics body
+            if (this.mesh) {
+                this.mesh.position.copy(this.body.position);
+            }
+            
+            // Wake up the body to ensure physics are applied
+            this.body.wakeUp();
+            
             // Optional: Notify UI or play sound
              if (this.game.uiManager) {
                  this.game.uiManager.showMessage("Water Hazard! +1 Stroke", 2000);
@@ -527,9 +557,10 @@ export class Ball {
                  this.game.audioManager.playSound('splash', 0.6); // Assuming a splash sound exists
              }
         } else {
-             console.warn('[Ball] Cannot reset to last hit position - position not stored or body missing.');
-             // Fallback: reset to hole start?
-             this.resetPosition(); 
+            console.warn('[Ball] ⚠️ Cannot reset to last hit position - position not stored or body missing.');
+            console.warn('[Ball] body exists:', !!this.body, 'lastHitPosition exists:', !!this.lastHitPosition);
+            // Fallback: reset to hole start?
+            this.resetPosition(); 
         }
     }
 
@@ -623,8 +654,8 @@ export class Ball {
         const angularVelocity = this.body.angularVelocity;
      
         // Thresholds for determining if stopped or very slow
-        const speedThreshold = 0.25;    // Increased threshold for applying high damping (was 0.15)
-        const rotationThreshold = 0.25;  // Increased threshold for applying high damping (was 0.15)
+        const speedThreshold = 0.15;    // Lowered from 0.25 to stop faster
+        const rotationThreshold = 0.15;  // Lowered from 0.25 to stop faster
         const verySlowFactor = 1.0;      // Apply high damping below speedThreshold
 
         const isEffectivelyZero = (

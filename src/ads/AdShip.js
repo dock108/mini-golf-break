@@ -77,23 +77,24 @@ export class AdShip {
 
             case 'station':
                 // Main structure: Torus ring
-                geometry = new THREE.TorusGeometry(1.5, 0.2, 8, 32);
-                material = new THREE.MeshStandardMaterial({ color: 0xAAAAFF, metalness: 0.8, roughness: 0.2 }); // Metallic blue
-                this.shipBodyMesh = new THREE.Mesh(geometry, material);
+                const torusRadius = 1.5;
+                const tubeRadius = 0.3; 
+                geometry = new THREE.TorusGeometry(torusRadius, tubeRadius, 12, 48);
+                material = new THREE.MeshStandardMaterial({ color: 0xBBBBBB, metalness: 0.9, roughness: 0.3 }); 
+                this.shipBodyMesh = new THREE.Mesh(geometry, material); 
                 this.shipBodyMesh.rotation.x = Math.PI / 2; // Rotate torus to be flat
 
                 // Add a central hub or structure (optional)
-                const hubGeom = new THREE.SphereGeometry(0.5, 16, 16);
-                const hubMat = new THREE.MeshStandardMaterial({ color: 0x999999 });
+                const hubRadius = 0.6; 
+                const hubGeom = new THREE.SphereGeometry(hubRadius, 24, 24);
+                const hubMat = new THREE.MeshStandardMaterial({ color: 0x999999, metalness: 0.7, roughness: 0.4 });
                 const hubMesh = new THREE.Mesh(hubGeom, hubMat);
-                this.shipBodyMesh.add(hubMesh);
-
-                // Add a rotating part (simple cylinder for now)
-                const rotatingGeom = new THREE.CylinderGeometry(0.1, 0.1, 1.5, 8);
-                const rotatingMat = new THREE.MeshStandardMaterial({ color: 0xFFCC00 }); // Gold
-                this.rotatingPart = new THREE.Mesh(rotatingGeom, rotatingMat);
-                this.rotatingPart.rotation.x = Math.PI / 2;
-                this.shipBodyMesh.add(this.rotatingPart);
+                this.shipBodyMesh.add(hubMesh); // Add hub as child of the torus mesh
+                
+                this.rotatingPart = null; // Ensure it's null
+                // Clear separate torus/hub refs if they exist from previous edits
+                this.torusMesh = null;
+                this.hubMesh = null;
 
                 break;
 
@@ -116,28 +117,64 @@ export class AdShip {
     generateBannerTexture(text) {
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
-        const canvasWidth = 256;
-        const canvasHeight = 64;
+        const canvasWidth = 512; // Keep width for resolution
+        const canvasHeight = 100; // Adjusted height for ~5:1 ratio
         canvas.width = canvasWidth;
         canvas.height = canvasHeight;
 
         // --- Style the banner --- 
-        // Background
-        context.fillStyle = '#101018'; // Dark blue/black background
+        context.fillStyle = '#202030'; 
         context.fillRect(0, 0, canvasWidth, canvasHeight);
 
         // Text Style
-        context.font = 'bold 24px Arial'; // Adjust font size/family as needed
+        context.font = 'bold 36px Arial'; // Adjusted font size for narrow banner
         context.fillStyle = '#FFFFFF'; // White text
         context.textAlign = 'center';
         context.textBaseline = 'middle';
 
-        // Optional: Add a subtle glow or outline for LED effect
-        // context.shadowColor = '#00FFFF';
-        // context.shadowBlur = 5;
+        // Re-add subtle glow
+        context.shadowColor = 'rgba(255,255,255,0.6)'; 
+        context.shadowBlur = 6;
 
         // --- Draw Text --- 
-        context.fillText(text, canvasWidth / 2, canvasHeight / 2);
+        const maxWidth = canvasWidth * 0.9; 
+        const words = text.split(' ');
+        let line = '';
+        const lines = [];
+        const yStart = canvasHeight / 2;
+
+        for(let n = 0; n < words.length; n++) {
+            const testLine = line + words[n] + ' ';
+            const metrics = context.measureText(testLine);
+            const testWidth = metrics.width;
+            if (testWidth > maxWidth && n > 0) {
+                lines.push(line.trim());
+                line = words[n] + ' ';
+            } else {
+                line = testLine;
+            }
+        }
+        lines.push(line.trim());
+
+        const lineHeight = 40; // Adjusted line height for 36px font
+        const totalTextHeight = lines.length * lineHeight;
+        let currentY = yStart - (totalTextHeight / 2) + (lineHeight / 2);
+
+        // Clear shadow for drawing background
+        context.shadowColor = 'transparent'; 
+        context.shadowBlur = 0;
+        context.fillStyle = '#202030'; 
+        context.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        // Re-apply shadow for text render
+        context.shadowColor = 'rgba(255,255,255,0.6)'; 
+        context.shadowBlur = 6;
+        context.fillStyle = '#FFFFFF'; // White text
+
+        lines.forEach(lineText => {
+            context.fillText(lineText, canvasWidth / 2, currentY);
+            currentY += lineHeight;
+        });
 
         // --- Create Texture --- 
         const texture = new THREE.CanvasTexture(canvas);
@@ -147,9 +184,21 @@ export class AdShip {
     }
 
     createBannerMesh() {
-        const bannerWidth = 1.8;
-        const bannerHeight = 0.6;
-        const geometry = new THREE.PlaneGeometry(bannerWidth, bannerHeight);
+        let geometry;
+        let bannerWidth = 3.0; // Width for ~5:1 banner
+        let bannerHeight = 0.6; // Height for ~5:1 banner
+        
+        // Calculate Y offset dynamically
+        let topY = 0.5; // Default fallback
+        if (this.shipBodyMesh) {
+            // Use a bounding box to estimate the top point
+            const bbox = new THREE.Box3().setFromObject(this.shipBodyMesh, true); // true for precise
+            topY = bbox.max.y;
+        }
+        let bannerYOffset = topY + 0.3; // Position 0.3 units above the estimated top
+        
+        let bannerRotationX = -Math.PI / 2 + Math.PI / 8; // Tilt slightly upwards (~22.5 deg)
+        let bannerPosition = new THREE.Vector3(0, bannerYOffset, 0); // Use calculated offset
 
         // Generate the initial texture
         this.canvasTexture = this.generateBannerTexture(this.adData.title);
@@ -159,35 +208,20 @@ export class AdShip {
             side: THREE.DoubleSide,
             transparent: true,
             depthWrite: false, 
-            // blending: THREE.AdditiveBlending // Keep AdditiveBlending if desired
         });
 
+        // No more switch statement - use standard plane for all
+        geometry = new THREE.PlaneGeometry(bannerWidth, bannerHeight);
+       
         this.bannerMesh = new THREE.Mesh(geometry, material);
         this.bannerMesh.name = "AdBanner";
         this.bannerMesh.userData = { adData: this.adData }; // Store adData for click lookup
 
-        // Adjust banner position based on ship type
-        // NOTE: These offsets are relative to the ship's local coordinates BEFORE scaling
-        let bannerYOffset = 0.3; // Default offset
-        switch (this.shipType) {
-            case 'nasa':
-                bannerYOffset = 0.4 + 1.5 / 2; // Position above the capsule top sphere
-                break;
-            case 'alien':
-                bannerYOffset = 0.4; // Increased offset to clear the dome
-                break;
-            case 'station':
-                bannerYOffset = 0.7; // Position slightly higher above the central hub/torus
-                break;
-            default:
-                bannerYOffset = 0.3;
-                break;
-        }
-
-        this.bannerMesh.position.y = bannerYOffset;
-        this.bannerMesh.rotation.x = -Math.PI / 2;
-
-        this.group.add(this.bannerMesh);
+        this.bannerMesh.position.copy(bannerPosition);
+        this.bannerMesh.rotation.x = bannerRotationX;
+       
+        // Add banner directly to the main ship group for all types
+        this.group.add(this.bannerMesh); 
     }
 
     /**

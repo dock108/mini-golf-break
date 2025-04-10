@@ -349,39 +349,75 @@ export class InputController {
         const currentState = this.stateManager ? this.stateManager.getGameState() : 'UNKNOWN';
         console.log(`[InputController.onMouseUp] State: ${currentState}, PointerDown: ${this.isPointerDown}, Dragging: ${this.isDragging}`);
 
-        // --- Ad Interaction Check --- 
-        if (this.stateManager && currentState === 'AD_INSPECTING') {
-            console.log('[InputController.onMouseUp] Handling click in AD_INSPECTING state...');
-             // Check if the click originated inside the canvas
-            if (this.isEventInsideCanvas(event)) {
-                this._handleAdClick(event);
-            }
-            // Regardless of hit, prevent default and stop further processing in this state
-            event.preventDefault(); 
-            return; 
-        }
-        // --- End Ad Interaction Check --- 
+        // Only handle left mouse button (or touch equivalent)
+        if (event.button !== 0) return;
 
-        // Skip if not in dragging mode or pointer wasn't down
-        // Check isPointerDown first, as isDragging might be false on a simple click
+        // --- Ad Click Check (Perform FIRST, regardless of state or dragging) ---
+        let adClicked = false;
+        if (this.isEventInsideCanvas(event)) {
+            this.pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+            this.pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            this.raycaster.setFromCamera(this.pointer, this.camera);
+            
+            const adBannerMeshes = this.adShipManager?.ships
+                ?.map(ship => ship.bannerMesh)
+                ?.filter(mesh => mesh);
+
+            if (adBannerMeshes && adBannerMeshes.length > 0) {
+                const intersects = this.raycaster.intersectObjects(adBannerMeshes, false);
+                if (intersects.length > 0) {
+                    const hitObject = intersects[0].object;
+                    if (hitObject.userData?.adData?.url) {
+                        const adData = hitObject.userData.adData;
+                        console.log(`[InputController] Clicked on Ad: "${adData.title}". Opening URL: ${adData.url}`);
+                        try {
+                            window.open(adData.url, "_blank");
+                            adClicked = true; // Flag that an ad was successfully clicked
+                            // Optional: Log analytics event here
+                        } catch (e) {
+                            console.error("[InputController] Error opening ad URL:", e);
+                        }
+                    } else {
+                        console.log("[InputController] Click intersected ad banner mesh, but no valid adData/URL found.");
+                    }
+                } else {
+                    // console.log("[InputController] Click did not intersect any ad banner mesh.");
+                }
+            } else {
+                 // console.log("[InputController] No ad banner meshes available to check for click.");
+            }
+        }
+
+        // If an ad was successfully clicked, prevent ball shooting and restore controls
+        if (adClicked) {
+            this.isPointerDown = false; // Reset pointer state
+            this.isDragging = false; // Reset drag state
+            this.removeAimLine(); // Remove aim line if visible
+             // Restore camera controls state
+            if (this.game.cameraController?.controls) {
+                this.game.cameraController.controls.enabled = this.controlsWereEnabled;
+            }
+            event.preventDefault();
+            return; // Stop further processing
+        }
+        // --- End Ad Click Check ---
+
+        // --- Original Aiming/Shooting Logic (Only if pointer was down and ad wasn't clicked) ---
         if (!this.isPointerDown) {
             // Restore controls if pointer wasn't down but they were disabled
             if (this.game.cameraController && this.game.cameraController.controls && !this.controlsWereEnabled) {
-                 this.game.cameraController.controls.enabled = true; // Should be restored based on controlsWereEnabled
+                 this.game.cameraController.controls.enabled = this.controlsWereEnabled; 
             }
             return;
         }
 
-        // Only handle left mouse button (or touch equivalent)
-        if (event.button !== 0) return;
-
-        // Reset pointer down flag immediately
+        // Reset pointer down flag AFTER checking if we should proceed
         this.isPointerDown = false;
 
         // If dragging occurred and input is enabled, attempt to hit the ball
         if (this.isDragging && this.isInputEnabled && this.hitPower > 0.05) {
             // Hide direction line
-            this.removeDirectionLine(); // Use removeAimLine instead? Assuming removeDirectionLine is correct
+            this.removeDirectionLine(); 
             
             // Hide power indicator
             if (this.powerIndicator) {
@@ -390,28 +426,12 @@ export class InputController {
             
             // Hit ball using BallManager
             if (this.game.ballManager) {
-                // Get direction in world space (should already be calculated by onMouseMove)
-                const direction = this.hitDirection.clone(); // Use the stored direction
-                
-                // Log stroke details
+                const direction = this.hitDirection.clone(); 
                 console.log(`[InputController] Applying stroke: Power=${this.hitPower.toFixed(2)}, Direction=(${direction.x.toFixed(2)}, ${direction.y.toFixed(2)}, ${direction.z.toFixed(2)})`);
-                
                 this.game.ballManager.hitBall(direction, this.hitPower);
-                
-                // Disable input until ball stops
-                this.disableInput(); // Disabling input should be sufficient, state manager handles ball motion check
-                
-                // Publish input event (optional, could be handled within disableInput or BallManager)
-                // this.game.eventManager.publish(
-                //     EventTypes.INPUT_DISABLED,
-                //     {
-                //         reason: 'ball_hit'
-                //     },
-                //     this
-                // );
+                this.disableInput(); 
             }
         } else {
-             // If not dragging or power too low, just remove aim line if it exists
              this.removeAimLine();
         }
         
@@ -491,69 +511,6 @@ export class InputController {
         }
         // Note: No check for event.touches.length here, as touchend signifies the end of a touch point.
         // The state (isPointerDown) determines if it corresponds to our drag action.
-    }
-    
-    /**
-     * Handles clicks specifically when in AD_INSPECTING state.
-     * Performs raycast against ad banners and opens URL if hit.
-     * @param {MouseEvent|TouchEvent} event - The pointer event.
-     */
-    _handleAdClick(event) {
-        console.log('[AdClick] _handleAdClick called.'); // Log entry
-        if (!this.adShipManager || !this.adShipManager.ships || this.adShipManager.ships.length === 0) {
-            console.log("[AdClick] No ad ships available to check.");
-            return;
-        }
-
-        // 1. Get Pointer Coordinates (Normalized Device Coordinates)
-        this.pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
-        this.pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-        // 2. Update Raycaster
-        this.raycaster.setFromCamera(this.pointer, this.camera);
-
-        // 3. Collect Target Meshes
-        const adBannerMeshes = this.adShipManager.ships
-            .map(ship => ship.bannerMesh)
-            .filter(mesh => mesh);
-        console.log(`[AdClick] Found ${adBannerMeshes.length} banner meshes to check.`); // Log targets
-
-        if (adBannerMeshes.length === 0) {
-            console.log("[AdClick] No ad banner meshes found.");
-            return;
-        }
-
-        // 4. Perform Raycast
-        const intersects = this.raycaster.intersectObjects(adBannerMeshes, false);
-        console.log(`[AdClick] Raycast intersects: ${intersects.length}`); // Log intersects
-
-        // 5. Handle Intersection
-        if (intersects.length > 0) {
-            const hitObject = intersects[0].object;
-
-            if (hitObject.userData && hitObject.userData.adData && hitObject.userData.adData.url) {
-                const adData = hitObject.userData.adData;
-                console.log(`[AdClick] Clicked on banner for ad: "${adData.title}". Opening URL: ${adData.url}`);
-                 console.log("[AdClick] Hit object userData:", hitObject.userData); // Log userData on hit
-                
-                try {
-                    window.open(adData.url, "_blank");
-                    // Optionally: Log click event for analytics
-                    // this.game.eventManager.publish(EventTypes.AD_CLICKED, { adTitle: adData.title, url: adData.url }, this);
-                } catch (e) {
-                     console.error("[AdClick] Error opening URL:", e);
-                     // Inform user? e.g., via UIManager
-                }
-
-                // Optional: Add debounce/cooldown or change game state
-                // For example, switch back to normal gameplay state:
-                // this.stateManager.setGameState(GameState.IDLE); // Assuming GameState enum exists
-            } else {
-                console.log("[AdClick] Clicked on a banner mesh, but no valid adData or URL found in userData.", hitObject.userData);
-            }
-        } else {
-             console.log("[AdClick] Click detected in AD_INSPECTING state, but no ad banner intersected.");
-        }
     }
     
     calculateDragPower() {

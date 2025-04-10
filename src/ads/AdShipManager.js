@@ -49,19 +49,40 @@ export class AdShipManager {
     }
 
     init() {
-        if (this.isInitialized) return;
-        console.log("Initializing AdShipManager...");
-        this.spawnInitialShips();
+        console.log("[AdShipManager.init] Starting...");
+        if (this.isInitialized) {
+             console.log("[AdShipManager.init] Already initialized, returning.");
+             return;
+        }
+        console.log("[AdShipManager.init] Spawning initial ships...");
+        try {
+             this.spawnInitialShips();
+        } catch (error) {
+            console.error("[AdShipManager.init] Error during spawnInitialShips:", error);
+            this.isInitialized = false;
+            return;
+        }
         this.isInitialized = true;
-        console.log(`AdShipManager Initialized with ${this.ships.length} ships.`);
+        console.log(`[AdShipManager.init] Initialized with ${this.ships.length} ships.`);
     }
 
     spawnInitialShips() {
-        console.log(`Spawning initial ${this.maxShips} ships...`);
+        console.log(`[AdShipManager.spawnInitialShips] Spawning initial ${this.maxShips} ships...`);
         const initialAds = this.getInitialAds(this.maxShips);
-        initialAds.forEach(adData => {
-            this.spawnShip(adData);
+         console.log(`[AdShipManager.spawnInitialShips] Got ${initialAds.length} initial ads.`);
+        if (!initialAds || initialAds.length === 0) {
+            console.warn("[AdShipManager.spawnInitialShips] No initial ads found to spawn.");
+            return;
+        }
+        initialAds.forEach((adData, index) => {
+            console.log(`[AdShipManager.spawnInitialShips] Spawning ship ${index + 1}/${initialAds.length} for ad: ${adData?.title}`);
+            try {
+                this.spawnShip(adData);
+            } catch (error) {
+                 console.error(`[AdShipManager.spawnInitialShips] Error spawning ship for ad ${adData?.title}:`, error);
+            }
         });
+        console.log("[AdShipManager.spawnInitialShips] Finished spawning loop.");
     }
 
     spawnShip(adData) {
@@ -163,7 +184,7 @@ export class AdShipManager {
         }
      }
 
-    update(deltaTime) {
+    update(deltaTime, ballPosition = null) {
         if (!this.isInitialized || this.ships.length === 0) return;
 
         // OPTIMIZATION: Define a max distance from origin beyond which we skip updates
@@ -248,6 +269,17 @@ export class AdShipManager {
 
             // --- Update Orientation --- 
             this._orientShip(ship);
+
+            // --- Update Banner Orientation (Look at Ball) ---
+            if (ballPosition && ship.bannerMesh && ship.group) {
+                // 1. Make banner look towards the ball's world position
+                const targetPosition = ballPosition.clone();
+                ship.bannerMesh.lookAt(targetPosition);
+
+                // 2. Apply the local upward tilt *after* lookAt
+                // We rotate around the banner's local X-axis
+                ship.bannerMesh.rotateX(Math.PI / 8); 
+            }
 
             // --- Update Internal Animations (e.g., station rotation) --- 
             ship.update(deltaTime); // Use original deltaTime for internal animations

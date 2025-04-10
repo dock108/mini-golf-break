@@ -33,7 +33,7 @@ export class PhysicsWorld {
         
         // Set the timestep (fixed at 60fps)
         this.fixedTimeStep = 1.0 / 60.0;
-        this.maxSubSteps = 3; // Updated to match documentation (was 8)
+        this.maxSubSteps = 8; // Increased from 3 for better handling of fast-moving objects
         
         // Last time used for calculating elapsed time
         this.lastCallTime = performance.now() / 1000;
@@ -71,9 +71,9 @@ export class PhysicsWorld {
             this.bumperMaterial,
             {
                 friction: 0.2,          // Restored original value
-                restitution: 0.4,
+                restitution: 0.7,       // Increased from 0.4 for better bounce off walls
                 contactEquationStiffness: 1e8,
-                contactEquationRelaxation: 2,
+                contactEquationRelaxation: 3, // Increased for more elastic collisions
                 frictionEquationStiffness: 1e7,
                 frictionEquationRelaxation: 1   // Reduced from 2 for firmer friction response
             }
