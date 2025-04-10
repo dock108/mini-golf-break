@@ -14,30 +14,32 @@ export class NineHoleCourse extends CoursesManager {
      */
     constructor(game, options = {}) {
         // Call parent constructor first
-        super(game.scene, options.physicsWorld, {
-            game: game,
-            // Define a default start position for the course (e.g., near hole 1 tee)
-            // This might be overridden by the first hole's specific config later.
-            startPosition: new THREE.Vector3(0, 1, 10), // Example start
-            autoCreate: false, // We handle creation manually
-            ...options
-        });
-
+        super();
+        
+        console.log('[NineHoleCourse] Constructor called.');
+        
         this.game = game;
+        
+        // Default options with overrides
+        this.options = {
+            debug: options.debug || false,
+            // Note: Any additional options would be merged here
+        };
+        
+        // Get references to game components
         this.scene = game.scene;
-        this.physicsWorld = options.physicsWorld; // Ensure physics world is set
-
-        // Hole completion and transition state
-        this.isHoleComplete = false;
-        this.pendingHoleTransition = false;
-        this.isTransitioning = false;
-
-        // --- Setup for 9 Holes ---
-        this.totalHoles = 9;
-        this.holeGroups = []; // Array to hold the THREE.Group for each hole
-        this.holeConfigs = []; // We will define configs for 9 holes later
-
-        console.log(`[NineHoleCourse] Initializing ${this.totalHoles} hole containers.`);
+        this.physicsWorld = game.physicsWorld;
+        this.debugMode = game.debugMode;
+        
+        // NineHoleCourse state setup
+        // --- Begin 9 Hole Setup ---
+        this.totalHoles = 9; // Restored from 1 to 9 for full course
+        console.log(`[NineHoleCourse] Set totalHoles to ${this.totalHoles}`);
+        
+        // Organize geometry and entities using group hierarchy
+        this.holeGroups = [];
+        this.holeEntities = [];
+        
         for (let i = 0; i < this.totalHoles; i++) {
             const holeGroup = new THREE.Group();
             holeGroup.name = `Hole_${i + 1}_Group`; // Naming for clarity

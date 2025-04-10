@@ -159,35 +159,28 @@ export class UIScoreOverlay {
         const buttonContainer = document.createElement('div');
         buttonContainer.style.marginTop = '20px';
 
-        const menuButton = document.createElement('button');
-        menuButton.textContent = 'Back to Menu'; // Assuming a menu state exists
-        menuButton.classList.add(this.SCORECARD_BUTTON_CLASS);
-        menuButton.addEventListener('click', () => {
-            console.log('[UIScoreOverlay] Back to Menu clicked.');
-            // UIManager should handle the state change via event or direct call
-             this.game.eventManager.publish(EventTypes.UI_REQUEST_MAIN_MENU); // Example event
-            this.hideFinalScorecard();
-        });
-        buttonContainer.appendChild(menuButton);
-
-        // Optional: Add a "Play Again" button
+        // For simplicity, let's just have a single "Play Again" button that reloads the page
         const playAgainButton = document.createElement('button');
         playAgainButton.textContent = 'Play Again';
         playAgainButton.classList.add(this.SCORECARD_BUTTON_CLASS);
-        playAgainButton.style.marginLeft = '10px';
         playAgainButton.addEventListener('click', () => {
-             console.log('[UIScoreOverlay] Play Again clicked.');
-            // UIManager should handle restart via event or direct call
-             this.game.eventManager.publish(EventTypes.UI_REQUEST_RESTART_GAME); // Example event
-             this.hideFinalScorecard();
+            console.log('[UIScoreOverlay] Play Again clicked. Reloading the page.');
+            // Add analytics event for debugging
+            if (window.gtag) {
+                window.gtag('event', 'click_play_again', {
+                    'event_category': 'game_actions',
+                    'event_label': 'Play Again from Scorecard'
+                });
+            }
+            // Simplest solution - reload the page to restart
+            window.location.reload();
         });
         buttonContainer.appendChild(playAgainButton);
 
-
         content.appendChild(buttonContainer);
         this.scorecardElement.appendChild(content);
+        
         // Append to body instead of parentContainer to ensure it overlays everything
-        // this.parentContainer.appendChild(this.scorecardElement);
         document.body.appendChild(this.scorecardElement);
 
         // Add visible class with a slight delay for transition effect
@@ -195,7 +188,7 @@ export class UIScoreOverlay {
             this.scorecardElement.classList.add(this.SCORECARD_VISIBLE_CLASS);
         });
 
-         console.log('[UIScoreOverlay] Final scorecard shown.');
+        console.log('[UIScoreOverlay] Final scorecard shown.');
     }
 
     /**

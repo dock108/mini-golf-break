@@ -60,6 +60,9 @@ export class AdShip {
              metalness: 0.5, 
              roughness: 0.5 
         });
+        
+        // Log to verify colors are being applied
+        console.log(`Ship ${this.group.name} - Creating with colors: Primary=${this.colorPalette.primary}, Secondary=${this.colorPalette.secondary}`);
 
         switch (this.shipType) {
             case 'nasa':
@@ -82,35 +85,37 @@ export class AdShip {
 
                 // Wings: Use secondary color
                 const wingGeom = new THREE.BoxGeometry(0.1, 0.8, 2); // Thin, tall, long wings
-                // const wingMat = new THREE.MeshStandardMaterial({ color: 0xCCCCCC }); // Old material
-                const leftWing = new THREE.Mesh(wingGeom, secondaryMat); // Use secondaryMat
+                const leftWing = new THREE.Mesh(wingGeom, secondaryMat);
                 leftWing.name = "Wing_Left"; // Add names for potential disposal checks
-                const rightWing = new THREE.Mesh(wingGeom, secondaryMat); // Use secondaryMat
+                const rightWing = new THREE.Mesh(wingGeom, secondaryMat);
                 rightWing.name = "Wing_Right";
                 leftWing.position.set(-nasaRadius - 0.3, 0, 0);
                 rightWing.position.set(nasaRadius + 0.3, 0, 0);
                 this.shipBodyMesh.add(leftWing, rightWing);
-
-                // No need to loop over children to set material anymore
-                // material = new THREE.MeshStandardMaterial({ color: 0xE0E0E0 }); // Light grey
-                // this.shipBodyMesh.children.forEach(child => {if (child !== leftWing && child !== rightWing) child.material = material});
-
                 break;
 
             case 'alien':
                 // Saucer shape: Wide, flat cylinder - Use primary color
                 geometry = new THREE.CylinderGeometry(1.2, 1.5, 0.3, 32);
-                // material = new THREE.MeshStandardMaterial({ color: 0x77FF77, metalness: 0.6, roughness: 0.3 }); // Old material
-                this.shipBodyMesh = new THREE.Mesh(geometry, primaryMat); // Use primaryMat
+                this.shipBodyMesh = new THREE.Mesh(geometry, primaryMat);
 
-                // Dome/Light on top - Keep original cyan
+                // Dome/Light on top - Use semi-transparent secondary color with glow
                 const domeGeom = new THREE.SphereGeometry(0.5, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
-                const domeMat = new THREE.MeshBasicMaterial({ color: 0x00FFFF, transparent: true, opacity: 0.8 }); // Cyan glow
+                
+                // Create a glowing version of the secondary color
+                const secondaryColor = new THREE.Color(this.colorPalette.secondary);
+                const domeMat = new THREE.MeshBasicMaterial({ 
+                    color: secondaryColor, 
+                    transparent: true, 
+                    opacity: 0.8,
+                    emissive: secondaryColor,
+                    emissiveIntensity: 0.5
+                });
+                
                 const domeLight = new THREE.Mesh(domeGeom, domeMat);
                 domeLight.name = "Alien_Dome";
                 domeLight.position.y = 0.15; // Position slightly above the saucer base
                 this.shipBodyMesh.add(domeLight); // Add as child
-
                 break;
 
             case 'station':
@@ -118,15 +123,13 @@ export class AdShip {
                 const torusRadius = 1.5;
                 const tubeRadius = 0.3; 
                 geometry = new THREE.TorusGeometry(torusRadius, tubeRadius, 12, 48);
-                // material = new THREE.MeshStandardMaterial({ color: 0xBBBBBB, metalness: 0.9, roughness: 0.3 }); // Old material
-                this.shipBodyMesh = new THREE.Mesh(geometry, primaryMat); // Use primaryMat
+                this.shipBodyMesh = new THREE.Mesh(geometry, primaryMat);
                 this.shipBodyMesh.rotation.x = Math.PI / 2; // Rotate torus to be flat
 
                 // Add a central hub or structure - Use secondary color
                 const hubRadius = 0.6; 
                 const hubGeom = new THREE.SphereGeometry(hubRadius, 24, 24);
-                // const hubMat = new THREE.MeshStandardMaterial({ color: 0x999999, metalness: 0.7, roughness: 0.4 }); // Old material
-                const hubMesh = new THREE.Mesh(hubGeom, secondaryMat); // Use secondaryMat
+                const hubMesh = new THREE.Mesh(hubGeom, secondaryMat);
                 hubMesh.name = "Station_Hub";
                 this.shipBodyMesh.add(hubMesh); // Add hub as child of the torus mesh
                 
@@ -135,13 +138,11 @@ export class AdShip {
                 // Clear separate torus/hub refs if they exist from previous edits
                 this.torusMesh = null;
                 this.hubMesh = null;
-
                 break;
 
             default: // Fallback to simple box - Use primary color
                 geometry = new THREE.BoxGeometry(2, 0.5, 1);
-                // material = new THREE.MeshStandardMaterial({ color: 0x888888 }); // Old material
-                this.shipBodyMesh = new THREE.Mesh(geometry, primaryMat); // Use primaryMat
+                this.shipBodyMesh = new THREE.Mesh(geometry, primaryMat);
                 break;
         }
 
@@ -290,6 +291,12 @@ export class AdShip {
         if (this.bannerMesh && this.bannerMesh.material) {
             this.bannerMesh.material.map = newTexture;
             this.bannerMesh.material.needsUpdate = true;
+            
+            // Update the userData reference for click handling
+            if (this.bannerMesh.userData) {
+                this.bannerMesh.userData.adData = this.adData;
+                console.log(`Updated banner userData to point to new ad: ${this.adData.title}, URL: ${this.adData.url}`);
+            }
             // console.log("Applied new banner texture.");
         }
     }

@@ -72,13 +72,22 @@ export class UIManager {
          // Clean up any existing UI elements first (including old container)
         this.cleanup();
 
-        this.uiContainer = document.getElementById('ui-container');
+        // First check for an existing UI container with either ID
+        this.uiContainer = document.getElementById('ui-container') || document.getElementById('ui-overlay');
+        
         if (!this.uiContainer) {
+             console.log('[UIManager.createMainContainer] No UI container found. Creating new container.');
              this.uiContainer = document.createElement('div');
              this.uiContainer.id = 'ui-container';
              this.uiContainer.classList.add('ui-container');
              document.body.appendChild(this.uiContainer);
-             console.log('[UIManager.createMainContainer] Created #ui-container.');
+             console.log('[UIManager.createMainContainer] Created #ui-container and added to body.');
+        } else {
+             console.log(`[UIManager.createMainContainer] Found existing UI container: #${this.uiContainer.id}`);
+             // Ensure it's empty to avoid duplication
+             while (this.uiContainer.firstChild) {
+                 this.uiContainer.removeChild(this.uiContainer.firstChild);
+             }
         }
     }
 
@@ -205,9 +214,21 @@ export class UIManager {
      * @param {GameEvent} event - Game completed event
      */
     handleGameCompleted(event) {
-        console.log(`[UIManager.handleGameCompleted] Event received.`);
+        console.log(`[UIManager.handleGameCompleted] Event received!`);
+        
+        // Extra debug info
+        console.log(`[UIManager.handleGameCompleted] DEBUG: scoreOverlay exists: ${Boolean(this.scoreOverlay)}`);
+        console.log(`[UIManager.handleGameCompleted] DEBUG: this.scoreOverlay?.showFinalScorecard is function: ${typeof this.scoreOverlay?.showFinalScorecard === 'function'}`);
+        
         // Delegate to score overlay
-        this.scoreOverlay?.showFinalScorecard();
+        if (this.scoreOverlay && typeof this.scoreOverlay.showFinalScorecard === 'function') {
+            console.log(`[UIManager.handleGameCompleted] Calling scoreOverlay.showFinalScorecard()`);
+            this.scoreOverlay.showFinalScorecard();
+        } else {
+            console.error(`[UIManager.handleGameCompleted] ERROR: Cannot show scorecard - scoreOverlay is ${this.scoreOverlay ? 'missing showFinalScorecard method' : 'not initialized'}`);
+            // Alert as a last resort to show something
+            alert('Game Complete! Total strokes: ' + this.game.scoringSystem.getTotalStrokes());
+        }
     }
     
     /**
