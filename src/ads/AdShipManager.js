@@ -16,12 +16,14 @@ export class AdShipManager {
         this.isInitialized = false;
 
         // --- Configuration ---
-        // PERFORMANCE NOTE: maxShips is currently low (4) because the collision avoidance
-        // check in update() is O(N^2). Increasing this significantly without further
-        // optimization (e.g., spatial partitioning) will impact performance.
-        this.maxShips = 4;
-        this.minVerticalOffset = -15;
-        this.maxVerticalOffset = -25;
+        this.maxShips = 4; // Exactly 4 ships, one per level
+        // Define 4 distinct vertical levels
+        this.verticalLevels = [-5, -15, -25, -35]; // Adjusted starting level to -5
+        // Collision avoidance config removed - no longer needed
+        // this.shipSafetyRadius = 10.0; 
+        // this.slowdownFactor = 0.5; 
+        // this.slowdownDuration = 2.5;
+        
         this.minAdDuration = 30;
         this.maxAdDuration = 60;
 
@@ -37,11 +39,6 @@ export class AdShipManager {
 
         // Linear Specific (for nasa/alien)
         this.linearShipSpeed = 8.0; // Speed for ships flying straight
-
-        // Collision Avoidance
-        this.shipSafetyRadius = 10.0; // Minimum distance between ship centers (after scaling)
-        this.slowdownFactor = 0.1; // Speed factor when slowed down
-        this.slowdownDuration = 2.0; // Seconds to stay slowed down
 
         // Calculate bounds once
         this.minBound = -this.movementAreaSize / 2 - this.boundaryBuffer;
@@ -68,37 +65,104 @@ export class AdShipManager {
 
     spawnInitialShips() {
         console.log(`[AdShipManager.spawnInitialShips] Spawning initial ${this.maxShips} ships...`);
-        const initialAds = this.getInitialAds(this.maxShips);
-         console.log(`[AdShipManager.spawnInitialShips] Got ${initialAds.length} initial ads.`);
-        if (!initialAds || initialAds.length === 0) {
-            console.warn("[AdShipManager.spawnInitialShips] No initial ads found to spawn.");
-            return;
+        
+        if (this.maxShips !== 4) {
+            console.warn(`[AdShipManager.spawnInitialShips] maxShips is currently ${this.maxShips}, but this setup requires exactly 4. Adjusting...`);
+            this.maxShips = 4;
         }
-        initialAds.forEach((adData, index) => {
-            console.log(`[AdShipManager.spawnInitialShips] Spawning ship ${index + 1}/${initialAds.length} for ad: ${adData?.title}`);
+
+        const initialAds = this.getInitialAds(this.maxShips);
+        console.log(`[AdShipManager.spawnInitialShips] Got ${initialAds.length} initial ads.`);
+        if (!initialAds || initialAds.length < this.maxShips) {
+            console.warn("[AdShipManager.spawnInitialShips] Not enough initial ads found to spawn 4 ships.");
+            // Potentially fill remaining slots with random ads if needed
+             while (initialAds.length < this.maxShips && mockAds.length > 0) {
+                 initialAds.push(mockAds[Math.floor(Math.random() * mockAds.length)]);
+             }
+             if(initialAds.length < this.maxShips){
+                console.error("[AdShipManager.spawnInitialShips] FATAL: Still not enough ads after trying random. Aborting spawn.");
+                return; // Or handle error appropriately
+             }
+        }
+
+        const createdShips = [];
+        for (let i = 0; i < this.maxShips; i++) {
+            const adData = initialAds[i];
             try {
-                this.spawnShip(adData);
+                // Create ship but don't finalize position/orientation yet
+                const ship = this.spawnShip(adData, null);
+                if (ship) {
+                    createdShips.push(ship);
+                } else {
+                    console.error(`[AdShipManager.spawnInitialShips] Failed to create ship for ad: ${adData?.title}`);
+                }
             } catch (error) {
-                 console.error(`[AdShipManager.spawnInitialShips] Error spawning ship for ad ${adData?.title}:`, error);
+                console.error(`[AdShipManager.spawnInitialShips] Error spawning ship for ad ${adData?.title}:`, error);
+            }
+        }
+
+        // Separate ships by movement type
+        const linearShips = createdShips.filter(ship => ship.movementType === 'linear');
+        const orbitalShips = createdShips.filter(ship => ship.movementType === 'orbit');
+
+        // Assign levels, prioritizing linear for the highest level (-5)
+        const availableLevels = [...this.verticalLevels]; // Copy the levels array
+        
+        linearShips.forEach(ship => {
+            let assignedLevel;
+            if (availableLevels.includes(-5)) {
+                assignedLevel = -5;
+                availableLevels.splice(availableLevels.indexOf(-5), 1); // Remove -5
+            } else if (availableLevels.length > 0) {
+                assignedLevel = availableLevels.shift(); // Take the next highest available
+            } else {
+                 console.error(`[AdShipManager.spawnInitialShips] Ran out of levels assigning to linear ship: ${ship.adData.title}`);
+                 assignedLevel = -50; // Fallback, should not happen with 4 ships/4 levels
+            }
+            ship.verticalOffset = assignedLevel;
+            ship.group.position.y = assignedLevel;
+             this._orientShip(ship); // Finalize orientation now that Y is set
+            console.log(` -> Assigned LEVEL ${assignedLevel} to LINEAR ship: ${ship.adData.title}`);
+        });
+
+        orbitalShips.forEach(ship => {
+            if (availableLevels.length > 0) {
+                const assignedLevel = availableLevels.shift(); // Take the next highest available
+                ship.verticalOffset = assignedLevel;
+                ship.group.position.y = assignedLevel;
+                 this._orientShip(ship); // Finalize orientation now that Y is set
+                console.log(` -> Assigned LEVEL ${assignedLevel} to ORBITAL ship: ${ship.adData.title}`);
+            } else {
+                console.error(`[AdShipManager.spawnInitialShips] Ran out of levels assigning to orbital ship: ${ship.adData.title}`);
+                 ship.verticalOffset = -50; // Fallback
+                 ship.group.position.y = -50;
+                 this._orientShip(ship);
             }
         });
-        console.log("[AdShipManager.spawnInitialShips] Finished spawning loop.");
+
+        console.log("[AdShipManager.spawnInitialShips] Finished spawning and level assignment.");
     }
 
-    spawnShip(adData) {
+    spawnShip(adData, forceType = null) {
         if (!adData) {
-             console.warn("[AdShipManager] Tried to spawn ship with null adData.");
-             return null;
+            console.warn("[AdShipManager] Tried to spawn ship with null adData.");
+            return null;
         }
 
         try {
-            const ship = new AdShip(adData);
+            // Determine ship type: Use forced type or random fallback
+            const shipType = forceType || ['nasa', 'alien', 'station'][Math.floor(Math.random() * 3)];
+            console.log(`[AdShipManager.spawnShip] Spawning ship. Forced type: ${forceType}, Actual type: ${shipType}`);
+
+            const ship = new AdShip(adData, shipType);
+             // Vertical offset and Y position will be set later in spawnInitialShips
+             // ship.verticalOffset = assignedLevel !== null ? assignedLevel : this.verticalLevels[0]; 
             this.ships.push(ship);
             this.group.add(ship.group);
 
-            // --- Collision Avoidance State --- 
-            ship.isSlowedDown = false;
-            ship.slowdownTimer = 0;
+            // --- Collision Avoidance State Removed ---
+            // ship.isSlowedDown = false;
+            // ship.slowdownTimer = 0;
 
             // --- Ad Timer --- 
             ship.adDisplayTime = 0;
@@ -112,26 +176,27 @@ export class AdShipManager {
                 const speed = this.minAngularSpeed + Math.random() * (this.maxAngularSpeed - this.minAngularSpeed);
                 ship.angularSpeed = speed * (Math.random() < 0.5 ? 1 : -1);
 
-                // Initial position near center for orbiters
+                // Initial position near center for orbiters - Y set later
                 const initialRadius = Math.random() * (this.movementAreaSize / 3);
                 const initialAngle = Math.random() * Math.PI * 2;
                 const initialX = initialRadius * Math.cos(initialAngle);
                 const initialZ = initialRadius * Math.sin(initialAngle);
-                ship.group.position.set(initialX, ship.verticalOffset, initialZ); // Use assigned offset
+                ship.group.position.set(initialX, 0, initialZ); // Temp Y=0
 
             } else { // 'nasa' or 'alien'
                 ship.movementType = 'linear';
                 const startPosVel = this._getLinearStartPosAndVel();
-                ship.group.position.set(startPosVel.position.x, ship.verticalOffset, startPosVel.position.z); // Use assigned offset
+                ship.group.position.set(startPosVel.position.x, 0, startPosVel.position.z); // Temp Y=0
                 ship.velocity = startPosVel.velocity;
             }
 
             // --- Common Setup --- 
-            this._orientShip(ship);
+            // Orientation will be set after Y position is finalized
+            // this._orientShip(ship);
             ship.group.scale.set(4, 4, 4); // Apply scale
 
             console.log(`Created AdShip: ${adData.title} type ${ship.shipType} mode: ${ship.movementType}`);
-            return ship;
+            return ship; // Return the created ship object
 
         } catch (error) {
             console.error(`Error creating ship for ad: ${adData.title}`, error);
@@ -172,7 +237,7 @@ export class AdShipManager {
 
      _orientShip(ship) {
         if (!ship || !ship.group) return;
-        const lookAtY = ship.verticalOffset || this.minVerticalOffset; // Use ship's Y or fallback
+        const lookAtY = ship.verticalOffset || this.verticalLevels[0]; // Use ship's Y or fallback
 
         if (ship.movementType === 'orbit') {
             const tangentX = -ship.orbitRadius * Math.sin(ship.orbitAngle) * Math.sign(ship.angularSpeed);
@@ -203,55 +268,107 @@ export class AdShipManager {
                 // continue; // Uncomment to actually skip the rest of the loop for this ship
             }
 
-            let effectiveDeltaTime = deltaTime;
-            const currentY = ship.verticalOffset || this.minVerticalOffset; // Ensure Y is consistent
+            let effectiveDeltaTime = deltaTime; // No slowdown adjustment needed
+            const currentY = ship.verticalOffset || this.verticalLevels[0]; // Ensure Y is consistent using assigned level
 
+            // --- Collision Avoidance Checks & Logic Removed --- 
+            /*
             // --- Handle existing slowdown --- 
             if (ship.isSlowedDown) {
                 ship.slowdownTimer -= deltaTime;
+                // console.log(`[AdAvoidance] Ship ${ship.adData.title} is slowed. Timer: ${ship.slowdownTimer.toFixed(2)}`); // Log slowdown timer
                 if (ship.slowdownTimer <= 0) {
                     ship.isSlowedDown = false;
                     ship.slowdownTimer = 0;
-                    // console.log(`Ship ${ship.adData.title} resuming normal speed.`);
+                    // console.log(`[AdAvoidance] Ship ${ship.adData.title} resuming normal speed.`); // Log speed resume
                 } else {
-                    effectiveDeltaTime *= this.slowdownFactor;
-                    // Skip collision *checks* for this ship if it's already slowed
+                    effectiveDeltaTime *= 0.5; // Use the hardcoded slowdown factor if needed elsewhere, or remove
                 }
             }
 
-            // --- Simple Collision Avoidance Check --- 
-            // PERFORMANCE NOTE: This is an O(N^2) check (N=number of ships).
-            // It includes a distanceToSquared optimization to quickly discard far ships,
-            // but will still scale poorly with a large number of ships.
-            // Consider spatial partitioning (e.g., grid or octree) for larger N.
-            if (!ship.isSlowedDown) {
-                // OPTIMIZATION: Only check against ships within a certain range
-                const checkRadiusSq = (this.shipSafetyRadius * 2.5) * (this.shipSafetyRadius * 2.5); // Check slightly larger radius, squared
-
+            // --- Simple O(N^2) Collision Avoidance --- 
+            if (!ship.isSlowedDown) { 
                 for (let j = i + 1; j < this.ships.length; j++) {
                     const otherShip = this.ships[j];
-                    if (otherShip.isSlowedDown) continue; // Don't check against already slowed ships
+                    
+                    const shipPos = ship.group.position;
+                    const otherPos = otherShip.group.position;
+                    // console.log(`[AdAvoidance Check] Ship ${i}: (${shipPos.x.toFixed(1)}, ${shipPos.z.toFixed(1)}), Ship ${j}: (${otherPos.x.toFixed(1)}, ${otherPos.z.toFixed(1)})`); // Log positions being checked
+                    
+                    const distanceSq = shipPos.distanceToSquared(otherPos);
+                    
+                    // Hardcoded safety radius squared if needed for other logic, or remove
+                    const safetyRadiusSq = 10 * 10; 
 
-                    // OPTIMIZATION 1: Rough distance check first (squared distance is cheaper)
-                    const distSq = ship.group.position.distanceToSquared(otherShip.group.position);
-                    if (distSq > checkRadiusSq) {
-                        continue; // Too far apart, skip detailed check
-                    }
+                    if (distanceSq < safetyRadiusSq) {
+                        const distance = Math.sqrt(distanceSq);
+                        // console.warn(`[AdAvoidance DETECTED] Ships ${ship.adData.title} (#${i}) and ${otherShip.adData.title} (#${j}) too close!`);
+                        // console.log(` -> Distance: ${distance.toFixed(2)} (Limit: 10 units)`);
+                        // console.log(` -> Pos Ship ${i}: (${shipPos.x.toFixed(1)}, ${shipPos.y.toFixed(1)}, ${shipPos.z.toFixed(1)})`);
+                        // console.log(` -> Pos Ship ${j}: (${otherPos.x.toFixed(1)}, ${otherPos.y.toFixed(1)}, ${otherPos.z.toFixed(1)})`);
+                        // const shipVelBefore = ship.velocity ? `(${ship.velocity.x.toFixed(1)},${ship.velocity.z.toFixed(1)})` : 'N/A (Orbit)';
+                        // const otherVelBefore = otherShip.velocity ? `(${otherShip.velocity.x.toFixed(1)},${otherShip.velocity.z.toFixed(1)})` : 'N/A (Orbit)';
+                        // console.log(` -> Vel Before Ship ${i}: ${shipVelBefore}, Ship ${j}: ${otherVelBefore}`);
+                        
+                        // --- Apply Mutual Slowdown --- 
+                        // console.log(` -> Applying slowdown to BOTH (Duration: 2.5, Factor: 0.5)`);
+                        // ship.isSlowedDown = true;
+                        // ship.slowdownTimer = 2.5;
+                        // otherShip.isSlowedDown = true;
+                        // otherShip.slowdownTimer = 2.5; 
+                        // effectiveDeltaTime *= 0.5;
 
-                    // OPTIMIZATION 2: If close enough for potential collision, use exact distance
-                    // (Could also use a simpler bounding box check here if ships have known dimensions)
-                    const distance = Math.sqrt(distSq);
+                        // --- Apply Velocity Nudge --- 
+                        // const nudgeStrength = 0.5; 
+                        // const orbitalNudgeFactor = 0.1; // Radians to adjust angle by
+                        // const avoidanceVecForShip = new THREE.Vector3().subVectors(shipPos, otherPos).normalize();
+                        // const avoidanceVecForOther = avoidanceVecForShip.clone().negate();
+                        // let nudgedShipI = false;
+                        // let nudgedShipJ = false;
 
-                    if (distance < this.shipSafetyRadius) {
-                        // Too close - slow down the current ship (ship `i`)
-                        // console.warn(`Ships ${ship.adData.title} and ${otherShip.adData.title} too close (${distance.toFixed(1)} < ${this.shipSafetyRadius}). Slowing ${ship.adData.title}.`);
-                        ship.isSlowedDown = true;
-                        ship.slowdownTimer = this.slowdownDuration;
-                        effectiveDeltaTime *= this.slowdownFactor;
-                        break; // Stop checking for this ship once a collision is detected
+                        // // Nudge Ship i
+                        // if (ship.movementType === 'linear' && ship.velocity) {
+                        //     ship.velocity.addScaledVector(avoidanceVecForShip, nudgeStrength);
+                        //     ship.velocity.normalize().multiplyScalar(this.linearShipSpeed); 
+                        //     nudgedShipI = true;
+                        // } else if (ship.movementType === 'orbit') {
+                        //     // Calculate tangent direction (approximate)
+                        //     const tangent = new THREE.Vector3(-Math.sin(ship.orbitAngle), 0, Math.cos(ship.orbitAngle));
+                        //     // Determine if nudge should be forward or backward along orbit
+                        //     const dot = tangent.dot(avoidanceVecForShip);
+                        //     const angleAdjustment = orbitalNudgeFactor * (dot >= 0 ? 1 : -1); // Push away from avoidance vec direction
+                        //     ship.orbitAngle += angleAdjustment;
+                        //     // console.log(` -> Nudging ORBITAL Ship ${i} angle by ${angleAdjustment.toFixed(3)} rad`);
+                        //     nudgedShipI = true;
+                        // }
+
+                        // // Nudge Ship j
+                        // if (otherShip.movementType === 'linear' && otherShip.velocity) {
+                        //     otherShip.velocity.addScaledVector(avoidanceVecForOther, nudgeStrength);
+                        //     otherShip.velocity.normalize().multiplyScalar(this.linearShipSpeed);
+                        //     nudgedShipJ = true;
+                        // } else if (otherShip.movementType === 'orbit') {
+                        //     // Calculate tangent direction (approximate)
+                        //     const tangent = new THREE.Vector3(-Math.sin(otherShip.orbitAngle), 0, Math.cos(otherShip.orbitAngle));
+                        //      // Determine if nudge should be forward or backward along orbit
+                        //     const dot = tangent.dot(avoidanceVecForOther);
+                        //     const angleAdjustment = orbitalNudgeFactor * (dot >= 0 ? 1 : -1); // Push away from avoidance vec direction
+                        //     otherShip.orbitAngle += angleAdjustment;
+                        //     // console.log(` -> Nudging ORBITAL Ship ${j} angle by ${angleAdjustment.toFixed(3)} rad`);
+                        //     nudgedShipJ = true;
+                        // }
+                        
+                        // // console.log(` -> Nudge Applied: Ship ${i}? ${nudgedShipI}, Ship ${j}? ${nudgedShipJ}`);
+                        // const shipVelAfter = ship.velocity ? `(${ship.velocity.x.toFixed(1)},${ship.velocity.z.toFixed(1)})` : 'N/A (Orbit)';
+                        // const otherVelAfter = otherShip.velocity ? `(${otherShip.velocity.x.toFixed(1)},${otherShip.velocity.z.toFixed(1)})` : 'N/A (Orbit)';
+                        // // console.log(` -> Vel After Ship ${i}: ${shipVelAfter}, Ship ${j}: ${otherVelAfter}`);
+                        // --- End Velocity Nudge ---
+                        
+                        // break; // Exit inner loop after handling one collision pair for this ship
                     }
                 }
             }
+            */
 
             // --- Update Position (using effectiveDeltaTime) --- 
             if (ship.movementType === 'orbit') {
@@ -295,13 +412,14 @@ export class AdShipManager {
                     ship.adDisplayDuration = this.minAdDuration + Math.random() * (this.maxAdDuration - this.minAdDuration);
 
                     const newStart = this._getLinearStartPosAndVel();
-                    // Assign a *new* vertical offset when recycling
-                    ship.verticalOffset = this.minVerticalOffset + Math.random() * (this.maxVerticalOffset - this.minVerticalOffset);
-                    ship.group.position.set(newStart.position.x, ship.verticalOffset, newStart.position.z); // Use new offset
+                    // Use the ship's ALREADY ASSIGNED vertical offset when recycling
+                    // ship.verticalOffset = this.minVerticalOffset + Math.random() * (this.maxVerticalOffset - this.minVerticalOffset);
+                    ship.group.position.set(newStart.position.x, ship.verticalOffset, newStart.position.z); // Use existing offset
                     ship.velocity = newStart.velocity;
                     this._orientShip(ship); // Re-orient for new path
-                    ship.isSlowedDown = false; // Ensure recycled ships aren't slowed
-                    ship.slowdownTimer = 0;
+                    // Ensure recycled ships aren't slowed - No longer needed
+                    // ship.isSlowedDown = false; 
+                    // ship.slowdownTimer = 0;
                     console.log(`Recycled linear ${ship.adData.title} to pos: (${newStart.position.x.toFixed(1)}, ${ship.verticalOffset.toFixed(1)}, ${newStart.position.z.toFixed(1)})`);
                 }
             }

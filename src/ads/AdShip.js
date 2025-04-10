@@ -1,4 +1,19 @@
 import * as THREE from 'three';
+import { mockShipModels } from './adConfig'; // Assuming models might be configured here eventually
+
+// --- Muted Space Color Palettes (Two-Tone) ---
+const shipColorPalettes = [
+    { primary: '#4B5D67', secondary: '#324049' }, // Slate Gray / Dark Slate
+    { primary: '#5B7083', secondary: '#8899A6' }, // Cadet Blue / Light Slate Gray
+    { primary: '#2C3E50', secondary: '#1F2B38' }, // Dark Blue-Gray / Very Dark Blue-Gray
+    { primary: '#616A6B', secondary: '#99A3A4' }, // Gray / Light Gray
+    { primary: '#4A4A4A', secondary: '#7B7B7B' }, // Dark Gray / Medium Gray
+    { primary: '#36454F', secondary: '#6E7F80' }, // Charcoal / Steel Blue
+    { primary: '#5D5C61', secondary: '#939597' }, // Gunmetal / Silver Gray
+    { primary: '#4682B4', secondary: '#5F9EA0' }, // Steel Blue / Cadet Blue
+    { primary: '#5F738A', secondary: '#8FA3BF' }, // Blue Gray / Lighter Blue Gray
+    { primary: '#3B5998', secondary: '#6B8BC3' }  // Dark Blue / Lighter Blue
+];
 
 /**
  * Represents a single advertising ship instance.
@@ -19,13 +34,32 @@ export class AdShip {
         this.rotatingPart = null; // For space station animation
         this.canvasTexture = null; // Store reference to the texture for disposal
 
+        // Select a random color palette
+        const paletteIndex = Math.floor(Math.random() * shipColorPalettes.length);
+        this.colorPalette = shipColorPalettes[paletteIndex];
+        console.log(` -> Ship ${this.group.name} using palette: P=${this.colorPalette.primary}, S=${this.colorPalette.secondary}`);
+
+        // Ad Timer state
+        this.adDisplayTime = 0;
+        this.adDisplayDuration = 30; // Set during spawn
+
         this.createShipMesh();
         this.createBannerMesh(); // Will now generate and apply initial texture
     }
 
     createShipMesh() {
         let geometry;
-        let material;
+        // Create materials from the selected palette
+        const primaryMat = new THREE.MeshStandardMaterial({
+             color: this.colorPalette.primary,
+             metalness: 0.7, 
+             roughness: 0.4 
+        });
+        const secondaryMat = new THREE.MeshStandardMaterial({
+             color: this.colorPalette.secondary, 
+             metalness: 0.5, 
+             roughness: 0.5 
+        });
 
         switch (this.shipType) {
             case 'nasa':
@@ -35,73 +69,79 @@ export class AdShip {
                 const bodyGeom = new THREE.CylinderGeometry(nasaRadius, nasaRadius, nasaBodyHeight, 16);
                 const sphereGeom = new THREE.SphereGeometry(nasaRadius, 16, 8);
 
-                const bodyMesh = new THREE.Mesh(bodyGeom);
-                const topSphere = new THREE.Mesh(sphereGeom);
-                const bottomSphere = new THREE.Mesh(sphereGeom);
+                // Use primary color for body parts
+                const bodyMesh = new THREE.Mesh(bodyGeom, primaryMat);
+                const topSphere = new THREE.Mesh(sphereGeom, primaryMat);
+                const bottomSphere = new THREE.Mesh(sphereGeom, primaryMat);
                 topSphere.position.y = nasaBodyHeight / 2;
                 bottomSphere.position.y = -nasaBodyHeight / 2;
 
-                // Combine using a group (simpler than CSG for placeholders)
+                // Combine using a group
                 this.shipBodyMesh = new THREE.Group();
                 this.shipBodyMesh.add(bodyMesh, topSphere, bottomSphere);
 
-                // Wings: Simple planes
+                // Wings: Use secondary color
                 const wingGeom = new THREE.BoxGeometry(0.1, 0.8, 2); // Thin, tall, long wings
-                const wingMat = new THREE.MeshStandardMaterial({ color: 0xCCCCCC });
-                const leftWing = new THREE.Mesh(wingGeom, wingMat);
-                const rightWing = new THREE.Mesh(wingGeom, wingMat);
+                // const wingMat = new THREE.MeshStandardMaterial({ color: 0xCCCCCC }); // Old material
+                const leftWing = new THREE.Mesh(wingGeom, secondaryMat); // Use secondaryMat
+                leftWing.name = "Wing_Left"; // Add names for potential disposal checks
+                const rightWing = new THREE.Mesh(wingGeom, secondaryMat); // Use secondaryMat
+                rightWing.name = "Wing_Right";
                 leftWing.position.set(-nasaRadius - 0.3, 0, 0);
                 rightWing.position.set(nasaRadius + 0.3, 0, 0);
                 this.shipBodyMesh.add(leftWing, rightWing);
 
-                // Set main material
-                material = new THREE.MeshStandardMaterial({ color: 0xE0E0E0 }); // Light grey
-                this.shipBodyMesh.children.forEach(child => {if (child !== leftWing && child !== rightWing) child.material = material});
+                // No need to loop over children to set material anymore
+                // material = new THREE.MeshStandardMaterial({ color: 0xE0E0E0 }); // Light grey
+                // this.shipBodyMesh.children.forEach(child => {if (child !== leftWing && child !== rightWing) child.material = material});
 
                 break;
 
             case 'alien':
-                // Saucer shape: Wide, flat cylinder
+                // Saucer shape: Wide, flat cylinder - Use primary color
                 geometry = new THREE.CylinderGeometry(1.2, 1.5, 0.3, 32);
-                material = new THREE.MeshStandardMaterial({ color: 0x77FF77, metalness: 0.6, roughness: 0.3 }); // Metallic green
-                this.shipBodyMesh = new THREE.Mesh(geometry, material);
+                // material = new THREE.MeshStandardMaterial({ color: 0x77FF77, metalness: 0.6, roughness: 0.3 }); // Old material
+                this.shipBodyMesh = new THREE.Mesh(geometry, primaryMat); // Use primaryMat
 
-                // Dome/Light on top
+                // Dome/Light on top - Keep original cyan
                 const domeGeom = new THREE.SphereGeometry(0.5, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
                 const domeMat = new THREE.MeshBasicMaterial({ color: 0x00FFFF, transparent: true, opacity: 0.8 }); // Cyan glow
                 const domeLight = new THREE.Mesh(domeGeom, domeMat);
+                domeLight.name = "Alien_Dome";
                 domeLight.position.y = 0.15; // Position slightly above the saucer base
                 this.shipBodyMesh.add(domeLight); // Add as child
 
                 break;
 
             case 'station':
-                // Main structure: Torus ring
+                // Main structure: Torus ring - Use primary color
                 const torusRadius = 1.5;
                 const tubeRadius = 0.3; 
                 geometry = new THREE.TorusGeometry(torusRadius, tubeRadius, 12, 48);
-                material = new THREE.MeshStandardMaterial({ color: 0xBBBBBB, metalness: 0.9, roughness: 0.3 }); 
-                this.shipBodyMesh = new THREE.Mesh(geometry, material); 
+                // material = new THREE.MeshStandardMaterial({ color: 0xBBBBBB, metalness: 0.9, roughness: 0.3 }); // Old material
+                this.shipBodyMesh = new THREE.Mesh(geometry, primaryMat); // Use primaryMat
                 this.shipBodyMesh.rotation.x = Math.PI / 2; // Rotate torus to be flat
 
-                // Add a central hub or structure (optional)
+                // Add a central hub or structure - Use secondary color
                 const hubRadius = 0.6; 
                 const hubGeom = new THREE.SphereGeometry(hubRadius, 24, 24);
-                const hubMat = new THREE.MeshStandardMaterial({ color: 0x999999, metalness: 0.7, roughness: 0.4 });
-                const hubMesh = new THREE.Mesh(hubGeom, hubMat);
+                // const hubMat = new THREE.MeshStandardMaterial({ color: 0x999999, metalness: 0.7, roughness: 0.4 }); // Old material
+                const hubMesh = new THREE.Mesh(hubGeom, secondaryMat); // Use secondaryMat
+                hubMesh.name = "Station_Hub";
                 this.shipBodyMesh.add(hubMesh); // Add hub as child of the torus mesh
                 
-                this.rotatingPart = null; // Ensure it's null
+                // Assign torus as rotating part for animation
+                this.rotatingPart = this.shipBodyMesh; 
                 // Clear separate torus/hub refs if they exist from previous edits
                 this.torusMesh = null;
                 this.hubMesh = null;
 
                 break;
 
-            default: // Fallback to simple box
+            default: // Fallback to simple box - Use primary color
                 geometry = new THREE.BoxGeometry(2, 0.5, 1);
-                material = new THREE.MeshStandardMaterial({ color: 0x888888 });
-                this.shipBodyMesh = new THREE.Mesh(geometry, material);
+                // material = new THREE.MeshStandardMaterial({ color: 0x888888 }); // Old material
+                this.shipBodyMesh = new THREE.Mesh(geometry, primaryMat); // Use primaryMat
                 break;
         }
 
@@ -127,7 +167,7 @@ export class AdShip {
         context.fillRect(0, 0, canvasWidth, canvasHeight);
 
         // Text Style
-        context.font = 'bold 36px Arial'; // Adjusted font size for narrow banner
+        context.font = 'bold 40px Arial'; // Increased font size from 36px
         context.fillStyle = '#FFFFFF'; // White text
         context.textAlign = 'center';
         context.textBaseline = 'middle';
@@ -156,7 +196,7 @@ export class AdShip {
         }
         lines.push(line.trim());
 
-        const lineHeight = 40; // Adjusted line height for 36px font
+        const lineHeight = 45; // Adjusted line height for 40px font
         const totalTextHeight = lines.length * lineHeight;
         let currentY = yStart - (totalTextHeight / 2) + (lineHeight / 2);
 
@@ -282,7 +322,7 @@ export class AdShip {
                     this.shipBodyMesh.children[0].material.dispose();
                 }
                 // Dispose wing material for NASA
-                const wingMat = this.shipBodyMesh.children.find(c => c.name === "Wing")?.material;
+                const wingMat = this.shipBodyMesh.children.find(c => c.name === "Wing_Left")?.material;
                 if (wingMat) wingMat.dispose();
 
             } else if (this.shipBodyMesh instanceof THREE.Mesh) {
