@@ -248,7 +248,7 @@ export class AdShip {
             map: this.canvasTexture,
             side: THREE.DoubleSide,
             transparent: true,
-            depthWrite: false, 
+            depthWrite: true,
         });
 
         // No more switch statement - use standard plane for all

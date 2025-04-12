@@ -1,0 +1,10 @@
+{
+  "appId": "com.minigolfbreak.app",
+  "appName": "MiniGolfBreak",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://minigolfbreak.com",
+    "cleartext": true
+  }
+}

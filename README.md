@@ -50,6 +50,36 @@
 7.  **Submit Feedback:** Click on the "Feedback & Ideas?" ad ship to access the feedback form.
 8.  **Ad Inspect Mode:** Press the 'i' key to toggle Ad Inspect mode with free camera controls. Press 'i' again to return to gameplay.
 
+## Running on iOS (via Capacitor)
+
+This web application can be run as a native iOS app using Capacitor.
+
+1.  **Prerequisites:**
+    *   Ensure you have Xcode installed.
+    *   Ensure you have CocoaPods installed (`sudo gem install cocoapods`).
+    *   An Apple Developer account added to Xcode (for running on a physical device).
+
+2.  **Build the Web App:**
+    ```bash
+    npm run build
+    ```
+
+3.  **Sync with Capacitor:**
+    ```bash
+    npx cap sync ios
+    ```
+
+4.  **Open in Xcode:**
+    ```bash
+    npx cap open ios
+    ```
+
+5.  **Run in Xcode:**
+    *   Inside Xcode, select the `App` target.
+    *   Go to the `Signing & Capabilities` tab and select your development team.
+    *   Choose your target device (physical iPhone or Simulator).
+    *   Click the Run button (or press Cmd+R).
+
 ## Development
 
 See the [DEVELOPMENT_GUIDE.md](docs/development-guide.md) for details on the project structure, key components, and how to extend the game.
