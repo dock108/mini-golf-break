@@ -35,3 +35,10 @@ logs/
 .cache/ 
 coverage/
 .cursor/
+
+# Capacitor / iOS
+/ios/App/Pods/
+/ios/DerivedData/
+/ios/build/
+*.xcworkspace
+*.xcuserdatad
