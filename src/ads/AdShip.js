@@ -244,11 +244,16 @@ export class AdShip {
         // Generate the initial texture
         this.canvasTexture = this.generateBannerTexture(this.adData.title);
 
+        // Determine depthWrite setting based on platform
+        const isNative = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
+        const bannerDepthWrite = isNative; // true for iOS/Android, false for web
+        console.log(`[AdShip] Running on native platform: ${isNative}, setting depthWrite: ${bannerDepthWrite}`);
+
         const material = new THREE.MeshBasicMaterial({
             map: this.canvasTexture,
             side: THREE.DoubleSide,
             transparent: true,
-            depthWrite: true,
+            depthWrite: bannerDepthWrite, // Use conditional value
         });
 
         // No more switch statement - use standard plane for all
