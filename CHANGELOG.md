@@ -2,6 +2,19 @@
 
 All notable changes to the Mini Golf Break project will be documented in this file.
 
+## [Unreleased] - 2025-04-12
+
+### Added
+- **iOS Build Capability:** Integrated Capacitor to allow building and running the web application as a native iOS app. Includes configuration for loading the live web URL (`minigolfbreak.com`) and necessary build steps.
+- Added instructions for running on iOS to `README.md`.
+
+### Fixed
+- **Ad Rendering on iOS:** Resolved an issue where 3D ad banners (`AdShip.js`) were rendering behind the tee marker in the Capacitor iOS app by setting `depthWrite: true` on the banner material.
+- **Viewport Scaling on iOS:** Corrected the viewport meta tag in `index.html` (`viewport-fit=cover`, `user-scalable=no`, `maximum-scale=1`) to prevent improper zooming/scaling within the iOS webview.
+
+### Changed
+- Updated `.gitignore` to include standard Capacitor and iOS build artifacts (though entries were already present).
+
 ## [Unreleased] - 2025-04-10
 
 ### Added
