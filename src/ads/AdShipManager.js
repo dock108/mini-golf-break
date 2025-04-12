@@ -227,8 +227,8 @@ export class AdShipManager {
                 const behindHoleZ = Math.random() * 10 + 30; // Z range from +30 to +40
                 position.z = behindHoleZ;
             } else {
-                // For other levels, use any edge as before
-                edge = Math.floor(Math.random() * 4); // 0: +X, 1: -X, 2: +Z, 3: -Z
+                // For other levels, prevent starting near the tee (edge 3: -Z)
+                edge = Math.floor(Math.random() * 3); // Choose only from edges 0, 1, or 2
                 const randPosAlongEdge = (Math.random() - 0.5) * this.movementAreaSize;
                 
                 switch (edge) {
@@ -237,14 +237,13 @@ export class AdShipManager {
                         position.z = randPosAlongEdge;
                         break;
                     case 2: // Start at +Z edge, move -Z
-                    case 3: // Start at -Z edge, move +Z
                         position.x = randPosAlongEdge;
                         break;
                 }
             }
         } else {
-            // If no ships exist yet (initial setup), use any edge
-            edge = Math.floor(Math.random() * 4);
+            // If no ships exist yet (initial setup), also prevent edge 3
+            edge = Math.floor(Math.random() * 3); // Choose only from 0, 1, 2
             const randPosAlongEdge = (Math.random() - 0.5) * this.movementAreaSize;
             
             switch (edge) {
@@ -253,7 +252,6 @@ export class AdShipManager {
                     position.z = randPosAlongEdge;
                     break;
                 case 2: // Start at +Z edge, move -Z
-                case 3: // Start at -Z edge, move +Z
                     position.x = randPosAlongEdge;
                     break;
             }

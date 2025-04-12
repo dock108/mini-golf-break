@@ -17,5 +17,9 @@ export const mockAds = [
         title: "Feedback & Ideas?",
         url: "#feedback-form",
         texturePath: "assets/textures/ads/feedback-banner.png"
+    },
+    {
+        title: "Play FanFrenzy!",
+        url: "https://fanfrenzy.app"
     }
 ]; 

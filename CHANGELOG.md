@@ -7,6 +7,7 @@ All notable changes to the Mini Golf Break project will be documented in this fi
 ### Added
 - **iOS Build Capability:** Integrated Capacitor to allow building and running the web application as a native iOS app. Includes configuration for loading the live web URL (`minigolfbreak.com`) and necessary build steps.
 - Added instructions for running on iOS to `README.md`.
+- Added "Play FanFrenzy!" ad to the available ad pool (`src/ads/adConfig.js`).
 
 ### Fixed
 - **Ad Rendering on iOS:** Resolved an issue where 3D ad banners (`AdShip.js`) were rendering behind the tee marker in the Capacitor iOS app by setting `depthWrite: true` on the banner material.
