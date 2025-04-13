@@ -229,12 +229,20 @@ export class AdShipManager {
             } else {
                 // For other levels, prevent starting near the tee (edge 3: -Z)
                 edge = Math.floor(Math.random() * 3); // Choose only from edges 0, 1, or 2
-                const randPosAlongEdge = (Math.random() - 0.5) * this.movementAreaSize;
+                
+                // Calculate random position along the chosen edge, ensuring Z <= 0 for side starts
+                let randPosAlongEdge;
+                if (edge === 0 || edge === 1) { // Starting on sides (+X or -X)
+                    randPosAlongEdge = (Math.random() - 1) * (this.movementAreaSize / 2); // Range approx [-50, 0]
+                } else { // Starting at far end (+Z, edge 2)
+                    randPosAlongEdge = (Math.random() - 0.5) * this.movementAreaSize; // Range [-50, 50] for X position
+                }
                 
                 switch (edge) {
                     case 0: // Start at +X edge, move -X
                     case 1: // Start at -X edge, move +X
-                        position.z = randPosAlongEdge;
+                        position.z = randPosAlongEdge; // Now guaranteed >= 0
+                        console.log(`[_getLinearStartPosAndVel] Non-top-level, Edge ${edge}. Set initial Z: ${position.z.toFixed(2)}`); // DEBUG LOG
                         break;
                     case 2: // Start at +Z edge, move -Z
                         position.x = randPosAlongEdge;
@@ -242,14 +250,22 @@ export class AdShipManager {
                 }
             }
         } else {
-            // If no ships exist yet (initial setup), also prevent edge 3
+            // If no ships exist yet (initial setup), also prevent edge 3 and ensure Z >= 0 for side starts
             edge = Math.floor(Math.random() * 3); // Choose only from 0, 1, 2
-            const randPosAlongEdge = (Math.random() - 0.5) * this.movementAreaSize;
             
+            let randPosAlongEdge;
+            if (edge === 0 || edge === 1) { // Starting on sides (+X or -X)
+                // Ensure Z position is not behind the tee (Z <= 0)
+                randPosAlongEdge = (Math.random() - 1) * (this.movementAreaSize / 2); // Range approx [-50, 0]
+            } else { // Starting at far end (+Z, edge 2)
+                randPosAlongEdge = (Math.random() - 0.5) * this.movementAreaSize; // Range [-50, 50] for X position
+            }
+
             switch (edge) {
                 case 0: // Start at +X edge, move -X
                 case 1: // Start at -X edge, move +X
-                    position.z = randPosAlongEdge;
+                    position.z = randPosAlongEdge; // Now guaranteed >= 0
+                    console.log(`[_getLinearStartPosAndVel] Initial setup, Edge ${edge}. Set initial Z: ${position.z.toFixed(2)}`); // DEBUG LOG
                     break;
                 case 2: // Start at +Z edge, move -Z
                     position.x = randPosAlongEdge;
@@ -493,11 +509,40 @@ export class AdShipManager {
                         
                         newStart = customStart;
                     } else {
-                        // For other levels, use the normal recycling logic
-                        newStart = this._getLinearStartPosAndVel();
+                        // For other levels, RE-IMPLEMENT recycling logic here, avoiding edge 3 and ensuring Z >= 0 for side starts
+                        const recycleStart = { position: new THREE.Vector3(), velocity: new THREE.Vector3() };
+                        const edge = Math.floor(Math.random() * 3); // Choose only from 0, 1, 2
+                        const startPosOffset = this.movementAreaSize / 2 + this.boundaryBuffer - 1; // Slightly inside max bound
+                        
+                        // Calculate random position along the chosen edge, ensuring Z <= 0 for side starts
+                        let randPosAlongEdge;
+                        if (edge === 0 || edge === 1) { // Starting on sides (+X or -X)
+                            randPosAlongEdge = (Math.random() - 1) * (this.movementAreaSize / 2); // Range approx [-50, 0]
+                        } else { // Starting at far end (+Z, edge 2)
+                            randPosAlongEdge = (Math.random() - 0.5) * this.movementAreaSize; // Range [-50, 50] for X position
+                        }
+
+                        switch (edge) {
+                            case 0: // Start +X edge, move -X
+                                recycleStart.position.set(startPosOffset, ship.verticalOffset, randPosAlongEdge); // Z <= 0
+                                console.log(`[Update Recycle] Non-top-level, Edge ${edge}. Set Z to: ${randPosAlongEdge.toFixed(2)}`); // DEBUG LOG
+                                recycleStart.velocity.set(-this.linearShipSpeed, 0, (Math.random() - 0.5) * 0.1 * this.linearShipSpeed);
+                                break;
+                            case 1: // Start -X edge, move +X
+                                recycleStart.position.set(-startPosOffset, ship.verticalOffset, randPosAlongEdge); // Z <= 0
+                                console.log(`[Update Recycle] Non-top-level, Edge ${edge}. Set Z to: ${randPosAlongEdge.toFixed(2)}`); // DEBUG LOG
+                                recycleStart.velocity.set(this.linearShipSpeed, 0, (Math.random() - 0.5) * 0.1 * this.linearShipSpeed);
+                                break;
+                            case 2: // Start +Z edge, move -Z
+                                recycleStart.position.set(randPosAlongEdge, ship.verticalOffset, startPosOffset);
+                                recycleStart.velocity.set((Math.random() - 0.5) * 0.1 * this.linearShipSpeed, 0, -this.linearShipSpeed);
+                                break;
+                            // Edge 3 is intentionally omitted
+                        }
+                        recycleStart.velocity.normalize().multiplyScalar(this.linearShipSpeed);
+                        newStart = recycleStart;
                     }
-                    
-                    ship.group.position.set(newStart.position.x, ship.verticalOffset, newStart.position.z); // Use existing offset
+                    ship.group.position.set(newStart.position.x, ship.verticalOffset, newStart.position.z);
                     ship.velocity = newStart.velocity;
                     this._orientShip(ship); // Re-orient for new path
                     // Ensure recycled ships aren't slowed - No longer needed
