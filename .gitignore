@@ -36,9 +36,31 @@ logs/
 coverage/
 .cursor/
 
+# Test results
+reports/
+test-results/
+playwright-report/
+*.test.js.snap
+
+# Documentation build
+docs/build/
+docs/.docusaurus/
+
 # Capacitor / iOS
 /ios/App/Pods/
 /ios/DerivedData/
 /ios/build/
 *.xcworkspace
 *.xcuserdatad
+/ios/App/App/public/
+
+# Security
+*.pem
+*.key
+*.cert
+.env.*
+
+# IDE specific
+*.swp
+*.swo
+*~

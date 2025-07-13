@@ -2,9 +2,5 @@
   "appId": "com.minigolfbreak.app",
   "appName": "MiniGolfBreak",
   "webDir": "dist",
-  "bundledWebRuntime": false,
-  "server": {
-    "url": "http://localhost:9000",
-    "cleartext": true
-  }
+  "bundledWebRuntime": false
 }
