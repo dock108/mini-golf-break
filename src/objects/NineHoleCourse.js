@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import * as CANNON from 'cannon-es';
 import { CoursesManager } from '../managers/CoursesManager.js';
 import { HoleEntity } from './HoleEntity';
 import { debug } from '../utils/debug';
@@ -416,7 +415,7 @@ export class NineHoleCourse extends CoursesManager {
    * @returns {boolean} Success
    */
   async initializeHole(holeIndex) {
-    debug.log(`[NineHoleCourse.initializeHole] Start (Index: ${holeIndex});`
+    debug.log(`[NineHoleCourse.initializeHole] Start (Index: ${holeIndex})`);
     try {
       // Validate index
       if (holeIndex < 0 || holeIndex >= this.totalHoles) {
