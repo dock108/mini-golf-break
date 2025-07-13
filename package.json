@@ -3,6 +3,16 @@
   "version": "0.1.0",
   "description": "A casual mini-golf game built with Three.js and Cannon-es",
   "main": "src/main.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dock108/mini-golf-break.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dock108/mini-golf-break/issues"
+  },
+  "homepage": "https://github.com/dock108/mini-golf-break#readme",
+  "author": "dock108",
+  "license": "MIT",
   "sideEffects": false,
   "scripts": {
     "start": "webpack serve --mode development",
@@ -11,6 +21,9 @@
     "build:stats": "webpack --mode production --json > webpack-stats.json",
     "test": "jest",
     "test:coverage": "jest --coverage",
+    "test:uat": "playwright test --config=tests/uat/playwright.config.js",
+    "test:uat:headed": "playwright test --config=tests/uat/playwright.config.js --headed",
+    "test:uat:debug": "playwright test --config=tests/uat/playwright.config.js --debug",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
     "format": "prettier --write \"src/**/*.js\"",
