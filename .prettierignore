@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+coverage/
+
+# iOS and Capacitor
+ios/
+android/
+
+# Logs
+*.log
+
+# Package manager files
+package-lock.json
+yarn.lock
+
+# Generated files
+*.min.js
+*.bundle.js
+
+# Config files that shouldn't be formatted
+.eslintrc.json
+.prettierrc.json

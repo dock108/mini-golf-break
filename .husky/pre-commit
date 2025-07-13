@@ -1,0 +1,11 @@
+echo "🔍 Running pre-commit quality checks..."
+
+# Run lint-staged for staged files only (faster)
+echo "📝 Checking and fixing staged files..."
+npx lint-staged
+
+# Run tests to ensure nothing is broken
+echo "🧪 Running tests..."
+npm run test
+
+echo "✅ All quality checks passed!"

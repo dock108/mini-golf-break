@@ -10,42 +10,42 @@ import * as CANNON from 'cannon-es';
  * @returns {number} The angle in degrees (0-180). Returns 0 if velocity is zero or vectors are aligned oppositely, 180 if aligned perfectly.
  */
 export function calculateImpactAngle(ballVelocity, holePosition, ballPosition) {
-    // Vector from ball to hole (horizontal plane)
-    const ballToHole = new CANNON.Vec3(
-        holePosition.x - ballPosition.x,
-        0, // Ignore vertical component for angle calculation
-        holePosition.z - ballPosition.z
-    );
+  // Vector from ball to hole (horizontal plane)
+  const ballToHole = new CANNON.Vec3(
+    holePosition.x - ballPosition.x,
+    0, // Ignore vertical component for angle calculation
+    holePosition.z - ballPosition.z
+  );
 
-    const velHorizontal = new CANNON.Vec3(ballVelocity.x, 0, ballVelocity.z);
+  const velHorizontal = new CANNON.Vec3(ballVelocity.x, 0, ballVelocity.z);
 
-    const ballToHoleLen = ballToHole.length();
-    const velLen = velHorizontal.length();
+  const ballToHoleLen = ballToHole.length();
+  const velLen = velHorizontal.length();
 
-    // Handle edge cases: ball exactly at hole center or zero velocity
-    if (ballToHoleLen === 0 || velLen === 0) {
-        // If velocity is zero or ball is at center, angle is irrelevant or undefined.
-        // Treat as a direct hit (0 degrees) or handle as needed.
-        // Returning 180 might be safer if zero velocity means it should drop in.
-        // Let's return 180 assuming zero velocity = direct drop angle.
-        return 180; 
-    }
+  // Handle edge cases: ball exactly at hole center or zero velocity
+  if (ballToHoleLen === 0 || velLen === 0) {
+    // If velocity is zero or ball is at center, angle is irrelevant or undefined.
+    // Treat as a direct hit (0 degrees) or handle as needed.
+    // Returning 180 might be safer if zero velocity means it should drop in.
+    // Let's return 180 assuming zero velocity = direct drop angle.
+    return 180;
+  }
 
-    // Calculate dot product (only horizontal components)
-    const dotProduct = velHorizontal.dot(ballToHole);
+  // Calculate dot product (only horizontal components)
+  const dotProduct = velHorizontal.dot(ballToHole);
 
-    // Calculate angle using dot product formula: angle = acos( (v1 . v2) / (|v1| * |v2|) )
-    let angleRad = Math.acos(dotProduct / (velLen * ballToHoleLen));
+  // Calculate angle using dot product formula: angle = acos( (v1 . v2) / (|v1| * |v2|) )
+  let angleRad = Math.acos(dotProduct / (velLen * ballToHoleLen));
 
-    // Clamp value to handle potential floating point inaccuracies
-    angleRad = Math.max(0, Math.min(Math.PI, angleRad)); 
+  // Clamp value to handle potential floating point inaccuracies
+  angleRad = Math.max(0, Math.min(Math.PI, angleRad));
 
-    // Convert radians to degrees
-    const angleDeg = angleRad * (180 / Math.PI);
+  // Convert radians to degrees
+  const angleDeg = angleRad * (180 / Math.PI);
 
-    // Angle should represent how directly the ball heads towards the hole.
-    // 0 degrees = moving directly away, 180 degrees = moving directly towards.
-    return angleDeg;
+  // Angle should represent how directly the ball heads towards the hole.
+  // 0 degrees = moving directly away, 180 degrees = moving directly towards.
+  return angleDeg;
 }
 
 /**
@@ -59,21 +59,23 @@ export function calculateImpactAngle(ballVelocity, holePosition, ballPosition) {
  * @returns {boolean} True if a lip-out occurs, false otherwise.
  */
 export function isLipOut(speed, angleDeg, thresholds) {
-    // A lip-out is more likely if the speed is high AND the angle is glancing (low angle value).
-    // Example: High speed + hitting the edge (angle < threshold) = lip out.
-    // Example: High speed + direct hit (angle near 180) = might still go in (handled by checkHoleEntry).
-    const isFast = speed > thresholds.LIP_OUT_SPEED_THRESHOLD;
-    const isGlancing = angleDeg < thresholds.LIP_OUT_ANGLE_THRESHOLD;
+  // A lip-out is more likely if the speed is high AND the angle is glancing (low angle value).
+  // Example: High speed + hitting the edge (angle < threshold) = lip out.
+  // Example: High speed + direct hit (angle near 180) = might still go in (handled by checkHoleEntry).
+  const isFast = speed > thresholds.LIP_OUT_SPEED_THRESHOLD;
+  const isGlancing = angleDeg < thresholds.LIP_OUT_ANGLE_THRESHOLD;
 
-    // Simple initial logic: lip out if both fast and glancing
-    if (isFast && isGlancing) {
-        console.log(`[PhysicsUtils] Lip Out: Fast (${speed.toFixed(2)} > ${thresholds.LIP_OUT_SPEED_THRESHOLD}) and Glancing (${angleDeg.toFixed(1)} < ${thresholds.LIP_OUT_ANGLE_THRESHOLD})`);
-        return true;
-    }
-    
-    // Consider adding more nuanced probability later if needed
+  // Simple initial logic: lip out if both fast and glancing
+  if (isFast && isGlancing) {
+    console.log(
+      `[PhysicsUtils] Lip Out: Fast (${speed.toFixed(2)} > ${thresholds.LIP_OUT_SPEED_THRESHOLD}) and Glancing (${angleDeg.toFixed(1)} < ${thresholds.LIP_OUT_ANGLE_THRESHOLD})`
+    );
+    return true;
+  }
 
-    return false;
+  // Consider adding more nuanced probability later if needed
+
+  return false;
 }
 
 /**
@@ -88,55 +90,62 @@ export function isLipOut(speed, angleDeg, thresholds) {
  * @returns {boolean} True if the ball should enter the hole, false otherwise.
  */
 export function checkHoleEntry(ballBody, holeTriggerBody, thresholds) {
-    if (!ballBody || !holeTriggerBody || !holeTriggerBody.shapes[0]) {
-        console.error('[PhysicsUtils.checkHoleEntry] Missing ballBody or holeTriggerBody/shape.');
-        return false;
-    }
-
-    const ballPosition = ballBody.position;
-    const ballVelocity = ballBody.velocity;
-    const holePosition = holeTriggerBody.position;
-    // Access radiusTop for Cylinder shape
-    const holeRadius = holeTriggerBody.shapes[0].radiusTop; 
-
-    // --- 1. Proximity Check --- 
-    const dx = ballPosition.x - holePosition.x;
-    const dz = ballPosition.z - holePosition.z;
-    const distanceFromHoleCenter = Math.sqrt(dx * dx + dz * dz);
-    
-    // Log positions being used
-    console.log(`[PhysicsUtils.checkHoleEntry] Positions: Ball=(${ballPosition.x.toFixed(2)},${ballPosition.z.toFixed(2)}), Hole=(${holePosition.x.toFixed(2)},${holePosition.z.toFixed(2)})`);
-
-    // Log proximity values
-    console.log(`[PhysicsUtils.checkHoleEntry] Proximity Check: Distance=${distanceFromHoleCenter.toFixed(3)}, Radius=${holeRadius.toFixed(3)}`);
-
-    if (distanceFromHoleCenter <= holeRadius) {
-        // --- 2. Speed Check --- 
-        const ballSpeed = ballVelocity.length();
-        // Log speed values
-        console.log(`[PhysicsUtils.checkHoleEntry] Speed Check: Speed=${ballSpeed.toFixed(3)}, MAX_SAFE_SPEED=${thresholds.MAX_SAFE_SPEED.toFixed(3)}`);
-
-        if (ballSpeed <= thresholds.MAX_SAFE_SPEED) {
-            console.log(`[PhysicsUtils.checkHoleEntry] Result: Safe Entry (Slow)`);
-            return true; 
-        }
-
-        // --- 3. Lip-Out Check (for faster balls) --- 
-        const angleDeg = calculateImpactAngle(ballVelocity, holePosition, ballPosition);
-        // Log lip-out check values
-        console.log(`[PhysicsUtils.checkHoleEntry] Lip-Out Check: Speed=${ballSpeed.toFixed(3)}, Angle=${angleDeg.toFixed(1)}, SpeedThreshold=${thresholds.LIP_OUT_SPEED_THRESHOLD.toFixed(3)}, AngleThreshold=${thresholds.LIP_OUT_ANGLE_THRESHOLD.toFixed(1)}`);
-
-        if (isLipOut(ballSpeed, angleDeg, thresholds)) {
-            console.log(`[PhysicsUtils.checkHoleEntry] Result: Lip-Out`);
-            return false; // Lip-out occurred
-        }
-
-        console.log(`[PhysicsUtils.checkHoleEntry] Result: Fast but Direct Entry`);
-        return true; 
-
-    }
-
-    // Ball is not within the hole trigger radius
-    console.log(`[PhysicsUtils.checkHoleEntry] Result: Missed (Outside Radius)`);
+  if (!ballBody || !holeTriggerBody || !holeTriggerBody.shapes[0]) {
+    console.error('[PhysicsUtils.checkHoleEntry] Missing ballBody or holeTriggerBody/shape.');
     return false;
-} 
+  }
+
+  const ballPosition = ballBody.position;
+  const ballVelocity = ballBody.velocity;
+  const holePosition = holeTriggerBody.position;
+  // Access radiusTop for Cylinder shape
+  const holeRadius = holeTriggerBody.shapes[0].radiusTop;
+
+  // --- 1. Proximity Check ---
+  const dx = ballPosition.x - holePosition.x;
+  const dz = ballPosition.z - holePosition.z;
+  const distanceFromHoleCenter = Math.sqrt(dx * dx + dz * dz);
+
+  // Log positions being used
+  console.log(
+    `[PhysicsUtils.checkHoleEntry] Positions: Ball=(${ballPosition.x.toFixed(2)},${ballPosition.z.toFixed(2)}), Hole=(${holePosition.x.toFixed(2)},${holePosition.z.toFixed(2)})`
+  );
+
+  // Log proximity values
+  console.log(
+    `[PhysicsUtils.checkHoleEntry] Proximity Check: Distance=${distanceFromHoleCenter.toFixed(3)}, Radius=${holeRadius.toFixed(3)}`
+  );
+
+  if (distanceFromHoleCenter <= holeRadius) {
+    // --- 2. Speed Check ---
+    const ballSpeed = ballVelocity.length();
+    // Log speed values
+    console.log(
+      `[PhysicsUtils.checkHoleEntry] Speed Check: Speed=${ballSpeed.toFixed(3)}, MAX_SAFE_SPEED=${thresholds.MAX_SAFE_SPEED.toFixed(3)}`
+    );
+
+    if (ballSpeed <= thresholds.MAX_SAFE_SPEED) {
+      console.log('[PhysicsUtils.checkHoleEntry] Result: Safe Entry (Slow)');
+      return true;
+    }
+
+    // --- 3. Lip-Out Check (for faster balls) ---
+    const angleDeg = calculateImpactAngle(ballVelocity, holePosition, ballPosition);
+    // Log lip-out check values
+    console.log(
+      `[PhysicsUtils.checkHoleEntry] Lip-Out Check: Speed=${ballSpeed.toFixed(3)}, Angle=${angleDeg.toFixed(1)}, SpeedThreshold=${thresholds.LIP_OUT_SPEED_THRESHOLD.toFixed(3)}, AngleThreshold=${thresholds.LIP_OUT_ANGLE_THRESHOLD.toFixed(1)}`
+    );
+
+    if (isLipOut(ballSpeed, angleDeg, thresholds)) {
+      console.log('[PhysicsUtils.checkHoleEntry] Result: Lip-Out');
+      return false; // Lip-out occurred
+    }
+
+    console.log('[PhysicsUtils.checkHoleEntry] Result: Fast but Direct Entry');
+    return true;
+  }
+
+  // Ball is not within the hole trigger radius
+  console.log('[PhysicsUtils.checkHoleEntry] Result: Missed (Outside Radius)');
+  return false;
+}

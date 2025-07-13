@@ -1,0 +1,86 @@
+{
+  "env": {
+    "browser": true,
+    "es2021": true,
+    "node": true,
+    "jest": true
+  },
+  "extends": [
+    "eslint:recommended"
+  ],
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "module"
+  },
+  "rules": {
+    // Code Quality
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "no-undef": "error",
+    "no-redeclare": "error",
+    "no-unreachable": "error",
+    "no-duplicate-case": "error",
+    
+    // Game Development Specific
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "no-debugger": "warn",
+    "no-alert": "error",
+    
+    // Performance & Memory
+    "no-loop-func": "error",
+    "no-new-wrappers": "error",
+    "no-implied-eval": "error",
+    
+    // Code Style
+    "indent": ["error", 2, { "SwitchCase": 1 }],
+    "quotes": ["error", "single", { "avoidEscape": true }],
+    "semi": ["error", "always"],
+    "comma-dangle": ["error", "never"],
+    "eol-last": ["error", "always"],
+    "no-trailing-spaces": "error",
+    
+    // Best Practices
+    "curly": ["error", "all"],
+    "eqeqeq": ["error", "always"],
+    "no-eval": "error",
+    "no-new-func": "error",
+    "no-with": "error",
+    "radix": "error",
+    
+    // ES6+
+    "prefer-const": "error",
+    "no-var": "error",
+    "arrow-spacing": "error",
+    "object-shorthand": "error",
+    
+    // Function Complexity
+    "complexity": ["warn", 10],
+    "max-depth": ["warn", 4],
+    "max-params": ["warn", 5],
+    "max-statements": ["warn", 20]
+  },
+  "globals": {
+    "THREE": "readonly",
+    "CANNON": "readonly"
+  },
+  "overrides": [
+    {
+      "files": ["src/tests/**/*.js", "**/*.test.js", "**/*.spec.js"],
+      "env": {
+        "jest": true
+      },
+      "rules": {
+        "no-console": "off",
+        "max-statements": "off"
+      }
+    },
+    {
+      "files": ["webpack.config.js", "jest.config.js"],
+      "env": {
+        "node": true
+      },
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ]
+}
