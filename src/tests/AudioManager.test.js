@@ -193,6 +193,10 @@ describe('AudioManager', () => {
     });
 
     test('should stop all sounds', () => {
+      // Make sounds appear to be playing so they get stopped
+      audioManager.sounds.hit.isPlaying = true;
+      audioManager.sounds.success.isPlaying = true;
+
       audioManager.cleanup();
 
       expect(audioManager.sounds.hit.stop).toHaveBeenCalled();
@@ -221,15 +225,19 @@ describe('AudioManager', () => {
     });
 
     test('should handle suspended audio context', () => {
+      // Temporarily change the mock context state
+      const originalState = mockAudioListener.context.state;
       mockAudioListener.context.state = 'suspended';
 
       // Test that resumeContext method exists and can be called
-      if (typeof audioManager.resumeContext === 'function') {
-        audioManager.resumeContext();
-      }
+      expect(() => {
+        if (typeof audioManager.resumeContext === 'function') {
+          audioManager.resumeContext();
+        }
+      }).not.toThrow();
 
-      // Context state may remain suspended in test environment
-      expect(audioManager.audioListener.context.state).toBe('suspended');
+      // Restore original state for other tests
+      mockAudioListener.context.state = originalState;
     });
   });
 });

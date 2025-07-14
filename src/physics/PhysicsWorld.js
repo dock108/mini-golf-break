@@ -315,12 +315,14 @@ export class PhysicsWorld {
 
   addBody(body) {
     if (this.world && body) {
-      // Log body details before adding
+      // Log body details before adding with defensive checks
+      const shapes = body.shapes || [];
+      const userData = body.userData || {};
       console.log(
         '[PhysicsWorld] Adding body: ' +
-          `ID=${body.id}, Type=${body.type}, Mass=${body.mass}, ` +
-          `ShapeType=${body.shapes[0]?.type}, MaterialID=${body.material?.id}, ` +
-          `UserData=${JSON.stringify(body.userData)}`
+          `ID=${body.id || 'unknown'}, Type=${body.type || 'unknown'}, Mass=${body.mass || 0}, ` +
+          `ShapeType=${shapes[0]?.type || 'none'}, MaterialID=${body.material?.id || 'none'}, ` +
+          `UserData=${JSON.stringify(userData)}`
       );
       this.world.addBody(body);
     }
@@ -333,11 +335,19 @@ export class PhysicsWorld {
         body.wakeUp();
       }
 
-      // Reset all physics properties
-      body.velocity.set(0, 0, 0);
-      body.angularVelocity.set(0, 0, 0);
-      body.force.set(0, 0, 0);
-      body.torque.set(0, 0, 0);
+      // Reset all physics properties with defensive checks
+      if (body.velocity && typeof body.velocity.set === 'function') {
+        body.velocity.set(0, 0, 0);
+      }
+      if (body.angularVelocity && typeof body.angularVelocity.set === 'function') {
+        body.angularVelocity.set(0, 0, 0);
+      }
+      if (body.force && typeof body.force.set === 'function') {
+        body.force.set(0, 0, 0);
+      }
+      if (body.torque && typeof body.torque.set === 'function') {
+        body.torque.set(0, 0, 0);
+      }
 
       // Remove all constraints involving this body first
       const constraintsToRemove = this.world.constraints.filter(
@@ -485,7 +495,17 @@ export class PhysicsWorld {
    */
   step(timeStep, deltaTime, maxSubSteps) {
     if (this.world && typeof this.world.step === 'function') {
-      this.world.step(timeStep, deltaTime, maxSubSteps);
+      // Use fixed timestep if not provided, with fallback values
+      const fixedTimeStep = this.fixedTimeStep || 1.0 / 60.0;
+      const maxSteps = maxSubSteps || this.maxSubSteps || 3;
+
+      // Update last call time for tracking
+      const currentTime = performance.now() / 1000;
+      if (this.lastCallTime !== undefined) {
+        this.lastCallTime = currentTime;
+      }
+
+      this.world.step(fixedTimeStep, timeStep, maxSteps);
     }
   }
 
@@ -510,7 +530,8 @@ export class PhysicsWorld {
     if (!this.materials) {
       return null;
     }
-    return this.materials.find(material => material.name === name) || null;
+    const material = this.materials.find(material => material.name === name);
+    return material || null;
   }
 
   /**
@@ -518,7 +539,13 @@ export class PhysicsWorld {
    */
   setGravity(x, y, z) {
     if (this.world && this.world.gravity && typeof this.world.gravity.set === 'function') {
-      this.world.gravity.set(x, y, z);
+      // Handle Vec3 parameter (first argument is a Vec3 object)
+      if (typeof x === 'object' && x !== null && 'x' in x && 'y' in x && 'z' in x) {
+        this.world.gravity.set(x.x, x.y, x.z);
+      } else {
+        // Handle individual x, y, z parameters
+        this.world.gravity.set(x, y, z);
+      }
     }
   }
 }
