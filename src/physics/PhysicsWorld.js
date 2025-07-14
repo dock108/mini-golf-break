@@ -106,8 +106,15 @@ export class PhysicsWorld {
     console.log('[PhysicsWorld] Added ballRimContact.');
 
     // Default contact material for everything else
-    this.world.defaultContactMaterial.friction = 0.8; // Increased default friction
-    this.world.defaultContactMaterial.restitution = 0.1; // Restored original value
+    if (this.world.defaultContactMaterial) {
+      this.world.defaultContactMaterial.friction = 0.8; // Increased default friction
+      this.world.defaultContactMaterial.restitution = 0.1; // Restored original value
+    } else {
+      // In testing environment, defaultContactMaterial might be null
+      console.log(
+        '[PhysicsWorld] defaultContactMaterial is null, skipping default material configuration'
+      );
+    }
   }
 
   update() {
@@ -165,7 +172,11 @@ export class PhysicsWorld {
         this.world.step(this.fixedTimeStep, dt, this.maxSubSteps);
 
         // Re-add collision callback if it was removed
-        if (tempCallback) {
+        if (
+          tempCallback &&
+          this.world.addEventListener &&
+          typeof this.world.addEventListener === 'function'
+        ) {
           this.world.addEventListener('beginContact', tempCallback);
         }
       } catch (error) {
@@ -191,7 +202,9 @@ export class PhysicsWorld {
    */
   setupCollideListener() {
     // Remove any existing listeners first to avoid duplicates
-    this.world.removeEventListener('collide', this._collideCallback);
+    if (this.world.removeEventListener && typeof this.world.removeEventListener === 'function') {
+      this.world.removeEventListener('collide', this._collideCallback);
+    }
 
     // Create a new collide callback
     this._collideCallback = _event => {
@@ -236,7 +249,9 @@ export class PhysicsWorld {
     };
 
     // Add the callback to the world
-    this.world.addEventListener('collide', this._collideCallback);
+    if (this.world.addEventListener && typeof this.world.addEventListener === 'function') {
+      this.world.addEventListener('collide', this._collideCallback);
+    }
   }
 
   // Store collision callback for re-adding after reset
@@ -266,7 +281,9 @@ export class PhysicsWorld {
     this._collisionCallback = wrappedCallback;
 
     // Add the new wrapped listener
-    this.world.addEventListener('beginContact', this._collisionCallback);
+    if (this.world.addEventListener && typeof this.world.addEventListener === 'function') {
+      this.world.addEventListener('beginContact', this._collisionCallback);
+    }
   }
 
   /**

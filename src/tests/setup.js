@@ -67,6 +67,7 @@ global.THREE = {
     play: jest.fn(),
     stop: jest.fn(),
     pause: jest.fn(),
+    disconnect: jest.fn(),
     isPlaying: false
   })),
   Box3: jest.fn(() => ({
@@ -78,27 +79,43 @@ global.THREE = {
 
 // Mock Cannon-es physics for testing
 global.CANNON = {
-  World: jest.fn(() => ({
-    add: jest.fn(),
-    remove: jest.fn(),
-    step: jest.fn(),
-    contactmaterials: [], // Array with map method for contact materials logging
-    addContactMaterial: jest.fn(),
-    removeContactMaterial: jest.fn(),
-    addBody: jest.fn(),
-    removeBody: jest.fn(),
-    gravity: { set: jest.fn() },
-    solver: { iterations: 30, tolerance: 0.0001 },
-    broadphase: null,
-    allowSleep: true,
-    defaultSleepSpeedLimit: 0.15,
-    defaultSleepTimeLimit: 0.2,
-    defaultContactMaterial: { friction: 0.8, restitution: 0.1 },
-    bodies: [],
-    constraints: [],
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn()
-  })),
+  World: jest.fn(() => {
+    const world = {
+      add: jest.fn(),
+      remove: jest.fn(),
+      step: jest.fn(),
+      contactmaterials: [], // Array with map method for contact materials logging
+      addContactMaterial: jest.fn(),
+      removeContactMaterial: jest.fn(),
+      addBody: jest.fn(),
+      removeBody: jest.fn(),
+      gravity: { set: jest.fn() },
+      solver: {
+        iterations: 30,
+        tolerance: 0.0001,
+        type: 1,
+        equations: [],
+        equationSorter: null
+      },
+      broadphase: null,
+      allowSleep: true,
+      defaultSleepSpeedLimit: 0.15,
+      defaultSleepTimeLimit: 0.2,
+      defaultContactMaterial: {
+        friction: 0.8,
+        restitution: 0.1,
+        contactEquationStiffness: 1e8,
+        contactEquationRelaxation: 4,
+        frictionEquationStiffness: 1e8,
+        frictionEquationRelaxation: 3
+      },
+      bodies: [],
+      constraints: [],
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn()
+    };
+    return world;
+  }),
   Body: jest.fn(() => ({
     position: { x: 0, y: 0, z: 0 },
     velocity: { x: 0, y: 0, z: 0 },
@@ -109,7 +126,10 @@ global.CANNON = {
       x: 0,
       y: 0,
       z: 0,
-      w: 1
+      w: 1,
+      set: jest.fn(),
+      copy: jest.fn(),
+      normalize: jest.fn()
     },
     addShape: jest.fn(),
     userData: {}
@@ -120,7 +140,11 @@ global.CANNON = {
   Sphere: jest.fn(),
   Box: jest.fn(),
   Cylinder: jest.fn(),
-  Plane: jest.fn()
+  Plane: jest.fn(),
+  SAPBroadphase: jest.fn(() => ({
+    type: 'SAPBroadphase',
+    world: null
+  }))
 };
 
 // Mock window.AudioContext
@@ -152,6 +176,7 @@ global.document.createElement = jest.fn(elementType => {
     removeEventListener: jest.fn(),
     appendChild: jest.fn(),
     removeChild: jest.fn(),
+    remove: jest.fn(),
     textContent: '',
     id: '',
     children: [],
