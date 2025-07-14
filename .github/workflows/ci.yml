@@ -11,9 +11,9 @@ env:
   CACHE_NAME: node-modules
 
 jobs:
-  # Code Quality Jobs
-  lint:
-    name: Lint Code
+  # Quality and Security Jobs
+  quality-checks:
+    name: Quality & Security
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -34,22 +34,6 @@ jobs:
       - name: Check code formatting
         run: npm run format:check
 
-  security:
-    name: Security Audit
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
       - name: Run security audit
         run: npm audit --audit-level moderate
 
@@ -60,7 +44,7 @@ jobs:
   build:
     name: Build Application
     runs-on: ubuntu-latest
-    needs: [lint]
+    needs: [quality-checks]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -101,7 +85,7 @@ jobs:
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
-    needs: [lint]
+    needs: [quality-checks]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -129,7 +113,7 @@ jobs:
   integration-tests:
     name: Integration Tests
     runs-on: ubuntu-latest
-    needs: [lint]
+    needs: [quality-checks]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -323,24 +307,24 @@ jobs:
   deployment-check:
     name: Deployment Readiness
     runs-on: ubuntu-latest
-    needs: [build, unit-tests, integration-tests, uat-tests, security]
+    needs: [build, unit-tests, integration-tests, uat-tests, quality-checks]
     if: always()
     steps:
       - name: Check all jobs status
         run: |
+          echo "Quality & Security: ${{ needs.quality-checks.result }}"
           echo "Build: ${{ needs.build.result }}"
           echo "Unit Tests: ${{ needs.unit-tests.result }}"
           echo "Integration Tests: ${{ needs.integration-tests.result }}"
           echo "UAT Tests: ${{ needs.uat-tests.result }}"
-          echo "Security: ${{ needs.security.result }}"
           
           if [[ "${{ needs.build.result }}" != "success" ]]; then
             echo "❌ Build failed - deployment blocked"
             exit 1
           fi
           
-          if [[ "${{ needs.security.result }}" != "success" ]]; then
-            echo "❌ Security check failed - deployment blocked"
+          if [[ "${{ needs.quality-checks.result }}" != "success" ]]; then
+            echo "❌ Quality/Security checks failed - deployment blocked"
             exit 1
           fi
           
@@ -373,8 +357,8 @@ jobs:
       - name: Generate deployment summary
         run: |
           echo "# Deployment Summary" > deployment-summary.md
+          echo "- **Quality & Security**: ${{ needs.quality-checks.result }}" >> deployment-summary.md
           echo "- **Build**: ${{ needs.build.result }}" >> deployment-summary.md
-          echo "- **Security**: ${{ needs.security.result }}" >> deployment-summary.md
           echo "- **Unit Tests**: ${{ needs.unit-tests.result }}" >> deployment-summary.md
           echo "- **Integration Tests**: ${{ needs.integration-tests.result }}" >> deployment-summary.md
           echo "- **UAT Tests**: ${{ needs.uat-tests.result }}" >> deployment-summary.md
