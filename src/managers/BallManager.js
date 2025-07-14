@@ -82,7 +82,7 @@ export class BallManager {
    * Handle the start of a new hole
    * @param {GameEvent} event - The hole started event
    */
-  handleHoleStarted(event) {
+  handleHoleStarted(_event) {
     console.log(
       `[BallManager.handleHoleStarted] Event received. isInitialized: ${this.isInitialized}, game initialized?: ${this.game.isInitialized}`
     );
@@ -217,7 +217,9 @@ export class BallManager {
    * Update ball motion state
    */
   updateBallState() {
-    if (!this.ball) {return;}
+    if (!this.ball) {
+      return;
+    }
 
     // Previous state
     this.wasMoving = this.game.stateManager.isBallInMotion();
@@ -262,7 +264,9 @@ export class BallManager {
    * Update the ball each frame
    */
   update() {
-    if (!this.ball) {return;}
+    if (!this.ball) {
+      return;
+    }
 
     // Update ball physics and rendering
     this.ball.update(this.game.deltaTime);
@@ -329,7 +333,9 @@ export class BallManager {
    * @param {number} power - Power of the hit (0-1)
    */
   hitBall(direction, power) {
-    if (!this.ball) {return;}
+    if (!this.ball) {
+      return;
+    }
 
     // Save last safe position before hitting
     this.lastBallPosition.copy(this.ball.mesh.position);
@@ -370,7 +376,9 @@ export class BallManager {
    * @param {THREE.Vector3} [position] - Optional position to reset the ball to. If not provided, uses last safe position or start position.
    */
   resetBall(position) {
-    if (!this.ball) {return;}
+    if (!this.ball) {
+      return;
+    }
 
     // If no position provided, use last safe position or get world start position from course
     const startPosition = this.game.course?.getHoleStartPosition();
@@ -409,7 +417,7 @@ export class BallManager {
    * Handle hazard detection
    */
   handleHazardDetected(event) {
-    const hazardType = event.get('hazardType');
+    const _hazardType = event.get('hazardType');
     const penalty = event.get('penalty', 1);
 
     // Add penalty strokes
@@ -461,8 +469,10 @@ export class BallManager {
    * Handle ball in hole event
    * @param {GameEvent} event - The ball in hole event
    */
-  handleBallInHole(event) {
-    if (!this.ball) {return;}
+  handleBallInHole(_event) {
+    if (!this.ball) {
+      return;
+    }
 
     // Play ball success effect
     this.ball.handleHoleSuccess();

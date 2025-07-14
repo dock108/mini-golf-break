@@ -23,7 +23,7 @@ export class GameEvent {
    * @returns {*} The value or defaultValue
    */
   get(key, defaultValue = null) {
-    return this.data.hasOwnProperty(key) ? this.data[key] : defaultValue;
+    return Object.prototype.hasOwnProperty.call(this.data, key) ? this.data[key] : defaultValue;
   }
 
   /**
