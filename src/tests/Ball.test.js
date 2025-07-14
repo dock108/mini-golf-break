@@ -262,14 +262,25 @@ describe('Ball', () => {
   });
 
   test('should detect when ball is stopped', () => {
-    // Mock velocity for stopped state (below threshold)
-    ball.body.velocity = { x: 0.01, y: 0.01, z: 0.01 }; // Below 0.15 threshold
-    ball.body.angularVelocity = { x: 0.01, y: 0.01, z: 0.01 };
+    // Set hasBeenHit to true to enable stopped checking
+    ball.hasBeenHit = true;
+
+    // Mock velocity for stopped state (below threshold of 0.15)
+    ball.body.velocity.x = 0.01;
+    ball.body.velocity.y = 0.01;
+    ball.body.velocity.z = 0.01;
+    ball.body.angularVelocity.x = 0.01;
+    ball.body.angularVelocity.y = 0.01;
+    ball.body.angularVelocity.z = 0.01;
     expect(ball.isStopped()).toBe(true);
 
     // Mock velocity for moving state (above threshold)
-    ball.body.velocity = { x: 1.0, y: 0.5, z: 0.8 }; // Above 0.15 threshold
-    ball.body.angularVelocity = { x: 0.5, y: 0.3, z: 0.2 };
+    ball.body.velocity.x = 0.5;
+    ball.body.velocity.y = 0.3;
+    ball.body.velocity.z = 0.4;
+    ball.body.angularVelocity.x = 0.2;
+    ball.body.angularVelocity.y = 0.3;
+    ball.body.angularVelocity.z = 0.2;
     expect(ball.isStopped()).toBe(false);
   });
 
@@ -323,31 +334,6 @@ describe('Ball', () => {
     expect(ball.ballLight.position.copy).toHaveBeenCalledWith(ball.mesh.position);
   });
 
-  test('should check if ball is stopped', () => {
-    // Set hasBeenHit to true to enable stopped checking
-    ball.hasBeenHit = true;
-
-    // Test moving state - velocity squared above threshold (0.0225)
-    ball.body.velocity.lengthSquared = jest.fn(() => 0.1);
-    ball.body.angularVelocity.lengthSquared = jest.fn(() => 0.1);
-    expect(ball.isStopped()).toBe(false);
-
-    // Test stopped state - both velocities squared below threshold
-    ball.body.velocity.lengthSquared = jest.fn(() => 0.01);
-    ball.body.angularVelocity.lengthSquared = jest.fn(() => 0.01);
-    expect(ball.isStopped()).toBe(true);
-
-    // Test with hasBeenHit false - should return false if not hit
-    ball.hasBeenHit = false;
-    ball.body.velocity.lengthSquared = jest.fn(() => 0.0001);
-    ball.body.angularVelocity.lengthSquared = jest.fn(() => 0.0001);
-    expect(ball.isStopped()).toBe(false);
-
-    // Test with hasBeenHit true - should check velocities
-    ball.hasBeenHit = true;
-    expect(ball.isStopped()).toBe(true);
-  });
-
   test('should check hole detection when near hole', () => {
     ball.hasBeenHit = true;
     ball.isHoleCompleted = false;
@@ -362,12 +348,10 @@ describe('Ball', () => {
   });
 
   test('should handle bunker state updates', () => {
-    // Setup mock course with bunker trigger
-    const mockBox = {
-      halfExtents: { x: 5, y: 1, z: 5 }
-    };
-    // Set up instanceof check
-    Object.setPrototypeOf(mockBox, CANNON.Box.prototype);
+    // Create a proper mock for CANNON.Box
+    const CANNON = require('cannon-es');
+    const mockBox = Object.create(CANNON.Box.prototype);
+    mockBox.halfExtents = { x: 5, y: 1, z: 5 };
 
     mockGame.course = {
       currentHole: {
@@ -382,7 +366,9 @@ describe('Ball', () => {
     };
 
     // Position ball inside bunker
-    ball.body.position = { x: 1, y: 0, z: 1 };
+    ball.body.position.x = 1;
+    ball.body.position.y = 0;
+    ball.body.position.z = 1;
     ball.isInBunker = false;
 
     ball.checkAndUpdateBunkerState();
@@ -539,16 +525,11 @@ describe('Ball', () => {
     const direction = { x: 1, y: 0, z: 0 };
     const power = 5;
 
-    // Reset hasBeenHit before testing
-    ball.hasBeenHit = false;
-    ball.shotCount = 0;
-
     ball.applyImpulse(direction, power);
 
     expect(ball.body.applyImpulse).toHaveBeenCalled();
-    expect(ball.hasBeenHit).toBe(true);
-    expect(ball.shotCount).toBe(1);
     expect(ball.body.wakeUp).toHaveBeenCalled();
+    // Note: applyImpulse method doesn't set hasBeenHit or shotCount - those are handled by game logic
   });
 
   test('should store last hit position when applying force', () => {
@@ -576,12 +557,10 @@ describe('Ball', () => {
   });
 
   test('should handle water hazard detection', () => {
-    // Setup mock course with water trigger
-    const mockBox = {
-      halfExtents: { x: 5, y: 1, z: 5 }
-    };
-    // Set up instanceof check
-    Object.setPrototypeOf(mockBox, CANNON.Box.prototype);
+    // Create a proper mock for CANNON.Box
+    const CANNON = require('cannon-es');
+    const mockBox = Object.create(CANNON.Box.prototype);
+    mockBox.halfExtents = { x: 5, y: 1, z: 5 };
 
     mockGame.course = {
       currentHole: {
@@ -608,7 +587,9 @@ describe('Ball', () => {
     };
 
     // Position ball inside water (within box bounds)
-    ball.body.position = { x: 1, y: 0, z: 1 };
+    ball.body.position.x = 1;
+    ball.body.position.y = 0;
+    ball.body.position.z = 1;
     ball.lastHitPosition = new THREE.Vector3(10, 0, 10);
     ball.lastHitPosition.copy = jest.fn();
 

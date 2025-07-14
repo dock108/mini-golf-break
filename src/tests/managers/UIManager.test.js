@@ -56,6 +56,30 @@ describe('UIManager', () => {
     // Clear DOM
     document.body.innerHTML = '';
 
+    // Mock classList for DOM elements
+    const originalCreateElement = document.createElement;
+    document.createElement = jest.fn(tagName => {
+      const element = originalCreateElement.call(document, tagName);
+      if (!element.classList) {
+        const classes = new Set();
+        element.classList = {
+          add: jest.fn(className => classes.add(className)),
+          remove: jest.fn(className => classes.delete(className)),
+          contains: jest.fn(className => classes.has(className)),
+          toggle: jest.fn(className => {
+            if (classes.has(className)) {
+              classes.delete(className);
+              return false;
+            } else {
+              classes.add(className);
+              return true;
+            }
+          })
+        };
+      }
+      return element;
+    });
+
     // Create mock game
     mockGame = {
       eventManager: {
@@ -162,7 +186,7 @@ describe('UIManager', () => {
 
       expect(uiManager.uiContainer).toBeTruthy();
       expect(uiManager.uiContainer.id).toBe('ui-container');
-      expect(uiManager.uiContainer.getAttribute('class')).toBe('ui-container');
+      expect(uiManager.uiContainer.classList.contains('ui-container')).toBe(true);
       expect(document.body.contains(uiManager.uiContainer)).toBe(true);
     });
 
@@ -210,7 +234,7 @@ describe('UIManager', () => {
 
       expect(uiManager.messageElement).toBeTruthy();
       expect(uiManager.messageElement.id).toBe('message-container');
-      expect(uiManager.messageElement.getAttribute('class')).toBe('message-container');
+      expect(uiManager.messageElement.classList.contains('message-container')).toBe(true);
       expect(uiManager.uiContainer.contains(uiManager.messageElement)).toBe(true);
     });
   });
@@ -225,7 +249,7 @@ describe('UIManager', () => {
       uiManager.createPowerIndicatorUI();
 
       expect(uiManager.powerIndicator).toBeTruthy();
-      expect(uiManager.powerIndicator.getAttribute('class')).toBe('power-indicator');
+      expect(uiManager.powerIndicator.classList.contains('power-indicator')).toBe(true);
       expect(uiManager.uiContainer.contains(uiManager.powerIndicator)).toBe(true);
 
       const fillElement = uiManager.powerIndicator.querySelector('.power-indicator-fill');
@@ -493,7 +517,7 @@ describe('UIManager', () => {
         expect(uiManager.messageElement.textContent).toBe('Test message');
         expect(uiManager.messageElement.style.opacity).toBe('1');
         expect(uiManager.messageElement.style.visibility).toBe('visible');
-        expect(uiManager.messageElement.getAttribute('class')).toContain('visible');
+        expect(uiManager.messageElement.classList.contains('visible')).toBe(true);
         expect(uiManager.isShowingMessage).toBe(true);
         expect(global.setTimeout).toHaveBeenCalledWith(expect.any(Function), 2000);
       });
@@ -566,7 +590,7 @@ describe('UIManager', () => {
         transitionCallback();
 
         expect(uiManager.messageElement.style.visibility).toBe('hidden');
-        expect(uiManager.messageElement.getAttribute('class')).not.toContain('visible');
+        expect(uiManager.messageElement.classList.contains('visible')).toBe(false);
       });
     });
   });

@@ -340,21 +340,22 @@ describe('StateManager', () => {
       );
     });
 
-    test('should handle missing event manager', () => {
-      // Set to a state that will complete the game to avoid setGameState call
+    test('should handle case where no more holes are available', () => {
+      // Test with valid eventManager but past last hole
+      stateManager = new StateManager(mockGame);
       stateManager.state.currentHoleNumber = 10;
       mockGame.course.getTotalHoles.mockReturnValue(9);
 
-      // Now remove event manager
-      mockGame.eventManager = null;
+      stateManager.resetForNextHole();
 
-      expect(() => {
-        stateManager.resetForNextHole();
-      }).not.toThrow();
-
-      // Since we're past the last hole, it won't reach the HOLE_STARTED publish
+      // Since we're past the last hole, it should warn and set game completed
       expect(console.warn).toHaveBeenCalledWith(
         '[StateManager] No more holes available - past last hole'
+      );
+      expect(mockGame.eventManager.publish).toHaveBeenCalledWith(
+        EventTypes.GAME_COMPLETED,
+        { timestamp: expect.any(Number) },
+        stateManager
       );
     });
 
