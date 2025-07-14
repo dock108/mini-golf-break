@@ -260,6 +260,11 @@ describe('App Class (main.js)', () => {
     test('should add click listener to play course button', () => {
       const playCourseButton = document.getElementById('play-course');
 
+      // Ensure the button is enhanced before App construction
+      if (!playCourseButton.addEventListener._isMockFunction) {
+        enhanceDOMElement(playCourseButton);
+      }
+
       // Create the app instance which will call addEventListener
       new App();
 
@@ -388,8 +393,7 @@ describe('App Class (main.js)', () => {
       const menuScreen = app.menuScreen; // Use the app's reference
 
       // Ensure menuScreen has querySelector method by calling enhanceDOMElement
-      if (!menuScreen.querySelector) {
-        // Re-enhance the element if needed
+      if (!menuScreen.querySelector || !menuScreen.querySelector._isMockFunction) {
         enhanceDOMElement(menuScreen);
       }
 
@@ -418,6 +422,11 @@ describe('App Class (main.js)', () => {
   describe('integration scenarios', () => {
     test('should handle complete startup flow', async () => {
       const playCourseButton = document.getElementById('play-course');
+
+      // Ensure the button is enhanced before App construction
+      if (!playCourseButton.addEventListener._isMockFunction) {
+        enhanceDOMElement(playCourseButton);
+      }
 
       const app = new App();
 

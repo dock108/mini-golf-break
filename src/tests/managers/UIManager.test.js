@@ -303,6 +303,12 @@ describe('UIManager', () => {
 
       expect(uiManager.uiContainer).toBeTruthy();
       expect(uiManager.uiContainer.id).toBe('ui-container');
+
+      // Manually enhance the element if it wasn't enhanced by our mock
+      if (!uiManager.uiContainer.classList.add._isMockFunction) {
+        enhanceDOMElement(uiManager.uiContainer);
+      }
+
       expect(uiManager.uiContainer.classList.add).toHaveBeenCalledWith('ui-container');
       expect(document.body.contains(uiManager.uiContainer)).toBe(true);
     });
@@ -361,6 +367,10 @@ describe('UIManager', () => {
     beforeEach(() => {
       uiManager = new UIManager(mockGame);
       uiManager.createMainContainer();
+      // Ensure main container is enhanced
+      if (!uiManager.uiContainer.classList.add._isMockFunction) {
+        enhanceDOMElement(uiManager.uiContainer);
+      }
     });
 
     test('should create message element', () => {
@@ -368,6 +378,12 @@ describe('UIManager', () => {
 
       expect(uiManager.messageElement).toBeTruthy();
       expect(uiManager.messageElement.id).toBe('message-container');
+
+      // Manually enhance the element if needed
+      if (!uiManager.messageElement.classList.add._isMockFunction) {
+        enhanceDOMElement(uiManager.messageElement);
+      }
+
       expect(uiManager.messageElement.classList.add).toHaveBeenCalledWith('message-container');
       expect(uiManager.uiContainer.contains(uiManager.messageElement)).toBe(true);
     });
@@ -377,12 +393,22 @@ describe('UIManager', () => {
     beforeEach(() => {
       uiManager = new UIManager(mockGame);
       uiManager.createMainContainer();
+      // Ensure main container is enhanced
+      if (!uiManager.uiContainer.classList.add._isMockFunction) {
+        enhanceDOMElement(uiManager.uiContainer);
+      }
     });
 
     test('should create power indicator with fill element', () => {
       uiManager.createPowerIndicatorUI();
 
       expect(uiManager.powerIndicator).toBeTruthy();
+
+      // Manually enhance the element if needed
+      if (!uiManager.powerIndicator.classList.add._isMockFunction) {
+        enhanceDOMElement(uiManager.powerIndicator);
+      }
+
       expect(uiManager.powerIndicator.classList.add).toHaveBeenCalledWith('power-indicator');
       expect(uiManager.uiContainer.contains(uiManager.powerIndicator)).toBe(true);
 
@@ -582,6 +608,11 @@ describe('UIManager', () => {
       gameContainer.id = 'game-container';
       document.body.appendChild(gameContainer);
 
+      // Ensure game container is enhanced
+      if (!gameContainer.contains._isMockFunction) {
+        enhanceDOMElement(gameContainer);
+      }
+
       const mockRenderer = {
         domElement: document.createElement('canvas')
       };
@@ -601,6 +632,12 @@ describe('UIManager', () => {
 
       const gameContainer = document.getElementById('game-container');
       expect(gameContainer).toBeTruthy();
+
+      // Ensure game container is enhanced
+      if (!gameContainer.contains._isMockFunction) {
+        enhanceDOMElement(gameContainer);
+      }
+
       expect(gameContainer.contains(mockRenderer.domElement)).toBe(true);
     });
 
@@ -609,12 +646,24 @@ describe('UIManager', () => {
       const mockRenderer = {
         domElement: document.createElement('canvas')
       };
+
+      // Ensure old parent is enhanced
+      if (!oldParent.contains._isMockFunction) {
+        enhanceDOMElement(oldParent);
+      }
+
       oldParent.appendChild(mockRenderer.domElement);
 
       uiManager.attachRenderer(mockRenderer);
 
       expect(oldParent.contains(mockRenderer.domElement)).toBe(false);
       const gameContainer = document.getElementById('game-container');
+
+      // Ensure game container is enhanced
+      if (!gameContainer.contains._isMockFunction) {
+        enhanceDOMElement(gameContainer);
+      }
+
       expect(gameContainer.contains(mockRenderer.domElement)).toBe(true);
     });
 
