@@ -48,7 +48,10 @@ module.exports = {
         '/src/tests/integration/',
         '/src/tests/setup.js',
         '/src/tests/.*Test.js$'
-      ]
+      ],
+      testEnvironment: 'jsdom',
+      setupFilesAfterEnv: ['<rootDir>/src/tests/setup.js'],
+      setupFiles: ['<rootDir>/src/tests/jest.setup.js']
     },
     {
       displayName: 'integration',

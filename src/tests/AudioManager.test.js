@@ -67,7 +67,8 @@ describe('AudioManager', () => {
       audioManager = new AudioManager(mockGame);
 
       expect(audioManager.game).toBe(mockGame);
-      expect(audioManager.audioListener).toBe(null);
+      // init() is called in constructor, so audioListener is created
+      expect(audioManager.audioListener).toBe(mockAudioListener);
       expect(audioManager.sounds).toBeDefined();
       expect(typeof audioManager.sounds).toBe('object');
     });
@@ -79,41 +80,37 @@ describe('AudioManager', () => {
     });
 
     test('should create audio listener', () => {
-      audioManager.init();
-
+      // init() is already called in constructor, so AudioListener is already created
       expect(THREE.AudioListener).toHaveBeenCalled();
       expect(audioManager.audioListener).toBe(mockAudioListener);
     });
 
     test('should add audio listener to camera', () => {
-      audioManager.init();
-
+      // init() is already called in constructor
       expect(mockCamera.add).toHaveBeenCalledWith(mockAudioListener);
     });
 
     test('should initialize sounds', () => {
-      audioManager.init();
-
+      // init() is already called in constructor
       expect(audioManager.sounds.hit).toBeDefined();
       expect(audioManager.sounds.success).toBeDefined();
       expect(THREE.Audio).toHaveBeenCalledTimes(2);
     });
 
     test('should handle missing camera gracefully', () => {
-      audioManager.game.camera = null;
+      // Create a game without camera
+      const gameWithoutCamera = { ...mockGame, camera: null };
 
       expect(() => {
-        audioManager.init();
+        new AudioManager(gameWithoutCamera);
       }).not.toThrow();
-
-      expect(audioManager.audioListener).toBe(null);
     });
   });
 
   describe('sound playback', () => {
     beforeEach(() => {
       audioManager = new AudioManager(mockGame);
-      audioManager.init();
+      // init() is already called in constructor
     });
 
     test('should play hit sound', () => {

@@ -23,6 +23,55 @@ jest.mock('three/examples/jsm/controls/OrbitControls', () => ({
   }))
 }));
 
+// Mock PhysicsWorld
+jest.mock('../../physics/PhysicsWorld', () => ({
+  PhysicsWorld: jest.fn(() => ({
+    world: {
+      broadphase: {},
+      gravity: { set: jest.fn() },
+      addBody: jest.fn(),
+      removeBody: jest.fn(),
+      step: jest.fn(),
+      bodies: [],
+      addContactMaterial: jest.fn()
+    },
+    update: jest.fn(),
+    cleanup: jest.fn()
+  }))
+}));
+
+// Mock BasicCourse and NineHoleCourse
+jest.mock('../../objects/courses/BasicCourse', () => ({
+  BasicCourse: {
+    create: jest.fn(async () => ({
+      currentHoleEntity: {
+        hole: {},
+        ballStartPosition: { x: 0, y: 0, z: 0 }
+      },
+      holeNumber: 1,
+      reset: jest.fn(),
+      cleanup: jest.fn()
+    }))
+  }
+}));
+
+jest.mock('../../objects/courses/NineHoleCourse', () => ({
+  NineHoleCourse: {
+    create: jest.fn(async () => ({
+      currentHoleEntity: {
+        hole: {},
+        ballStartPosition: { x: 0, y: 0, z: 0 }
+      },
+      holeNumber: 1,
+      reset: jest.fn(),
+      cleanup: jest.fn(),
+      nextHole: jest.fn(),
+      previousHole: jest.fn(),
+      getTotalStrokes: jest.fn(() => 0)
+    }))
+  }
+}));
+
 describe('Game Initialization Integration', () => {
   let game;
 

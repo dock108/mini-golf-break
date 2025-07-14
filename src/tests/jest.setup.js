@@ -31,6 +31,36 @@ console.error = jest.fn((message, ...args) => {
 process.env.NODE_ENV = 'test';
 process.env.DISABLE_DEBUG_LOGGING = 'true';
 
+// Mock CANNON-ES SAPBroadphase
+jest.mock('cannon-es', () => {
+  const originalCannon = jest.requireActual('cannon-es');
+  return {
+    ...originalCannon,
+    World: jest.fn(() => ({
+      broadphase: null,
+      gravity: { set: jest.fn() },
+      addBody: jest.fn(),
+      removeBody: jest.fn(),
+      step: jest.fn(),
+      bodies: []
+    })),
+    SAPBroadphase: jest.fn(() => ({})),
+    NaiveBroadphase: jest.fn(() => ({})),
+    Material: jest.fn(() => ({})),
+    ContactMaterial: jest.fn(() => ({})),
+    Body: jest.fn(() => ({
+      position: { x: 0, y: 0, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 },
+      quaternion: { x: 0, y: 0, z: 0, w: 1 }
+    })),
+    Vec3: jest.fn((x, y, z) => ({ x, y, z })),
+    Sphere: jest.fn(radius => ({ radius })),
+    Box: jest.fn(() => ({})),
+    Plane: jest.fn(() => ({})),
+    Cylinder: jest.fn(() => ({}))
+  };
+});
+
 // Mock Three.js OrbitControls to avoid ES module import issues
 jest.mock('three/examples/jsm/controls/OrbitControls', () => ({
   OrbitControls: jest.fn(() => ({

@@ -54,7 +54,8 @@ describe('UIScoreOverlay', () => {
     // Mock parent container
     mockParentContainer = {
       appendChild: jest.fn(),
-      removeChild: jest.fn()
+      removeChild: jest.fn(),
+      querySelector: jest.fn(() => null) // Returns null for top-right container query
     };
 
     // Mock game object

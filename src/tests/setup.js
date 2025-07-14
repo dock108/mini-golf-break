@@ -70,6 +70,27 @@ global.CANNON = {
   Box: jest.fn()
 };
 
+// Mock window.AudioContext
+global.window = global.window || {};
+global.window.AudioContext = jest.fn(() => ({
+  createGain: jest.fn(() => ({
+    gain: { value: 1 },
+    connect: jest.fn()
+  })),
+  createBufferSource: jest.fn(() => ({
+    buffer: null,
+    connect: jest.fn(),
+    start: jest.fn(),
+    stop: jest.fn()
+  })),
+  decodeAudioData: jest.fn((buffer, success) => {
+    success({});
+  }),
+  destination: {},
+  state: 'running',
+  currentTime: 0
+}));
+
 // Mock DOM methods that might be used
 global.document.createElement = jest.fn(elementType => {
   const element = {

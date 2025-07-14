@@ -3,287 +3,263 @@
  */
 
 import { CourseElementFactory } from '../../objects/CourseElementFactory';
-import { CourseElementRegistry } from '../../objects/CourseElementRegistry';
 import * as THREE from 'three';
+import * as CANNON from 'cannon-es';
 
-// Mock dependencies
-jest.mock('../../objects/CourseElementRegistry');
-jest.mock('../../objects/BaseElement');
-jest.mock('../../objects/WallElement');
-jest.mock('../../objects/BunkerElement');
+// Mock THREE dependencies
+jest.mock('three');
+
+// Mock CANNON dependencies
+jest.mock('cannon-es');
 
 describe('CourseElementFactory', () => {
   let mockScene;
   let mockPhysicsWorld;
-  let factory;
+  let mockPosition;
 
   beforeEach(() => {
     // Mock scene
     mockScene = {
-      add: jest.fn(),
-      remove: jest.fn()
+      add: jest.fn()
     };
 
     // Mock physics world
     mockPhysicsWorld = {
       addBody: jest.fn(),
-      removeBody: jest.fn()
+      defaultMaterial: {},
+      holeRimMaterial: {}
     };
 
-    // Mock registry methods
-    CourseElementRegistry.register = jest.fn();
-    CourseElementRegistry.get = jest.fn();
-    CourseElementRegistry.getAll = jest.fn(() => []);
+    // Mock position
+    mockPosition = new THREE.Vector3(0, 0, 0);
 
-    // Create factory instance
-    factory = new CourseElementFactory(mockScene, mockPhysicsWorld);
+    // Mock THREE constructors
+    THREE.CircleGeometry.mockImplementation(() => ({}));
+    THREE.CylinderGeometry.mockImplementation(() => ({}));
+    THREE.RingGeometry.mockImplementation(() => ({}));
+    THREE.PlaneGeometry.mockImplementation(() => ({}));
+    THREE.BoxGeometry.mockImplementation(() => ({}));
+    THREE.Mesh.mockImplementation(() => ({
+      position: { set: jest.fn(), copy: jest.fn(), x: 0, y: 0, z: 0 },
+      rotation: { x: 0, y: 0, z: 0, set: jest.fn() },
+      castShadow: false,
+      receiveShadow: false,
+      add: jest.fn(),
+      userData: {}
+    }));
+    THREE.MeshBasicMaterial.mockImplementation(() => ({}));
+    THREE.MeshStandardMaterial.mockImplementation(() => ({}));
+    THREE.PointLight.mockImplementation(() => ({
+      position: { set: jest.fn() }
+    }));
+    THREE.Vector3.mockImplementation((x, y, z) => ({
+      x: x || 0,
+      y: y || 0,
+      z: z || 0,
+      copy: jest.fn(),
+      set: jest.fn(),
+      addVectors: jest.fn().mockReturnThis(),
+      subVectors: jest.fn().mockReturnThis(),
+      multiplyScalar: jest.fn().mockReturnThis(),
+      normalize: jest.fn().mockReturnThis()
+    }));
+    THREE.CanvasTexture.mockImplementation(() => ({}));
+
+    // Mock CANNON constructors
+    CANNON.Vec3.mockImplementation((x, y, z) => ({ x, y, z }));
+    CANNON.Body.mockImplementation(() => ({
+      position: { x: 0, y: 0, z: 0 },
+      quaternion: { setFromAxisAngle: jest.fn() },
+      userData: {},
+      addShape: jest.fn()
+    }));
+    CANNON.Cylinder.mockImplementation(() => ({}));
+    CANNON.Plane.mockImplementation(() => ({}));
+    CANNON.Box.mockImplementation(() => ({}));
+
+    // Mock document.createElement for canvas texture
+    global.document.createElement = jest.fn(() => ({
+      width: 64,
+      height: 64,
+      getContext: jest.fn(() => ({
+        fillStyle: '',
+        fillRect: jest.fn()
+      }))
+    }));
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('constructor', () => {
-    test('should initialize with scene and physics world', () => {
-      expect(factory.scene).toBe(mockScene);
-      expect(factory.physicsWorld).toBe(mockPhysicsWorld);
+  describe('createHole', () => {
+    test('should create hole with all components', () => {
+      const elements = CourseElementFactory.createHole(mockScene, mockPhysicsWorld, mockPosition);
+
+      expect(elements).toHaveProperty('holeBottom');
+      expect(elements).toHaveProperty('holeWall');
+      expect(elements).toHaveProperty('rim');
+      expect(elements).toHaveProperty('bodies');
+
+      // Verify scene.add was called for visual elements
+      expect(mockScene.add).toHaveBeenCalledTimes(3); // bottom, wall, rim
     });
 
-    test('should register default elements', () => {
-      expect(CourseElementRegistry.register).toHaveBeenCalledWith('wall', expect.any(Function));
-      expect(CourseElementRegistry.register).toHaveBeenCalledWith('bunker', expect.any(Function));
-    });
-  });
+    test('should create hole without physics if no physics world', () => {
+      const elements = CourseElementFactory.createHole(mockScene, null, mockPosition);
 
-  describe('createElement', () => {
-    test('should create element of specified type', () => {
-      const mockElementClass = jest.fn(() => ({
-        init: jest.fn(),
-        mesh: {},
-        body: {}
-      }));
-      CourseElementRegistry.get.mockReturnValue(mockElementClass);
-
-      const config = { type: 'wall', position: { x: 0, y: 0, z: 0 } };
-      const element = factory.createElement(config);
-
-      expect(CourseElementRegistry.get).toHaveBeenCalledWith('wall');
-      expect(mockElementClass).toHaveBeenCalledWith(mockScene, mockPhysicsWorld, config);
-      expect(element).toBeDefined();
+      expect(elements).toHaveProperty('holeBottom');
+      expect(elements).toHaveProperty('holeWall');
+      expect(elements).toHaveProperty('rim');
+      expect(elements).not.toHaveProperty('bodies');
     });
 
-    test('should throw error for unknown element type', () => {
-      CourseElementRegistry.get.mockReturnValue(null);
+    test('should use custom radius and depth', () => {
+      const options = { radius: 0.6, depth: 0.4 };
+      CourseElementFactory.createHole(mockScene, mockPhysicsWorld, mockPosition, options);
 
-      const config = { type: 'unknown' };
-
-      expect(() => {
-        factory.createElement(config);
-      }).toThrow('Unknown element type: unknown');
+      expect(THREE.CircleGeometry).toHaveBeenCalledWith(0.6, 32);
+      expect(THREE.CylinderGeometry).toHaveBeenCalledWith(0.6, 0.6, 0.4, 32);
     });
 
-    test('should initialize created element', () => {
-      const mockElement = {
-        init: jest.fn()
-      };
-      const mockElementClass = jest.fn(() => mockElement);
-      CourseElementRegistry.get.mockReturnValue(mockElementClass);
+    test('should create physics bodies when physics world exists', () => {
+      CourseElementFactory.createHole(mockScene, mockPhysicsWorld, mockPosition);
 
-      const config = { type: 'bunker' };
-      factory.createElement(config);
-
-      expect(mockElement.init).toHaveBeenCalled();
+      expect(CANNON.Body).toHaveBeenCalled();
+      expect(mockPhysicsWorld.addBody).toHaveBeenCalled();
     });
   });
 
-  describe('createMultiple', () => {
-    test('should create multiple elements', () => {
-      const mockElement = {
-        init: jest.fn(),
-        mesh: {},
-        body: {}
-      };
-      const mockElementClass = jest.fn(() => mockElement);
-      CourseElementRegistry.get.mockReturnValue(mockElementClass);
+  describe('createFlag', () => {
+    test('should create flag with all components', () => {
+      const elements = CourseElementFactory.createFlag(mockScene, mockPosition);
 
-      const configs = [
-        { type: 'wall', position: { x: 0, y: 0, z: 0 } },
-        { type: 'wall', position: { x: 5, y: 0, z: 0 } },
-        { type: 'bunker', position: { x: 10, y: 0, z: 0 } }
+      expect(elements).toHaveProperty('pole');
+      expect(elements).toHaveProperty('flag');
+      expect(elements).toHaveProperty('light');
+
+      // Verify scene.add was called
+      expect(mockScene.add).toHaveBeenCalledTimes(3); // pole, flag, light
+    });
+
+    test('should use custom height', () => {
+      const options = { height: 2.5 };
+      CourseElementFactory.createFlag(mockScene, mockPosition, options);
+
+      expect(THREE.CylinderGeometry).toHaveBeenCalledWith(0.03, 0.03, 2.5, 8);
+    });
+
+    test('should create flag with animation data', () => {
+      const elements = CourseElementFactory.createFlag(mockScene, mockPosition);
+
+      // The flag mesh should have userData with originalVertices
+      expect(elements.flag.userData).toBeDefined();
+    });
+  });
+
+  describe('createFairway', () => {
+    test('should create fairway between two points', () => {
+      const startPos = new THREE.Vector3(0, 0, 0);
+      const endPos = new THREE.Vector3(10, 0, 0);
+      const width = 5;
+      const length = 10;
+
+      const elements = CourseElementFactory.createFairway(
+        mockScene,
+        startPos,
+        endPos,
+        width,
+        length
+      );
+
+      expect(elements).toHaveProperty('border');
+      expect(elements).toHaveProperty('fairway');
+
+      // Verify scene.add was called
+      expect(mockScene.add).toHaveBeenCalledTimes(2); // border and fairway
+    });
+
+    test('should calculate midpoint correctly', () => {
+      const startPos = new THREE.Vector3(0, 0, 0);
+      const endPos = new THREE.Vector3(10, 0, 10);
+
+      CourseElementFactory.createFairway(mockScene, startPos, endPos, 5, 10);
+
+      // Verify Vector3 methods were called for midpoint calculation
+      expect(THREE.Vector3.prototype.addVectors).toHaveBeenCalled();
+      expect(THREE.Vector3.prototype.multiplyScalar).toHaveBeenCalledWith(0.5);
+    });
+  });
+
+  describe('createWalls', () => {
+    test('should create multiple walls', () => {
+      const walls = [
+        { position: [0, 0, 0], size: [1, 1, 1] },
+        { position: [5, 0, 0], size: [2, 2, 2] }
       ];
 
-      const elements = factory.createMultiple(configs);
+      const elements = CourseElementFactory.createWalls(mockScene, mockPhysicsWorld, walls);
 
-      expect(elements.length).toBe(3);
-      expect(mockElementClass).toHaveBeenCalledTimes(3);
+      expect(elements).toHaveLength(2);
+      expect(mockScene.add).toHaveBeenCalledTimes(2);
+      expect(mockPhysicsWorld.addBody).toHaveBeenCalledTimes(2);
     });
 
-    test('should skip invalid configs', () => {
-      CourseElementRegistry.get.mockImplementation(type => {
-        if (type === 'invalid') {
-          return null;
+    test('should create walls without physics if no physics world', () => {
+      const walls = [{ position: [0, 0, 0], size: [1, 1, 1] }];
+
+      const elements = CourseElementFactory.createWalls(mockScene, null, walls);
+
+      expect(elements).toHaveLength(1);
+      expect(elements[0]).toHaveProperty('mesh');
+      expect(elements[0]).not.toHaveProperty('body');
+    });
+  });
+
+  describe('animateFlag', () => {
+    test('should animate flag vertices', () => {
+      const mockFlag = {
+        geometry: {
+          attributes: {
+            position: {
+              array: new Float32Array([0, 0, 0, 1, 0, 0, 2, 0, 0]),
+              needsUpdate: false
+            }
+          }
+        },
+        userData: {
+          originalVertices: [0, 0, 0, 1, 0, 0, 2, 0, 0]
         }
-        return jest.fn(() => ({ init: jest.fn() }));
-      });
-
-      const configs = [{ type: 'wall' }, { type: 'invalid' }, { type: 'bunker' }];
-
-      const elements = factory.createMultiple(configs);
-
-      expect(elements.length).toBe(2);
-    });
-  });
-
-  describe('createWall', () => {
-    test('should create wall with default config', () => {
-      const mockWallElement = {
-        init: jest.fn(),
-        mesh: {},
-        body: {}
       };
-      const mockWallClass = jest.fn(() => mockWallElement);
-      CourseElementRegistry.get.mockReturnValue(mockWallClass);
 
-      const position = new THREE.Vector3(0, 0, 0);
-      const size = new THREE.Vector3(1, 1, 1);
+      CourseElementFactory.animateFlag(mockFlag, 1.0);
 
-      const wall = factory.createWall(position, size);
-
-      expect(CourseElementRegistry.get).toHaveBeenCalledWith('wall');
-      expect(mockWallClass).toHaveBeenCalledWith(
-        mockScene,
-        mockPhysicsWorld,
-        expect.objectContaining({
-          type: 'wall',
-          position,
-          size
-        })
-      );
-      expect(wall).toBe(mockWallElement);
+      // Verify that needsUpdate was set
+      expect(mockFlag.geometry.attributes.position.needsUpdate).toBe(true);
     });
 
-    test('should merge additional config options', () => {
-      const mockWallClass = jest.fn(() => ({ init: jest.fn() }));
-      CourseElementRegistry.get.mockReturnValue(mockWallClass);
-
-      const position = new THREE.Vector3(0, 0, 0);
-      const size = new THREE.Vector3(1, 1, 1);
-      const config = { color: 0xff0000, material: 'metal' };
-
-      factory.createWall(position, size, config);
-
-      expect(mockWallClass).toHaveBeenCalledWith(
-        mockScene,
-        mockPhysicsWorld,
-        expect.objectContaining({
-          type: 'wall',
-          position,
-          size,
-          color: 0xff0000,
-          material: 'metal'
-        })
-      );
-    });
-  });
-
-  describe('createBunker', () => {
-    test('should create bunker with default config', () => {
-      const mockBunkerElement = {
-        init: jest.fn(),
-        mesh: {},
-        body: {}
+    test('should not animate if flag has no userData', () => {
+      const mockFlag = {
+        geometry: {
+          attributes: {
+            position: {
+              array: new Float32Array([0, 0, 0]),
+              needsUpdate: false
+            }
+          }
+        }
       };
-      const mockBunkerClass = jest.fn(() => mockBunkerElement);
-      CourseElementRegistry.get.mockReturnValue(mockBunkerClass);
 
-      const position = new THREE.Vector3(5, 0, 5);
-      const radius = 2;
+      CourseElementFactory.animateFlag(mockFlag, 1.0);
 
-      const bunker = factory.createBunker(position, radius);
-
-      expect(CourseElementRegistry.get).toHaveBeenCalledWith('bunker');
-      expect(mockBunkerClass).toHaveBeenCalledWith(
-        mockScene,
-        mockPhysicsWorld,
-        expect.objectContaining({
-          type: 'bunker',
-          position,
-          radius
-        })
-      );
-      expect(bunker).toBe(mockBunkerElement);
+      // Should not update if no userData
+      expect(mockFlag.geometry.attributes.position.needsUpdate).toBe(false);
     });
 
-    test('should handle custom bunker properties', () => {
-      const mockBunkerClass = jest.fn(() => ({ init: jest.fn() }));
-      CourseElementRegistry.get.mockReturnValue(mockBunkerClass);
-
-      const position = new THREE.Vector3(0, 0, 0);
-      const radius = 3;
-      const config = { depth: 0.5, sandColor: 0xffcc00 };
-
-      factory.createBunker(position, radius, config);
-
-      expect(mockBunkerClass).toHaveBeenCalledWith(
-        mockScene,
-        mockPhysicsWorld,
-        expect.objectContaining({
-          type: 'bunker',
-          position,
-          radius,
-          depth: 0.5,
-          sandColor: 0xffcc00
-        })
-      );
-    });
-  });
-
-  describe('getRegisteredTypes', () => {
-    test('should return all registered element types', () => {
-      CourseElementRegistry.getAll.mockReturnValue({
-        wall: jest.fn(),
-        bunker: jest.fn(),
-        water: jest.fn()
-      });
-
-      const types = factory.getRegisteredTypes();
-
-      expect(types).toEqual(['wall', 'bunker', 'water']);
-    });
-
-    test('should return empty array when no types registered', () => {
-      CourseElementRegistry.getAll.mockReturnValue({});
-
-      const types = factory.getRegisteredTypes();
-
-      expect(types).toEqual([]);
-    });
-  });
-
-  describe('registerCustomElement', () => {
-    test('should register custom element type', () => {
-      const customElementClass = jest.fn();
-
-      factory.registerCustomElement('custom', customElementClass);
-
-      expect(CourseElementRegistry.register).toHaveBeenCalledWith('custom', customElementClass);
-    });
-
-    test('should allow creating custom elements after registration', () => {
-      const mockCustomElement = {
-        init: jest.fn(),
-        mesh: {},
-        body: {}
-      };
-      const customElementClass = jest.fn(() => mockCustomElement);
-
-      factory.registerCustomElement('ramp', customElementClass);
-      CourseElementRegistry.get.mockReturnValue(customElementClass);
-
-      const config = { type: 'ramp', angle: 30 };
-      const element = factory.createElement(config);
-
-      expect(element).toBe(mockCustomElement);
+    test('should handle null flag gracefully', () => {
+      expect(() => {
+        CourseElementFactory.animateFlag(null, 1.0);
+      }).not.toThrow();
     });
   });
 });

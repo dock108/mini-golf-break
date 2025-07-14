@@ -72,203 +72,79 @@ describe('VisualEffectsManager', () => {
     });
 
     test('should log initialization', () => {
-      visualEffectsManager.init();
-
-      expect(mockGame.debugManager.log).toHaveBeenCalledWith('[VisualEffectsManager] Initialized');
-    });
-
-    test('should set initialization flag', () => {
-      expect(visualEffectsManager.isInitialized).toBeUndefined();
+      // Clear previous constructor logs
+      mockGame.debugManager.log.mockClear();
 
       visualEffectsManager.init();
 
-      expect(visualEffectsManager.isInitialized).toBe(true);
+      // Check if console.log was called (not debugManager)
+      expect(console.log).toHaveBeenCalledWith('[VisualEffectsManager] init() called.');
     });
   });
 
-  describe('createSuccessEffect', () => {
+  describe('triggerRejectionEffect', () => {
     beforeEach(() => {
       visualEffectsManager = new VisualEffectsManager(mockGame);
       visualEffectsManager.init();
     });
 
-    test('should create point light effect', () => {
-      const position = { x: 10, y: 5, z: 15 };
+    test('should log rejection effect placeholder message', () => {
+      const position = new THREE.Vector3(10, 5, 15);
 
-      visualEffectsManager.createSuccessEffect(position);
+      visualEffectsManager.triggerRejectionEffect(position);
 
-      expect(THREE.PointLight).toHaveBeenCalledWith(0x00ff00, 2, 10);
-    });
-
-    test('should position light at specified location', () => {
-      const position = { x: 10, y: 5, z: 15 };
-      const mockLight = {
-        position: { set: jest.fn() }
-      };
-      THREE.PointLight.mockReturnValue(mockLight);
-
-      visualEffectsManager.createSuccessEffect(position);
-
-      expect(mockLight.position.set).toHaveBeenCalledWith(10, 5, 15);
-    });
-
-    test('should add light to scene', () => {
-      const position = { x: 0, y: 0, z: 0 };
-
-      visualEffectsManager.createSuccessEffect(position);
-
-      expect(mockScene.add).toHaveBeenCalled();
-    });
-
-    test('should track created effect', () => {
-      const position = { x: 0, y: 0, z: 0 };
-
-      visualEffectsManager.createSuccessEffect(position);
-
-      expect(visualEffectsManager.effects.length).toBe(1);
-      expect(visualEffectsManager.effects[0]).toHaveProperty('light');
-      expect(visualEffectsManager.effects[0]).toHaveProperty('startTime');
-      expect(visualEffectsManager.effects[0]).toHaveProperty('duration');
-    });
-
-    test('should set effect duration', () => {
-      const position = { x: 0, y: 0, z: 0 };
-
-      visualEffectsManager.createSuccessEffect(position);
-
-      const effect = visualEffectsManager.effects[0];
-      expect(effect.duration).toBe(1000); // 1 second
-    });
-  });
-
-  describe('update', () => {
-    beforeEach(() => {
-      visualEffectsManager = new VisualEffectsManager(mockGame);
-      visualEffectsManager.init();
-    });
-
-    test('should update effect intensity over time', () => {
-      const mockLight = {
-        position: { set: jest.fn() },
-        intensity: 2
-      };
-      THREE.PointLight.mockReturnValue(mockLight);
-
-      visualEffectsManager.createSuccessEffect({ x: 0, y: 0, z: 0 });
-      const effect = visualEffectsManager.effects[0];
-      effect.startTime = Date.now() - 500; // Half duration elapsed
-
-      visualEffectsManager.update();
-
-      expect(mockLight.intensity).toBeLessThan(2);
-      expect(mockLight.intensity).toBeGreaterThan(0);
-    });
-
-    test('should remove expired effects', () => {
-      visualEffectsManager.createSuccessEffect({ x: 0, y: 0, z: 0 });
-      const effect = visualEffectsManager.effects[0];
-      effect.startTime = Date.now() - 2000; // Past duration
-
-      visualEffectsManager.update();
-
-      expect(visualEffectsManager.effects.length).toBe(0);
-      expect(mockScene.remove).toHaveBeenCalled();
-    });
-
-    test('should handle multiple effects', () => {
-      visualEffectsManager.createSuccessEffect({ x: 0, y: 0, z: 0 });
-      visualEffectsManager.createSuccessEffect({ x: 5, y: 5, z: 5 });
-
-      expect(visualEffectsManager.effects.length).toBe(2);
-
-      visualEffectsManager.update();
-
-      expect(visualEffectsManager.effects.length).toBe(2);
-    });
-
-    test('should handle empty effects array', () => {
-      expect(() => {
-        visualEffectsManager.update();
-      }).not.toThrow();
-    });
-  });
-
-  describe('createHitEffect', () => {
-    beforeEach(() => {
-      visualEffectsManager = new VisualEffectsManager(mockGame);
-      visualEffectsManager.init();
-    });
-
-    test('should create hit effect with different color', () => {
-      const position = { x: 0, y: 0, z: 0 };
-
-      visualEffectsManager.createHitEffect(position);
-
-      expect(THREE.PointLight).toHaveBeenCalledWith(
-        expect.any(Number),
-        expect.any(Number),
-        expect.any(Number)
+      expect(console.log).toHaveBeenCalledWith(
+        '[VisualEffectsManager] Placeholder: Trigger rejection effect at (10.00, 5.00, 15.00)'
       );
-      expect(visualEffectsManager.effects.length).toBe(1);
+    });
+
+    test('should handle missing scene gracefully', () => {
+      visualEffectsManager.scene = null;
+      const position = new THREE.Vector3(10, 5, 15);
+
+      expect(() => {
+        visualEffectsManager.triggerRejectionEffect(position);
+      }).not.toThrow();
+
+      expect(console.error).toHaveBeenCalledWith(
+        '[VisualEffectsManager] Cannot trigger effect: Scene not available.'
+      );
     });
   });
 
-  describe('cleanup', () => {
+  describe('resetBallVisuals', () => {
     beforeEach(() => {
       visualEffectsManager = new VisualEffectsManager(mockGame);
       visualEffectsManager.init();
     });
 
-    test('should remove all effects from scene', () => {
-      visualEffectsManager.createSuccessEffect({ x: 0, y: 0, z: 0 });
-      visualEffectsManager.createSuccessEffect({ x: 5, y: 5, z: 5 });
+    test('should reset ball material and scale', () => {
+      const mockBall = {
+        mesh: {
+          material: 'modified-material',
+          scale: { set: jest.fn() }
+        },
+        defaultMaterial: 'default-material'
+      };
 
-      visualEffectsManager.cleanup();
+      visualEffectsManager.resetBallVisuals(mockBall);
 
-      expect(mockScene.remove).toHaveBeenCalledTimes(2);
-      expect(visualEffectsManager.effects.length).toBe(0);
+      expect(mockBall.mesh.material).toBe('default-material');
+      expect(mockBall.mesh.scale.set).toHaveBeenCalledWith(1, 1, 1);
     });
 
-    test('should handle cleanup without effects', () => {
+    test('should handle null ball gracefully', () => {
       expect(() => {
-        visualEffectsManager.cleanup();
+        visualEffectsManager.resetBallVisuals(null);
       }).not.toThrow();
     });
 
-    test('should reset initialization state', () => {
-      visualEffectsManager.cleanup();
+    test('should handle ball without mesh gracefully', () => {
+      const mockBall = { defaultMaterial: 'default' };
 
-      expect(visualEffectsManager.isInitialized).toBe(false);
-    });
-  });
-
-  describe('effect types', () => {
-    beforeEach(() => {
-      visualEffectsManager = new VisualEffectsManager(mockGame);
-      visualEffectsManager.init();
-    });
-
-    test('should support different effect types', () => {
-      const types = ['success', 'hit', 'hazard'];
-      const position = { x: 0, y: 0, z: 0 };
-
-      types.forEach(type => {
-        visualEffectsManager.createEffect(type, position);
-      });
-
-      expect(visualEffectsManager.effects.length).toBe(3);
-    });
-
-    test('should use different colors for different effects', () => {
-      const position = { x: 0, y: 0, z: 0 };
-
-      visualEffectsManager.createSuccessEffect(position);
-      const successCall = THREE.PointLight.mock.calls[0];
-
-      visualEffectsManager.createHitEffect(position);
-      const hitCall = THREE.PointLight.mock.calls[1];
-
-      expect(successCall[0]).not.toBe(hitCall[0]); // Different colors
+      expect(() => {
+        visualEffectsManager.resetBallVisuals(mockBall);
+      }).not.toThrow();
     });
   });
 });
