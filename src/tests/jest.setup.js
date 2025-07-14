@@ -76,11 +76,52 @@ jest.mock('cannon-es', () => {
     ContactMaterial: jest.fn(() => ({})),
     Body: jest.fn(() => ({
       position: { x: 0, y: 0, z: 0 },
-      velocity: { x: 0, y: 0, z: 0 },
+      velocity: {
+        x: 0,
+        y: 0,
+        z: 0,
+        set: jest.fn(),
+        copy: jest.fn(),
+        scale: jest.fn(),
+        normalize: jest.fn()
+      },
+      angularVelocity: {
+        x: 0,
+        y: 0,
+        z: 0,
+        set: jest.fn(),
+        copy: jest.fn()
+      },
+      force: {
+        x: 0,
+        y: 0,
+        z: 0,
+        set: jest.fn()
+      },
+      torque: {
+        x: 0,
+        y: 0,
+        z: 0,
+        set: jest.fn()
+      },
       material: null,
+      mass: 1,
+      type: 0,
+      shapes: [],
+      id: Math.random(),
+      sleepState: 0,
+      allowSleep: true,
+      sleepSpeedLimit: 0.15,
+      sleepTimeLimit: 0.2,
+      linearDamping: 0.01,
+      angularDamping: 0.01,
       addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      wakeUp: jest.fn(),
+      sleep: jest.fn(),
       quaternion: {
         setFromAxisAngle: jest.fn(),
+        setFromEuler: jest.fn(),
         x: 0,
         y: 0,
         z: 0,
@@ -90,6 +131,7 @@ jest.mock('cannon-es', () => {
         normalize: jest.fn()
       },
       addShape: jest.fn(),
+      removeShape: jest.fn(),
       userData: {}
     })),
     Vec3: jest.fn((x, y, z) => ({ x, y, z })),

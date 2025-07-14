@@ -6,6 +6,9 @@ export class PhysicsWorld {
     this.world = new CANNON.World();
     this.world.gravity.set(0, -9.81, 0); // Earth gravity
 
+    // Initialize materials array for tracking
+    this.materials = [];
+
     // Set solver iterations to match documentation
     this.world.solver.iterations = 30; // Increased from 20 for better contact resolution
     this.world.solver.tolerance = 0.0001;
@@ -27,6 +30,16 @@ export class PhysicsWorld {
     this.bumperMaterial = new CANNON.Material('bumper'); // New material for obstacles
     this.holeCupMaterial = new CANNON.Material('holeCup'); // Material for the physical hole cup
     this.holeRimMaterial = new CANNON.Material('holeRim'); // New material for the hole edge/funnel
+
+    // Store all materials in the materials array
+    this.materials.push(
+      this.defaultMaterial,
+      this.groundMaterial,
+      this.ballMaterial,
+      this.bumperMaterial,
+      this.holeCupMaterial,
+      this.holeRimMaterial
+    );
 
     // Create contact materials
     this.createContactMaterials();
@@ -465,5 +478,47 @@ export class PhysicsWorld {
     this.setupCollideListener();
 
     console.log('[PhysicsWorld] Physics world reset complete');
+  }
+
+  /**
+   * Step the physics world (wrapper for world.step)
+   */
+  step(timeStep, deltaTime, maxSubSteps) {
+    if (this.world && typeof this.world.step === 'function') {
+      this.world.step(timeStep, deltaTime, maxSubSteps);
+    }
+  }
+
+  /**
+   * Get the underlying Cannon.js world instance
+   */
+  getWorld() {
+    return this.world;
+  }
+
+  /**
+   * Get all materials
+   */
+  getMaterials() {
+    return this.materials || [];
+  }
+
+  /**
+   * Get a material by name
+   */
+  getMaterial(name) {
+    if (!this.materials) {
+      return null;
+    }
+    return this.materials.find(material => material.name === name) || null;
+  }
+
+  /**
+   * Set gravity for the physics world
+   */
+  setGravity(x, y, z) {
+    if (this.world && this.world.gravity && typeof this.world.gravity.set === 'function') {
+      this.world.gravity.set(x, y, z);
+    }
   }
 }

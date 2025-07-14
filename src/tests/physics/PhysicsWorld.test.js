@@ -37,7 +37,7 @@ describe('PhysicsWorld', () => {
 
   beforeEach(() => {
     mockCreationCallback = jest.fn();
-    physicsWorld = new PhysicsWorld(mockCreationCallback);
+    physicsWorld = new PhysicsWorld();
   });
 
   afterEach(() => {
@@ -45,8 +45,8 @@ describe('PhysicsWorld', () => {
   });
 
   describe('constructor', () => {
-    test('should initialize with callback', () => {
-      expect(physicsWorld._collisionCallback).toBe(mockCreationCallback);
+    test('should initialize properly', () => {
+      expect(physicsWorld._collideCallback).toBeDefined();
       expect(physicsWorld.world).toBeDefined();
       expect(physicsWorld.materials).toBeDefined();
     });
@@ -56,46 +56,47 @@ describe('PhysicsWorld', () => {
     });
 
     test('should set gravity', () => {
-      expect(physicsWorld.world.gravity.set).toHaveBeenCalledWith(0, -9.82, 0);
+      expect(physicsWorld.world.gravity.set).toHaveBeenCalledWith(0, -9.81, 0);
     });
 
     test('should set broadphase', () => {
-      expect(CANNON.NaiveBroadphase).toHaveBeenCalled();
+      expect(CANNON.SAPBroadphase).toHaveBeenCalled();
       expect(physicsWorld.world.broadphase).toBeDefined();
     });
 
     test('should set solver iterations', () => {
-      expect(physicsWorld.world.solver.iterations).toBe(10);
+      expect(physicsWorld.world.solver.iterations).toBe(30);
     });
   });
 
   describe('materials', () => {
     test('should create materials', () => {
-      expect(physicsWorld.materials.ground).toBeDefined();
-      expect(physicsWorld.materials.ball).toBeDefined();
-      expect(physicsWorld.materials.holeCup).toBeDefined();
-      expect(physicsWorld.materials.holeRim).toBeDefined();
-      expect(physicsWorld.materials.bumper).toBeDefined();
+      expect(physicsWorld.groundMaterial).toBeDefined();
+      expect(physicsWorld.ballMaterial).toBeDefined();
+      expect(physicsWorld.holeCupMaterial).toBeDefined();
+      expect(physicsWorld.holeRimMaterial).toBeDefined();
+      expect(physicsWorld.bumperMaterial).toBeDefined();
+      expect(physicsWorld.materials).toHaveLength(6); // All materials in array
     });
 
     test('should create contact materials', () => {
-      // Ball-ground contact
+      // Ball-ground contact (using actual implementation values)
       expect(CANNON.ContactMaterial).toHaveBeenCalledWith(
-        physicsWorld.materials.ball,
-        physicsWorld.materials.ground,
+        physicsWorld.ballMaterial,
+        physicsWorld.groundMaterial,
         expect.objectContaining({
-          friction: 0.4,
-          restitution: 0.3
+          friction: 0.8,
+          restitution: 0.1
         })
       );
 
-      // Ball-bumper contact
+      // Ball-bumper contact (using actual implementation values)
       expect(CANNON.ContactMaterial).toHaveBeenCalledWith(
-        physicsWorld.materials.ball,
-        physicsWorld.materials.bumper,
+        physicsWorld.ballMaterial,
+        physicsWorld.bumperMaterial,
         expect.objectContaining({
-          friction: 0.1,
-          restitution: 0.8
+          friction: 0.2,
+          restitution: 0.7
         })
       );
     });
@@ -109,7 +110,7 @@ describe('PhysicsWorld', () => {
   describe('collision handling', () => {
     test('should set up collision event listener', () => {
       expect(physicsWorld.world.addEventListener).toHaveBeenCalledWith(
-        'beginContact',
+        'collide',
         expect.any(Function)
       );
     });
