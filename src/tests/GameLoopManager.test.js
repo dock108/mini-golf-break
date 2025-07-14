@@ -40,7 +40,9 @@ describe('GameLoopManager', () => {
       },
       performanceManager: {
         beginFrame: jest.fn(),
-        endFrame: jest.fn()
+        endFrame: jest.fn(),
+        startTimer: jest.fn(),
+        endTimer: jest.fn()
       },
       ballManager: {
         update: jest.fn()

@@ -8,7 +8,15 @@ jest.mock('three', () => ({
   Quaternion: jest.fn((x, y, z, w) => ({ x, y, z, w }))
 }));
 jest.mock('cannon-es', () => ({
-  Vec3: jest.fn((x, y, z) => ({ x, y, z })),
+  Vec3: jest.fn((x, y, z) => ({
+    x,
+    y,
+    z,
+    length: jest.fn(() => Math.sqrt(x * x + y * y + z * z)),
+    dot: jest.fn(function (other) {
+      return this.x * other.x + this.y * other.y + this.z * other.z;
+    })
+  })),
   Quaternion: jest.fn((x, y, z, w) => ({ x, y, z, w })),
   Body: jest.fn(() => ({
     addShape: jest.fn(),
@@ -37,7 +45,7 @@ describe('physics utils', () => {
         const cannonVector = physicsUtils.threeToCannonVec3(threeVector);
 
         expect(CANNON.Vec3).toHaveBeenCalledWith(1, 2, 3);
-        expect(cannonVector).toEqual({ x: 1, y: 2, z: 3 });
+        expect(cannonVector).toMatchObject({ x: 1, y: 2, z: 3 });
       });
 
       test('should handle zero vector', () => {
@@ -46,7 +54,7 @@ describe('physics utils', () => {
         const cannonVector = physicsUtils.threeToCannonVec3(threeVector);
 
         expect(CANNON.Vec3).toHaveBeenCalledWith(0, 0, 0);
-        expect(cannonVector).toEqual({ x: 0, y: 0, z: 0 });
+        expect(cannonVector).toMatchObject({ x: 0, y: 0, z: 0 });
       });
 
       test('should handle negative values', () => {
@@ -65,7 +73,7 @@ describe('physics utils', () => {
         const threeVector = physicsUtils.cannonToThreeVec3(cannonVector);
 
         expect(THREE.Vector3).toHaveBeenCalledWith(4, 5, 6);
-        expect(threeVector).toEqual({ x: 4, y: 5, z: 6 });
+        expect(threeVector).toMatchObject({ x: 4, y: 5, z: 6 });
       });
 
       test('should handle large values', () => {
@@ -86,7 +94,7 @@ describe('physics utils', () => {
         const cannonQuat = physicsUtils.threeToCannonQuaternion(threeQuat);
 
         expect(CANNON.Quaternion).toHaveBeenCalledWith(0, 0, 0, 1);
-        expect(cannonQuat).toEqual({ x: 0, y: 0, z: 0, w: 1 });
+        expect(cannonQuat).toMatchObject({ x: 0, y: 0, z: 0, w: 1 });
       });
 
       test('should handle rotation quaternion', () => {
@@ -105,7 +113,7 @@ describe('physics utils', () => {
         const threeQuat = physicsUtils.cannonToThreeQuaternion(cannonQuat);
 
         expect(THREE.Quaternion).toHaveBeenCalledWith(0.1, 0.2, 0.3, 0.9);
-        expect(threeQuat).toEqual({ x: 0.1, y: 0.2, z: 0.3, w: 0.9 });
+        expect(threeQuat).toMatchObject({ x: 0.1, y: 0.2, z: 0.3, w: 0.9 });
       });
     });
   });
@@ -246,6 +254,239 @@ describe('physics utils', () => {
           mass: 10,
           shape: expect.any(Object)
         });
+      });
+    });
+  });
+
+  describe('hole physics', () => {
+    describe('calculateImpactAngle', () => {
+      test('should calculate direct hit angle', () => {
+        const ballVelocity = new CANNON.Vec3(1, 0, 0);
+        const holePosition = new CANNON.Vec3(2, 0, 0);
+        const ballPosition = new CANNON.Vec3(0, 0, 0);
+
+        const angle = physicsUtils.calculateImpactAngle(ballVelocity, holePosition, ballPosition);
+
+        expect(angle).toBe(0); // Moving directly towards hole = 0 degrees
+      });
+
+      test('should calculate perpendicular angle', () => {
+        const ballVelocity = new CANNON.Vec3(0, 0, 1);
+        const holePosition = new CANNON.Vec3(1, 0, 0);
+        const ballPosition = new CANNON.Vec3(0, 0, 0);
+
+        const angle = physicsUtils.calculateImpactAngle(ballVelocity, holePosition, ballPosition);
+
+        expect(angle).toBe(90); // Perpendicular movement = 90 degrees
+      });
+
+      test('should handle zero velocity', () => {
+        const ballVelocity = new CANNON.Vec3(0, 0, 0);
+        const holePosition = new CANNON.Vec3(1, 0, 0);
+        const ballPosition = new CANNON.Vec3(0, 0, 0);
+
+        const angle = physicsUtils.calculateImpactAngle(ballVelocity, holePosition, ballPosition);
+
+        expect(angle).toBe(180); // Zero velocity = direct drop
+      });
+
+      test('should handle ball at hole center', () => {
+        const ballVelocity = new CANNON.Vec3(1, 0, 0);
+        const holePosition = new CANNON.Vec3(0, 0, 0);
+        const ballPosition = new CANNON.Vec3(0, 0, 0);
+
+        const angle = physicsUtils.calculateImpactAngle(ballVelocity, holePosition, ballPosition);
+
+        expect(angle).toBe(180); // Ball at hole center
+      });
+
+      test('should ignore vertical components', () => {
+        const ballVelocity = new CANNON.Vec3(1, 10, 0); // High Y velocity
+        const holePosition = new CANNON.Vec3(2, 5, 0);
+        const ballPosition = new CANNON.Vec3(0, 0, 0);
+
+        const angle = physicsUtils.calculateImpactAngle(ballVelocity, holePosition, ballPosition);
+
+        expect(angle).toBe(0); // Y components ignored, still direct hit
+      });
+    });
+
+    describe('isLipOut', () => {
+      const defaultThresholds = {
+        LIP_OUT_SPEED_THRESHOLD: 2.0,
+        LIP_OUT_ANGLE_THRESHOLD: 45
+      };
+
+      test('should detect lip-out with fast and glancing hit', () => {
+        const speed = 3.0;
+        const angleDeg = 30;
+
+        const lipOut = physicsUtils.isLipOut(speed, angleDeg, defaultThresholds);
+
+        expect(lipOut).toBe(true);
+      });
+
+      test('should not lip-out with slow speed', () => {
+        const speed = 1.0;
+        const angleDeg = 30;
+
+        const lipOut = physicsUtils.isLipOut(speed, angleDeg, defaultThresholds);
+
+        expect(lipOut).toBe(false);
+      });
+
+      test('should not lip-out with direct hit angle', () => {
+        const speed = 3.0;
+        const angleDeg = 170; // Direct hit
+
+        const lipOut = physicsUtils.isLipOut(speed, angleDeg, defaultThresholds);
+
+        expect(lipOut).toBe(false);
+      });
+
+      test('should not lip-out with moderate conditions', () => {
+        const speed = 1.5;
+        const angleDeg = 60;
+
+        const lipOut = physicsUtils.isLipOut(speed, angleDeg, defaultThresholds);
+
+        expect(lipOut).toBe(false);
+      });
+    });
+
+    describe('checkHoleEntry', () => {
+      const mockBallBody = {
+        position: { x: 0, y: 0.1, z: 0 },
+        velocity: { x: 0, y: 0, z: 0, length: jest.fn(() => 0.5) }
+      };
+
+      const mockHoleTriggerBody = {
+        position: { x: 0, y: 0, z: 0 },
+        shapes: [{ radiusTop: 0.5 }]
+      };
+
+      const defaultThresholds = {
+        MAX_SAFE_SPEED: 1.0,
+        LIP_OUT_SPEED_THRESHOLD: 2.0,
+        LIP_OUT_ANGLE_THRESHOLD: 45
+      };
+
+      beforeEach(() => {
+        // Reset console.log and console.error mocks
+        jest.spyOn(console, 'log').mockImplementation(() => {});
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+      });
+
+      afterEach(() => {
+        console.log.mockRestore();
+        console.error.mockRestore();
+      });
+
+      test('should allow entry for ball within radius and safe speed', () => {
+        const ballBody = {
+          ...mockBallBody,
+          position: { x: 0.2, y: 0.1, z: 0.2 }, // Within radius
+          velocity: { x: 0, y: 0, z: 0, length: jest.fn(() => 0.5) } // Safe speed
+        };
+
+        const result = physicsUtils.checkHoleEntry(
+          ballBody,
+          mockHoleTriggerBody,
+          defaultThresholds
+        );
+
+        expect(result).toBe(true);
+      });
+
+      test('should reject entry for ball outside radius', () => {
+        const ballBody = {
+          ...mockBallBody,
+          position: { x: 1.0, y: 0.1, z: 0 }, // Outside radius
+          velocity: { x: 0, y: 0, z: 0, length: jest.fn(() => 0.5) }
+        };
+
+        const result = physicsUtils.checkHoleEntry(
+          ballBody,
+          mockHoleTriggerBody,
+          defaultThresholds
+        );
+
+        expect(result).toBe(false);
+      });
+
+      test('should handle missing ball body', () => {
+        const result = physicsUtils.checkHoleEntry(null, mockHoleTriggerBody, defaultThresholds);
+
+        expect(result).toBe(false);
+        expect(console.error).toHaveBeenCalledWith(
+          '[PhysicsUtils.checkHoleEntry] Missing ballBody or holeTriggerBody/shape.'
+        );
+      });
+
+      test('should handle missing hole trigger body', () => {
+        const result = physicsUtils.checkHoleEntry(mockBallBody, null, defaultThresholds);
+
+        expect(result).toBe(false);
+        expect(console.error).toHaveBeenCalledWith(
+          '[PhysicsUtils.checkHoleEntry] Missing ballBody or holeTriggerBody/shape.'
+        );
+      });
+
+      test('should handle missing hole shapes', () => {
+        const holeTriggerBody = {
+          ...mockHoleTriggerBody,
+          shapes: []
+        };
+
+        const result = physicsUtils.checkHoleEntry(
+          mockBallBody,
+          holeTriggerBody,
+          defaultThresholds
+        );
+
+        expect(result).toBe(false);
+        expect(console.error).toHaveBeenCalledWith(
+          '[PhysicsUtils.checkHoleEntry] Missing ballBody or holeTriggerBody/shape.'
+        );
+      });
+
+      test('should allow fast direct hit', () => {
+        const ballBody = {
+          ...mockBallBody,
+          position: { x: 0.1, y: 0.1, z: 0.1 }, // Within radius
+          velocity: { x: 1, y: 0, z: 0, length: jest.fn(() => 2.5) } // Fast speed
+        };
+
+        // Mock calculateImpactAngle to return direct hit
+        const spy = jest.spyOn(physicsUtils, 'calculateImpactAngle').mockReturnValue(170);
+
+        const result = physicsUtils.checkHoleEntry(
+          ballBody,
+          mockHoleTriggerBody,
+          defaultThresholds
+        );
+
+        expect(result).toBe(true);
+        spy.mockRestore();
+      });
+
+      test('should reject fast glancing hit (lip-out)', () => {
+        const ballBody = {
+          ...mockBallBody,
+          position: { x: 0.4, y: 0.1, z: 0.1 }, // Near edge of radius (0.5)
+          velocity: { x: -3, y: 0, z: 0, length: jest.fn(() => 3) } // Fast speed towards hole
+        };
+
+        // Use thresholds that will trigger lip-out
+        const strictThresholds = {
+          MAX_SAFE_SPEED: 1.0,
+          LIP_OUT_SPEED_THRESHOLD: 2.0,
+          LIP_OUT_ANGLE_THRESHOLD: 170 // Very high threshold = most hits are glancing
+        };
+
+        const result = physicsUtils.checkHoleEntry(ballBody, mockHoleTriggerBody, strictThresholds);
+
+        expect(result).toBe(false);
       });
     });
   });

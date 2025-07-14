@@ -153,7 +153,7 @@ describe('AudioManager', () => {
   describe('volume control', () => {
     beforeEach(() => {
       audioManager = new AudioManager(mockGame);
-      audioManager.init();
+      // init() already called in constructor
     });
 
     test('should set volume for all sounds', () => {
@@ -175,7 +175,7 @@ describe('AudioManager', () => {
   describe('mute functionality', () => {
     beforeEach(() => {
       audioManager = new AudioManager(mockGame);
-      audioManager.init();
+      // init() already called in constructor
     });
 
     test('should mute all sounds', () => {
@@ -198,7 +198,7 @@ describe('AudioManager', () => {
   describe('cleanup', () => {
     beforeEach(() => {
       audioManager = new AudioManager(mockGame);
-      audioManager.init();
+      // init() already called in constructor
     });
 
     test('should stop all sounds', () => {
@@ -223,7 +223,7 @@ describe('AudioManager', () => {
     });
 
     test('should check audio context state', () => {
-      audioManager.init();
+      // init() already called in constructor
 
       const state = audioManager.getContextState();
       expect(state).toBe('running');
@@ -231,7 +231,6 @@ describe('AudioManager', () => {
 
     test('should handle suspended audio context', () => {
       mockAudioListener.context.state = 'suspended';
-      audioManager.init();
 
       audioManager.resumeContext();
 

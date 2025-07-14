@@ -17,7 +17,8 @@ jest.mock('cannon-es', () => ({
     removeBody: jest.fn(),
     step: jest.fn(),
     addEventListener: jest.fn(),
-    bodies: []
+    bodies: [],
+    contactmaterials: [] // Add contactmaterials property for logging
   })),
   NaiveBroadphase: jest.fn(),
   SAPBroadphase: jest.fn(),

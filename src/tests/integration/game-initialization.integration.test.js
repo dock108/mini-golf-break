@@ -33,10 +33,19 @@ jest.mock('../../physics/PhysicsWorld', () => ({
       removeBody: jest.fn(),
       step: jest.fn(),
       bodies: [],
-      addContactMaterial: jest.fn()
+      addContactMaterial: jest.fn(),
+      contactmaterials: []
     },
     update: jest.fn(),
-    cleanup: jest.fn()
+    cleanup: jest.fn(),
+    setCollisionCallback: jest.fn(),
+    createGroundBody: jest.fn(),
+    createBoxBody: jest.fn(),
+    createSphereBody: jest.fn(),
+    createCylinderBody: jest.fn(),
+    addBody: jest.fn(),
+    removeBody: jest.fn(),
+    reset: jest.fn()
   }))
 }));
 
@@ -50,7 +59,8 @@ jest.mock('../../objects/BasicCourse', () => ({
       },
       holeNumber: 1,
       reset: jest.fn(),
-      cleanup: jest.fn()
+      cleanup: jest.fn(),
+      getHoleStartPosition: jest.fn(() => ({ x: 0, y: 0.1, z: 0 }))
     }))
   }
 }));
@@ -67,7 +77,8 @@ jest.mock('../../objects/NineHoleCourse', () => ({
       cleanup: jest.fn(),
       nextHole: jest.fn(),
       previousHole: jest.fn(),
-      getTotalStrokes: jest.fn(() => 0)
+      getTotalStrokes: jest.fn(() => 0),
+      getHoleStartPosition: jest.fn(() => ({ x: 0, y: 0.1, z: 0 }))
     }))
   }
 }));

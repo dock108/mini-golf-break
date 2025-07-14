@@ -78,13 +78,38 @@ global.CANNON = {
   World: jest.fn(() => ({
     add: jest.fn(),
     remove: jest.fn(),
-    step: jest.fn()
+    step: jest.fn(),
+    contactmaterials: [], // Array with map method for contact materials logging
+    addContactMaterial: jest.fn(),
+    removeContactMaterial: jest.fn(),
+    addBody: jest.fn(),
+    removeBody: jest.fn(),
+    gravity: { set: jest.fn() },
+    solver: { iterations: 30, tolerance: 0.0001 },
+    broadphase: null,
+    allowSleep: true,
+    defaultSleepSpeedLimit: 0.15,
+    defaultSleepTimeLimit: 0.2,
+    defaultContactMaterial: { friction: 0.8, restitution: 0.1 },
+    bodies: [],
+    constraints: [],
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn()
   })),
   Body: jest.fn(() => ({
     position: { x: 0, y: 0, z: 0 },
     velocity: { x: 0, y: 0, z: 0 },
     material: null,
-    addEventListener: jest.fn()
+    addEventListener: jest.fn(),
+    quaternion: {
+      setFromAxisAngle: jest.fn(),
+      x: 0,
+      y: 0,
+      z: 0,
+      w: 1
+    },
+    addShape: jest.fn(),
+    userData: {}
   })),
   Material: jest.fn(),
   ContactMaterial: jest.fn(),
