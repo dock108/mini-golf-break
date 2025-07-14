@@ -58,10 +58,20 @@ describe('UIManager', () => {
 
     // Function to enhance DOM elements with required methods
     const enhanceDOMElement = element => {
-      // Add contains method
+      // Initialize children tracking if not present
+      if (!element._mockChildren) {
+        element._mockChildren = [];
+      }
+
+      // Add contains method with proper parent-child tracking
       if (!element.contains) {
         element.contains = jest.fn(child => {
-          // Better implementation: check the actual DOM hierarchy
+          // Check if child is in our tracked children
+          if (element._mockChildren && element._mockChildren.includes(child)) {
+            return true;
+          }
+
+          // Check actual DOM hierarchy
           let currentElement = child;
           while (currentElement && currentElement !== document.body) {
             if (currentElement.parentNode === element) {
@@ -69,29 +79,66 @@ describe('UIManager', () => {
             }
             currentElement = currentElement.parentNode;
           }
+
           // Also check by ID as fallback
           return Array.from(element.children || []).some(c => c === child || c.id === child.id);
         });
       }
 
-      // Enhance appendChild to ensure parent-child relationships are maintained
+      // Add querySelector method
+      if (!element.querySelector) {
+        element.querySelector = jest.fn(selector => {
+          // Simple implementation for test purposes
+          if (selector === '.power-indicator-fill') {
+            // Return a mock element for power indicator fill
+            const fillElement = {
+              classList: {
+                add: jest.fn(),
+                remove: jest.fn(),
+                contains: jest.fn()
+              }
+            };
+            return fillElement;
+          }
+          return null;
+        });
+      }
+
+      // Enhance appendChild to track parent-child relationships
       if (!element.appendChild._isMockFunction) {
         const originalAppendChild = element.appendChild;
         element.appendChild = jest.fn(child => {
+          // Track the child in our mock children array
+          if (!element._mockChildren) {
+            element._mockChildren = [];
+          }
+          element._mockChildren.push(child);
+
+          // Set the parentNode reference
+          if (child && typeof child === 'object') {
+            child.parentNode = element;
+          }
+
           const result = originalAppendChild.call(element, child);
-          // Don't call enhanceDOMElement here to avoid circular reference
+
+          // Enhance the child element too
+          if (child && typeof child === 'object') {
+            enhanceDOMElement(child);
+          }
+
           return result;
         });
       }
 
       // Enhance classList with proper mock implementation
-      if (!element.classList || typeof element.classList.contains !== 'function') {
+      if (!element.classList || !element.classList.add || !element.classList.add._isMockFunction) {
         const classes = new Set();
 
         // Store the classes set on the element for persistence
         element._mockClasses = classes;
 
-        element.classList = {
+        // Create mock classList with Jest functions
+        const mockClassList = {
           add: jest.fn(className => {
             element._mockClasses.add(className);
             return true;
@@ -113,6 +160,13 @@ describe('UIManager', () => {
             }
           })
         };
+
+        // Replace classList entirely
+        Object.defineProperty(element, 'classList', {
+          value: mockClassList,
+          writable: true,
+          configurable: true
+        });
       }
 
       return element;
