@@ -104,6 +104,7 @@ function runTest() {
   }
 
   console.log('✓ Processed 10 frames successfully');
+  console.log(`Final sum: ${sum}`); // Use the sum variable
 
   // Test performance data retrieval
   const perfData = performanceManager.getPerformanceData();

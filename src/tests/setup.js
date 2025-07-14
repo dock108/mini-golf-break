@@ -14,9 +14,9 @@ global.THREE = {
     dispose: jest.fn()
   })),
   PerspectiveCamera: jest.fn(),
-  Vector3: jest.fn(() => ({ 
-    x: 0, 
-    y: 0, 
+  Vector3: jest.fn(() => ({
+    x: 0,
+    y: 0,
     z: 0,
     copy: jest.fn(),
     clone: jest.fn(() => ({ x: 0, y: 0, z: 0 })),

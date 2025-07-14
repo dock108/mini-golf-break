@@ -33,7 +33,7 @@ if (typeof document === 'undefined') {
 }
 
 // Mock THREE.js to avoid browser dependencies
-const mockTHREE = {
+/* const _mockTHREE = {
   Vector3: class Vector3 {
     constructor(x = 0, y = 0, z = 0) {
       this.x = x;
@@ -52,13 +52,14 @@ const mockTHREE = {
   SphereGeometry: class SphereGeometry {},
   MeshStandardMaterial: class MeshStandardMaterial {},
   PointLight: class PointLight {}
-};
+}; */
 
 // Import Ball after mocking globals
-let Ball;
+// let _Ball;
 import('../objects/Ball.js')
   .then(module => {
-    Ball = module.Ball;
+    // _Ball = module.Ball;
+    void module.Ball; // Acknowledge import
   })
   .catch(err => {
     console.error('Error importing Ball.js:', err);

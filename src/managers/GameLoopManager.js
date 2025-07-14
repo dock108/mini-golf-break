@@ -148,6 +148,16 @@ export class GameLoopManager {
       this.game.cannonDebugRenderer.update();
     }
 
+    // 1.8 Mobile performance monitoring (every few seconds)
+    if (this.game.adaptiveFrameRate) {
+      this.game.adaptiveFrameRate();
+    }
+
+    // Memory management check (run every 5 seconds)
+    if (this.game.manageMemoryUsage && this.lastFrameTime % 5000 < this.deltaTime * 1000) {
+      this.game.manageMemoryUsage();
+    }
+
     // 2. Render the scene with updated positions
     if (this.game.performanceManager) {
       this.game.performanceManager.startTimer('render');

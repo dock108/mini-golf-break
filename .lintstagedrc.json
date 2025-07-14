@@ -1,6 +1,6 @@
 {
   "src/**/*.js": [
-    "eslint --fix",
+    "eslint --fix --max-warnings 1000",
     "prettier --write"
   ]
 }

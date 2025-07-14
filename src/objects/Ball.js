@@ -3,6 +3,7 @@ import * as CANNON from 'cannon-es';
 // Import the physics utility functions
 import { calculateImpactAngle, isLipOut } from '../physics/utils';
 import { debug } from '../utils/debug';
+import { EventTypes } from '../events/EventTypes';
 
 // --- Configuration Constants ---
 const HOLE_ENTRY_OVERLAP_REQUIRED = 0.55; // e.g., 0.55 means 55% of ball diameter must be over the hole
@@ -872,7 +873,7 @@ export class Ball {
       this.successMaterial.dispose();
 
       // Dispose of bump map texture if it exists
-      if (this.defaultMaterial.bumpMap) {
+      if (this.defaultMaterial.bumpMap && typeof this.defaultMaterial.bumpMap.dispose === 'function') {
         this.defaultMaterial.bumpMap.dispose();
       }
     }

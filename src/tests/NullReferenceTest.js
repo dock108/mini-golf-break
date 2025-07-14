@@ -98,7 +98,7 @@ function testNullReferences() {
       console.log('✓ Budget Check: Passed');
 
       // Test getPerformanceData
-      const data = performanceManager.getPerformanceData();
+      performanceManager.getPerformanceData();
       console.log('✓ Performance Data: Passed');
 
       // Test cleanup

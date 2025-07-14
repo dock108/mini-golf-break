@@ -1,0 +1,210 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  pr-validation:
+    name: PR Validation
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Validate PR title
+      run: |
+        PR_TITLE="${{ github.event.pull_request.title }}"
+        echo "PR Title: $PR_TITLE"
+        
+        # Check if PR title follows conventional commit format
+        if echo "$PR_TITLE" | grep -qE "^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?: .{1,50}"; then
+          echo "✅ PR title follows conventional commit format"
+        else
+          echo "::warning::PR title should follow conventional commit format: type(scope): description"
+          echo "Examples: feat: add new feature, fix(ui): resolve button styling, docs: update README"
+        fi
+
+    - name: Check for breaking changes
+      run: |
+        echo "Checking for potential breaking changes..."
+        
+        # Get list of changed files
+        git diff --name-only origin/main..HEAD > changed-files.txt
+        
+        # Check for changes to public APIs
+        if grep -E "(src/api/|src/public/|src/exports)" changed-files.txt; then
+          echo "::warning::Changes detected in public API files. Please ensure backward compatibility."
+        fi
+        
+        # Check for removed files
+        DELETED_FILES=$(git diff --name-status origin/main..HEAD | grep "^D" | cut -f2 | head -10)
+        if [ ! -z "$DELETED_FILES" ]; then
+          echo "::warning::Deleted files detected:"
+          echo "$DELETED_FILES"
+          echo "Please ensure these deletions don't break existing functionality."
+        fi
+
+    - name: Run fast tests
+      run: |
+        echo "Running fast test suite for PR validation..."
+        
+        # Run tests with shorter timeout for PR checks
+        npm test -- --passWithNoTests --maxWorkers=2 --testTimeout=5000
+        
+        echo "Fast tests completed successfully"
+
+    - name: Check code changes size
+      run: |
+        # Count changed lines
+        LINES_ADDED=$(git diff --numstat origin/main..HEAD | awk '{added += $1} END {print added+0}')
+        LINES_DELETED=$(git diff --numstat origin/main..HEAD | awk '{deleted += $2} END {print deleted+0}')
+        FILES_CHANGED=$(git diff --name-only origin/main..HEAD | wc -l)
+        
+        echo "Changes summary:"
+        echo "- Files changed: $FILES_CHANGED"
+        echo "- Lines added: $LINES_ADDED"
+        echo "- Lines deleted: $LINES_DELETED"
+        
+        # Warn for large PRs
+        if [ "$LINES_ADDED" -gt "1000" ] || [ "$FILES_CHANGED" -gt "20" ]; then
+          echo "::warning::Large PR detected. Consider breaking into smaller PRs for easier review."
+        elif [ "$LINES_ADDED" -gt "500" ] || [ "$FILES_CHANGED" -gt "10" ]; then
+          echo "::notice::Medium-sized PR. Ensure adequate review time."
+        else
+          echo "✅ PR size is reasonable for review"
+        fi
+
+    - name: Check commit messages
+      run: |
+        echo "Validating commit messages..."
+        
+        # Get commit messages for this PR
+        git log --format="%s" origin/main..HEAD > commit-messages.txt
+        
+        # Check each commit message
+        while IFS= read -r message; do
+          if echo "$message" | grep -qE "^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?: .{1,72}"; then
+            echo "✅ Valid: $message"
+          else
+            echo "::warning::Invalid commit message format: $message"
+          fi
+        done < commit-messages.txt
+        
+        # Count commits
+        COMMIT_COUNT=$(wc -l < commit-messages.txt)
+        echo "Total commits in PR: $COMMIT_COUNT"
+        
+        if [ "$COMMIT_COUNT" -gt "10" ]; then
+          echo "::warning::Many commits in PR ($COMMIT_COUNT). Consider squashing related commits."
+        fi
+
+    - name: Check for TODO and FIXME comments
+      run: |
+        echo "Checking for TODO and FIXME comments in changed files..."
+        
+        # Get changed files
+        git diff --name-only origin/main..HEAD | grep -E "\.(js|jsx|ts|tsx)$" > js-files.txt || echo "No JS files changed"
+        
+        if [ -s js-files.txt ]; then
+          # Check for TODO/FIXME in changed files
+          while IFS= read -r file; do
+            if [ -f "$file" ]; then
+              TODO_COUNT=$(grep -c -E "(TODO|FIXME|XXX|HACK)" "$file" || echo "0")
+              if [ "$TODO_COUNT" -gt "0" ]; then
+                echo "::notice::Found $TODO_COUNT TODO/FIXME comments in $file"
+                grep -n -E "(TODO|FIXME|XXX|HACK)" "$file" || true
+              fi
+            fi
+          done < js-files.txt
+        fi
+
+    - name: Lint changed files only
+      run: |
+        echo "Running ESLint on changed files..."
+        
+        # Get changed JS files
+        git diff --name-only origin/main..HEAD | grep -E "\.(js|jsx)$" > changed-js-files.txt || echo "No JS files to lint"
+        
+        if [ -s changed-js-files.txt ]; then
+          # Lint only changed files
+          xargs npx eslint < changed-js-files.txt || {
+            echo "::error::ESLint found issues in changed files"
+            exit 1
+          }
+        else
+          echo "No JavaScript files changed, skipping ESLint"
+        fi
+
+    - name: Generate PR summary
+      run: |
+        echo "## PR Summary" > pr-summary.md
+        echo "" >> pr-summary.md
+        
+        # File changes
+        echo "### Changed Files" >> pr-summary.md
+        git diff --name-only origin/main..HEAD | head -20 >> pr-summary.md
+        echo "" >> pr-summary.md
+        
+        # Test results
+        echo "### Test Results" >> pr-summary.md
+        echo "✅ Fast test suite passed" >> pr-summary.md
+        echo "" >> pr-summary.md
+        
+        # Size metrics
+        LINES_ADDED=$(git diff --numstat origin/main..HEAD | awk '{added += $1} END {print added+0}')
+        FILES_CHANGED=$(git diff --name-only origin/main..HEAD | wc -l)
+        
+        echo "### Change Metrics" >> pr-summary.md
+        echo "- Files changed: $FILES_CHANGED" >> pr-summary.md
+        echo "- Lines added: $LINES_ADDED" >> pr-summary.md
+        echo "" >> pr-summary.md
+        
+        echo "PR validation completed successfully!"
+
+  draft-pr-check:
+    name: Draft PR Check
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == true
+    
+    steps:
+    - name: Draft PR Message
+      run: |
+        echo "🚧 This is a draft PR"
+        echo "Draft PRs are not fully validated but basic checks will run"
+        echo "Remove draft status when ready for full review"
+
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Basic syntax check
+      run: |
+        echo "Running basic syntax check..."
+        
+        # Check for syntax errors without running full tests
+        npx eslint src/ --ext .js,.jsx --max-warnings=100 || echo "ESLint found issues (acceptable for draft)"
+        
+        echo "Basic checks completed for draft PR"

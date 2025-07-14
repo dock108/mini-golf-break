@@ -1,0 +1,222 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  quality:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history for better blame information
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run ESLint with detailed output
+      run: |
+        echo "Running ESLint analysis..."
+        npx eslint src/ --ext .js,.jsx --format=stylish --max-warnings=50 || true
+        
+        # Generate ESLint report
+        npx eslint src/ --ext .js,.jsx --format=json --output-file=eslint-report.json || true
+        
+        # Count issues
+        if [ -f eslint-report.json ]; then
+          ERROR_COUNT=$(cat eslint-report.json | jq '[.[] | .errorCount] | add // 0')
+          WARNING_COUNT=$(cat eslint-report.json | jq '[.[] | .warningCount] | add // 0')
+          
+          echo "ESLint Summary:"
+          echo "- Errors: $ERROR_COUNT"
+          echo "- Warnings: $WARNING_COUNT"
+          
+          if [ "$ERROR_COUNT" -gt "0" ]; then
+            echo "::error::ESLint found $ERROR_COUNT errors that must be fixed"
+          fi
+        fi
+
+    - name: Run Prettier check
+      run: |
+        echo "Checking code formatting with Prettier..."
+        npx prettier --check src/ || {
+          echo "::warning::Code formatting issues found. Run 'npm run format' to fix."
+          npx prettier --check src/ --write=false --list-different || true
+        }
+
+    - name: Run tests with coverage
+      run: |
+        echo "Running tests with coverage analysis..."
+        npm test -- --coverage --coverageReporters=text-lcov --coverageReporters=json-summary --passWithNoTests
+        
+        # Parse coverage results
+        if [ -f coverage/coverage-summary.json ]; then
+          STMT_PCT=$(cat coverage/coverage-summary.json | jq '.total.statements.pct')
+          BRANCH_PCT=$(cat coverage/coverage-summary.json | jq '.total.branches.pct') 
+          FUNC_PCT=$(cat coverage/coverage-summary.json | jq '.total.functions.pct')
+          LINE_PCT=$(cat coverage/coverage-summary.json | jq '.total.lines.pct')
+          
+          echo "Coverage Summary:"
+          echo "- Statements: ${STMT_PCT}%"
+          echo "- Branches: ${BRANCH_PCT}%"
+          echo "- Functions: ${FUNC_PCT}%"
+          echo "- Lines: ${LINE_PCT}%"
+        fi
+
+    - name: Code complexity analysis
+      run: |
+        echo "Analyzing code complexity..."
+        
+        # Install complexity analyzer
+        npm install --save-dev complexity-report --no-save
+        
+        # Run complexity analysis
+        npx cr --format json --output complexity-report.json src/ || echo "Complexity analysis completed with warnings"
+        
+        if [ -f complexity-report.json ]; then
+          echo "Complexity analysis completed. Check for functions with high cyclomatic complexity."
+        fi
+
+    - name: Check bundle size
+      run: |
+        echo "Analyzing potential bundle size..."
+        
+        # Install bundle analyzer
+        npm install --save-dev webpack-bundle-analyzer --no-save
+        
+        # Basic size check of source files
+        echo "Source file sizes:"
+        find src/ -name "*.js" -o -name "*.jsx" | xargs wc -l | sort -nr | head -20
+        
+        # Check for large files that might impact bundle size
+        echo ""
+        echo "Large source files (>500 lines):"
+        find src/ -name "*.js" -o -name "*.jsx" | xargs wc -l | awk '$1 > 500 {print $2 ": " $1 " lines"}' || echo "No large files found"
+
+    - name: Check dependencies
+      run: |
+        echo "Analyzing dependencies..."
+        
+        # Check for duplicate dependencies
+        npm ls --depth=0 || true
+        
+        # Install dependency analyzer
+        npm install --save-dev depcheck --no-save
+        
+        # Check for unused dependencies
+        npx depcheck --ignores="@types/*,eslint-*,prettier,jest,@testing-library/*" || echo "Dependency check completed with warnings"
+
+    - name: Performance budget check
+      run: |
+        echo "Checking performance budget..."
+        
+        # Count total files and estimate complexity
+        JS_FILES=$(find src/ -name "*.js" -o -name "*.jsx" | wc -l)
+        TOTAL_LINES=$(find src/ -name "*.js" -o -name "*.jsx" | xargs wc -l | tail -1 | awk '{print $1}')
+        
+        echo "Project size metrics:"
+        echo "- JavaScript files: $JS_FILES"
+        echo "- Total lines of code: $TOTAL_LINES"
+        
+        # Warn if project is getting large
+        if [ "$TOTAL_LINES" -gt "50000" ]; then
+          echo "::warning::Large codebase detected ($TOTAL_LINES lines). Consider code splitting."
+        elif [ "$TOTAL_LINES" -gt "20000" ]; then
+          echo "::notice::Medium-sized codebase ($TOTAL_LINES lines). Monitor for growth."
+        else
+          echo "Codebase size is reasonable ($TOTAL_LINES lines)."
+        fi
+
+    - name: Generate quality report
+      run: |
+        echo "## Code Quality Report" > quality-report.md
+        echo "" >> quality-report.md
+        
+        # ESLint results
+        if [ -f eslint-report.json ]; then
+          ERROR_COUNT=$(cat eslint-report.json | jq '[.[] | .errorCount] | add // 0')
+          WARNING_COUNT=$(cat eslint-report.json | jq '[.[] | .warningCount] | add // 0')
+          echo "### ESLint Analysis" >> quality-report.md
+          echo "- Errors: $ERROR_COUNT" >> quality-report.md
+          echo "- Warnings: $WARNING_COUNT" >> quality-report.md
+          echo "" >> quality-report.md
+        fi
+        
+        # Coverage results
+        if [ -f coverage/coverage-summary.json ]; then
+          echo "### Test Coverage" >> quality-report.md
+          echo "- Statements: $(cat coverage/coverage-summary.json | jq '.total.statements.pct')%" >> quality-report.md
+          echo "- Branches: $(cat coverage/coverage-summary.json | jq '.total.branches.pct')%" >> quality-report.md
+          echo "- Functions: $(cat coverage/coverage-summary.json | jq '.total.functions.pct')%" >> quality-report.md
+          echo "- Lines: $(cat coverage/coverage-summary.json | jq '.total.lines.pct')%" >> quality-report.md
+          echo "" >> quality-report.md
+        fi
+        
+        echo "Quality analysis completed successfully!"
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage/lcov.info
+        flags: unittests
+        fail_ci_if_error: false
+      continue-on-error: true
+
+  accessibility:
+    name: Accessibility Check
+    runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.message, 'ui') || contains(github.event.head_commit.message, 'frontend')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Install accessibility tools
+      run: |
+        npm install --save-dev axe-core pa11y-ci --no-save
+
+    - name: Basic accessibility check
+      run: |
+        echo "Running basic accessibility analysis..."
+        
+        # Check for basic accessibility patterns in code
+        echo "Checking for accessibility attributes..."
+        
+        if grep -r "alt=" src/ --include="*.js" --include="*.jsx" | head -5; then
+          echo "Found alt attributes (good for images)"
+        else
+          echo "::warning::No alt attributes found. Ensure images have alt text."
+        fi
+        
+        if grep -r "aria-" src/ --include="*.js" --include="*.jsx" | head -5; then
+          echo "Found ARIA attributes (good for accessibility)"
+        else
+          echo "::notice::Consider adding ARIA attributes for better accessibility"
+        fi
+        
+        if grep -r "role=" src/ --include="*.js" --include="*.jsx" | head -5; then
+          echo "Found role attributes (good for semantic markup)"
+        fi
+        
+        echo "Accessibility check completed. Consider running full accessibility tests on deployed application."

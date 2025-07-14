@@ -192,7 +192,7 @@ export class PhysicsWorld {
     this.world.removeEventListener('collide', this._collideCallback);
 
     // Create a new collide callback
-    this._collideCallback = event => {
+    this._collideCallback = _event => {
       // Check if we're still in the grace period
       const timeSinceCreation = Date.now() - this.creationTime;
       if (timeSinceCreation < this.collisionGracePeriod) {
@@ -203,8 +203,8 @@ export class PhysicsWorld {
       }
 
       // Get the bodies involved in the collision
-      const bodyA = event.bodyA;
-      const bodyB = event.bodyB;
+      // const _bodyA = event.bodyA;
+      // const _bodyB = event.bodyB;
 
       // REMOVED specific ball/hole check here - handled in Ball.js now
       // let ball = null;

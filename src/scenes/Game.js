@@ -5,6 +5,7 @@ import { ScoringSystem } from '../game/ScoringSystem';
 // Both course types are available for debug mode
 import { BasicCourse } from '../objects/BasicCourse';
 import { NineHoleCourse } from '../objects/NineHoleCourse';
+import { SpaceDecorations } from '../objects/SpaceDecorations';
 import { EventTypes } from '../events/EventTypes';
 import { CannonDebugRenderer } from '../utils/CannonDebugRenderer';
 import { debug } from '../utils/debug';
@@ -24,7 +25,6 @@ import { HoleCompletionManager } from '../managers/HoleCompletionManager';
 import { GameLoopManager } from '../managers/GameLoopManager';
 import { EventManager } from '../managers/EventManager';
 import { PerformanceManager } from '../managers/PerformanceManager';
-import { AdShipManager } from '../ads/AdShipManager';
 
 /**
  * Game - Main class that orchestrates the mini-golf game
@@ -51,7 +51,6 @@ export class Game {
     this.holeTransitionManager = new HoleTransitionManager(this);
     this.holeCompletionManager = new HoleCompletionManager(this);
     this.gameLoopManager = new GameLoopManager(this);
-    this.adShipManager = new AdShipManager(this);
 
     this.cannonDebugRenderer = null;
 
@@ -64,7 +63,7 @@ export class Game {
 
     // Game objects (these aren't managers but specific game elements)
     this.course = null;
-    // this.teeMarker = null; // Removed
+    this.spaceDecorations = null;
 
     // Lighting
     this.lights = {
@@ -132,9 +131,9 @@ export class Game {
       this.hazardManager.init();
       this.visualEffectsManager.init();
 
-      // Initialize Ad Ship Manager and add to scene
-      this.adShipManager.init();
-      this.scene.add(this.adShipManager.group);
+      // Add space decorations
+      this.spaceDecorations = new SpaceDecorations(this.scene);
+      this.spaceDecorations.init();
 
       debug.log('[Game.init] Awaiting createCourse...');
       await this.createCourse();
@@ -330,7 +329,6 @@ export class Game {
       if (this.holeTransitionManager) {this.holeTransitionManager.cleanup();}
       if (this.holeStateManager) {this.holeStateManager.cleanup();}
       if (this.hazardManager) {this.hazardManager.cleanup();}
-      if (this.adShipManager) {this.adShipManager.cleanup();}
       if (this.audioManager) {this.audioManager.cleanup();}
       if (this.physicsManager) {this.physicsManager.cleanup();}
       if (this.visualEffectsManager) {this.visualEffectsManager.cleanup();}
