@@ -64,24 +64,33 @@ describe('UIManager', () => {
       }
 
       // Add contains method with proper parent-child tracking
-      if (!element.contains) {
+      if (!element.contains || !element.contains._isMockFunction) {
         element.contains = jest.fn(child => {
-          // Check if child is in our tracked children
+          // Primary check: is child in our tracked children
           if (element._mockChildren && element._mockChildren.includes(child)) {
             return true;
           }
 
-          // Check actual DOM hierarchy
+          // Secondary check: traverse parent chain from child
           let currentElement = child;
-          while (currentElement && currentElement !== document.body) {
+          while (currentElement && currentElement !== document) {
             if (currentElement.parentNode === element) {
               return true;
             }
             currentElement = currentElement.parentNode;
           }
 
-          // Also check by ID as fallback
-          return Array.from(element.children || []).some(c => c === child || c.id === child.id);
+          // Final check: actual DOM structure if available
+          try {
+            if (element.children) {
+              const actualChildren = Array.from(element.children);
+              return actualChildren.includes(child);
+            }
+          } catch (e) {
+            // Ignore errors in test environment
+          }
+
+          return false;
         });
       }
 
@@ -105,8 +114,13 @@ describe('UIManager', () => {
       }
 
       // Enhance appendChild to track parent-child relationships
-      if (!element.appendChild._isMockFunction) {
-        const originalAppendChild = element.appendChild;
+      if (!element.appendChild || !element.appendChild._isMockFunction) {
+        const originalAppendChild =
+          element.appendChild ||
+          function (child) {
+            // Fallback if appendChild doesn't exist
+            return child;
+          };
         element.appendChild = jest.fn(child => {
           // Track the child in our mock children array
           if (!element._mockChildren) {
@@ -119,7 +133,13 @@ describe('UIManager', () => {
             child.parentNode = element;
           }
 
-          const result = originalAppendChild.call(element, child);
+          let result;
+          try {
+            result = originalAppendChild.call(element, child);
+          } catch (e) {
+            // If DOM append fails in test environment, just return the child
+            result = child;
+          }
 
           // Enhance the child element too
           if (child && typeof child === 'object') {
@@ -175,18 +195,50 @@ describe('UIManager', () => {
     // Enhance document.body
     enhanceDOMElement(document.body);
 
-    // Mock createElement to enhance all new elements
+    // Mock createElement to enhance all new elements immediately
     const originalCreateElement = document.createElement;
     document.createElement = jest.fn(tagName => {
       const element = originalCreateElement.call(document, tagName);
-      return enhanceDOMElement(element);
+      // Enhance the element immediately and thoroughly
+      enhanceDOMElement(element);
+      // Double-check that classList is properly mocked
+      if (!element.classList || !element.classList.add || !element.classList.add._isMockFunction) {
+        const classes = new Set();
+        element._mockClasses = classes;
+        element.classList = {
+          add: jest.fn(className => {
+            element._mockClasses.add(className);
+            return true;
+          }),
+          remove: jest.fn(className => {
+            element._mockClasses.delete(className);
+            return true;
+          }),
+          contains: jest.fn(className => {
+            return element._mockClasses.has(className);
+          }),
+          toggle: jest.fn(className => {
+            if (element._mockClasses.has(className)) {
+              element._mockClasses.delete(className);
+              return false;
+            } else {
+              element._mockClasses.add(className);
+              return true;
+            }
+          })
+        };
+      }
+      return element;
     });
 
     // Mock getElementById to enhance retrieved elements
     const originalGetElementById = document.getElementById;
     document.getElementById = jest.fn(id => {
       const element = originalGetElementById.call(document, id);
-      return element ? enhanceDOMElement(element) : null;
+      if (element) {
+        enhanceDOMElement(element);
+      }
+      return element;
     });
 
     // Mock appendChild to ensure children are properly tracked
@@ -304,11 +356,8 @@ describe('UIManager', () => {
       expect(uiManager.uiContainer).toBeTruthy();
       expect(uiManager.uiContainer.id).toBe('ui-container');
 
-      // Manually enhance the element if it wasn't enhanced by our mock
-      if (!uiManager.uiContainer.classList.add._isMockFunction) {
-        enhanceDOMElement(uiManager.uiContainer);
-      }
-
+      // The element should be created and classList.add should be called
+      // Since our global createElement mock should handle this, let's verify the result
       expect(uiManager.uiContainer.classList.add).toHaveBeenCalledWith('ui-container');
       expect(document.body.contains(uiManager.uiContainer)).toBe(true);
     });
@@ -367,10 +416,6 @@ describe('UIManager', () => {
     beforeEach(() => {
       uiManager = new UIManager(mockGame);
       uiManager.createMainContainer();
-      // Ensure main container is enhanced
-      if (!uiManager.uiContainer.classList.add._isMockFunction) {
-        enhanceDOMElement(uiManager.uiContainer);
-      }
     });
 
     test('should create message element', () => {
@@ -378,12 +423,6 @@ describe('UIManager', () => {
 
       expect(uiManager.messageElement).toBeTruthy();
       expect(uiManager.messageElement.id).toBe('message-container');
-
-      // Manually enhance the element if needed
-      if (!uiManager.messageElement.classList.add._isMockFunction) {
-        enhanceDOMElement(uiManager.messageElement);
-      }
-
       expect(uiManager.messageElement.classList.add).toHaveBeenCalledWith('message-container');
       expect(uiManager.uiContainer.contains(uiManager.messageElement)).toBe(true);
     });
@@ -393,22 +432,12 @@ describe('UIManager', () => {
     beforeEach(() => {
       uiManager = new UIManager(mockGame);
       uiManager.createMainContainer();
-      // Ensure main container is enhanced
-      if (!uiManager.uiContainer.classList.add._isMockFunction) {
-        enhanceDOMElement(uiManager.uiContainer);
-      }
     });
 
     test('should create power indicator with fill element', () => {
       uiManager.createPowerIndicatorUI();
 
       expect(uiManager.powerIndicator).toBeTruthy();
-
-      // Manually enhance the element if needed
-      if (!uiManager.powerIndicator.classList.add._isMockFunction) {
-        enhanceDOMElement(uiManager.powerIndicator);
-      }
-
       expect(uiManager.powerIndicator.classList.add).toHaveBeenCalledWith('power-indicator');
       expect(uiManager.uiContainer.contains(uiManager.powerIndicator)).toBe(true);
 
@@ -608,11 +637,6 @@ describe('UIManager', () => {
       gameContainer.id = 'game-container';
       document.body.appendChild(gameContainer);
 
-      // Ensure game container is enhanced
-      if (!gameContainer.contains._isMockFunction) {
-        enhanceDOMElement(gameContainer);
-      }
-
       const mockRenderer = {
         domElement: document.createElement('canvas')
       };
@@ -632,12 +656,6 @@ describe('UIManager', () => {
 
       const gameContainer = document.getElementById('game-container');
       expect(gameContainer).toBeTruthy();
-
-      // Ensure game container is enhanced
-      if (!gameContainer.contains._isMockFunction) {
-        enhanceDOMElement(gameContainer);
-      }
-
       expect(gameContainer.contains(mockRenderer.domElement)).toBe(true);
     });
 
@@ -647,23 +665,12 @@ describe('UIManager', () => {
         domElement: document.createElement('canvas')
       };
 
-      // Ensure old parent is enhanced
-      if (!oldParent.contains._isMockFunction) {
-        enhanceDOMElement(oldParent);
-      }
-
       oldParent.appendChild(mockRenderer.domElement);
 
       uiManager.attachRenderer(mockRenderer);
 
       expect(oldParent.contains(mockRenderer.domElement)).toBe(false);
       const gameContainer = document.getElementById('game-container');
-
-      // Ensure game container is enhanced
-      if (!gameContainer.contains._isMockFunction) {
-        enhanceDOMElement(gameContainer);
-      }
-
       expect(gameContainer.contains(mockRenderer.domElement)).toBe(true);
     });
 

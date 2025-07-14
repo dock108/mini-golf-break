@@ -205,6 +205,16 @@ describe('App Class (main.js)', () => {
     enhanceDOMElement(playCourseButton);
     document.body.appendChild(playCourseButton);
 
+    // Mock getElementById to return enhanced elements
+    const originalGetElementById = document.getElementById;
+    document.getElementById = jest.fn(id => {
+      const element = originalGetElementById.call(document, id);
+      if (element) {
+        enhanceDOMElement(element);
+      }
+      return element;
+    });
+
     // Mock game instance
     mockGame = {
       init: jest.fn().mockResolvedValue(),
@@ -258,15 +268,10 @@ describe('App Class (main.js)', () => {
 
   describe('setupEventListeners', () => {
     test('should add click listener to play course button', () => {
-      const playCourseButton = document.getElementById('play-course');
-
-      // Ensure the button is enhanced before App construction
-      if (!playCourseButton.addEventListener._isMockFunction) {
-        enhanceDOMElement(playCourseButton);
-      }
-
       // Create the app instance which will call addEventListener
       new App();
+
+      const playCourseButton = document.getElementById('play-course');
 
       // Check that addEventListener was called on the play course button
       expect(playCourseButton.addEventListener).toHaveBeenCalledWith('click', expect.any(Function));
@@ -392,11 +397,6 @@ describe('App Class (main.js)', () => {
       mockGame.init.mockRejectedValue(error);
       const menuScreen = app.menuScreen; // Use the app's reference
 
-      // Ensure menuScreen has querySelector method by calling enhanceDOMElement
-      if (!menuScreen.querySelector || !menuScreen.querySelector._isMockFunction) {
-        enhanceDOMElement(menuScreen);
-      }
-
       try {
         await app.init();
       } catch (e) {
@@ -404,8 +404,13 @@ describe('App Class (main.js)', () => {
       }
 
       expect(menuScreen.style.display).toBe('block');
-      // Check that querySelector was called with 'div'
-      expect(menuScreen.querySelector).toHaveBeenCalledWith('div');
+      // Check that an error div was appended to the menu screen
+      expect(menuScreen.appendChild).toHaveBeenCalled();
+      const appendedElement = menuScreen.appendChild.mock.calls[0][0];
+      expect(appendedElement.style.color).toBe('red');
+      expect(appendedElement.textContent).toBe(
+        'Failed to initialize game. Please refresh the page.'
+      );
     });
 
     test('should handle missing menu screen during error display', async () => {
@@ -421,18 +426,13 @@ describe('App Class (main.js)', () => {
 
   describe('integration scenarios', () => {
     test('should handle complete startup flow', async () => {
-      const playCourseButton = document.getElementById('play-course');
-
-      // Ensure the button is enhanced before App construction
-      if (!playCourseButton.addEventListener._isMockFunction) {
-        enhanceDOMElement(playCourseButton);
-      }
-
       const app = new App();
 
       const startCourseSpy = jest
         .spyOn(app, 'startCourse')
         .mockImplementation(() => Promise.resolve());
+
+      const playCourseButton = document.getElementById('play-course');
 
       // Verify addEventListener was called with click handler
       expect(playCourseButton.addEventListener).toHaveBeenCalledWith('click', expect.any(Function));
