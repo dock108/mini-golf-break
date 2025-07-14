@@ -45,7 +45,8 @@ describe('AudioManager', () => {
 
     // Mock camera
     mockCamera = {
-      add: jest.fn()
+      add: jest.fn(),
+      remove: jest.fn()
     };
 
     // Setup mock game object

@@ -6,11 +6,8 @@ import { CourseElementFactory } from '../../objects/CourseElementFactory';
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 
-// Mock THREE dependencies
-jest.mock('three');
-
-// Mock CANNON dependencies
-jest.mock('cannon-es');
+// Note: THREE and CANNON mocks are provided by src/tests/setup.js
+// Removing explicit mocks to use global setup
 
 describe('CourseElementFactory', () => {
   let mockScene;

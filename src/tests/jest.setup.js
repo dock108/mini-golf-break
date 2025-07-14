@@ -37,12 +37,38 @@ jest.mock('cannon-es', () => {
   return {
     ...originalCannon,
     World: jest.fn(() => ({
-      broadphase: null,
-      gravity: { set: jest.fn() },
+      add: jest.fn(),
+      remove: jest.fn(),
+      step: jest.fn(),
+      contactmaterials: [],
+      addContactMaterial: jest.fn(),
+      removeContactMaterial: jest.fn(),
       addBody: jest.fn(),
       removeBody: jest.fn(),
-      step: jest.fn(),
-      bodies: []
+      gravity: { set: jest.fn() },
+      solver: {
+        iterations: 30,
+        tolerance: 0.0001,
+        type: 1,
+        equations: [],
+        equationSorter: null
+      },
+      broadphase: null,
+      allowSleep: true,
+      defaultSleepSpeedLimit: 0.15,
+      defaultSleepTimeLimit: 0.2,
+      defaultContactMaterial: {
+        friction: 0.8,
+        restitution: 0.1,
+        contactEquationStiffness: 1e8,
+        contactEquationRelaxation: 4,
+        frictionEquationStiffness: 1e8,
+        frictionEquationRelaxation: 3
+      },
+      bodies: [],
+      constraints: [],
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn()
     })),
     SAPBroadphase: jest.fn(() => ({})),
     NaiveBroadphase: jest.fn(() => ({})),
@@ -51,7 +77,20 @@ jest.mock('cannon-es', () => {
     Body: jest.fn(() => ({
       position: { x: 0, y: 0, z: 0 },
       velocity: { x: 0, y: 0, z: 0 },
-      quaternion: { x: 0, y: 0, z: 0, w: 1 }
+      material: null,
+      addEventListener: jest.fn(),
+      quaternion: {
+        setFromAxisAngle: jest.fn(),
+        x: 0,
+        y: 0,
+        z: 0,
+        w: 1,
+        set: jest.fn(),
+        copy: jest.fn(),
+        normalize: jest.fn()
+      },
+      addShape: jest.fn(),
+      userData: {}
     })),
     Vec3: jest.fn((x, y, z) => ({ x, y, z })),
     Sphere: jest.fn(radius => ({ radius })),
@@ -122,8 +161,71 @@ jest.mock(
         position: { set: jest.fn(), copy: jest.fn() },
         lookAt: jest.fn(),
         add: jest.fn(),
+        remove: jest.fn(),
         updateProjectionMatrix: jest.fn()
-      }))
+      })),
+      // Geometry constructors
+      CircleGeometry: jest.fn(),
+      CylinderGeometry: jest.fn(),
+      SphereGeometry: jest.fn(),
+      PlaneGeometry: jest.fn(() => ({
+        attributes: {
+          position: {
+            array: new Float32Array([-1, 1, 0, 1, 1, 0, -1, -1, 0, 1, -1, 0])
+          }
+        }
+      })),
+      BoxGeometry: jest.fn(),
+      // Vector3 class with prototype methods
+      Vector3: (() => {
+        const Vector3Mock = jest.fn(function (x = 0, y = 0, z = 0) {
+          this.x = x;
+          this.y = y;
+          this.z = z;
+          this.copy = jest.fn().mockReturnThis();
+          this.clone = jest.fn(() => new Vector3Mock(this.x, this.y, this.z));
+          this.toArray = jest.fn(() => [this.x, this.y, this.z]);
+          this.addVectors = jest.fn().mockReturnThis();
+          this.multiplyScalar = jest.fn().mockReturnThis();
+          this.subVectors = jest.fn().mockReturnThis();
+          this.normalize = jest.fn().mockReturnThis();
+          return this;
+        });
+        Vector3Mock.prototype = {
+          addVectors: jest.fn().mockReturnThis(),
+          multiplyScalar: jest.fn().mockReturnThis(),
+          subVectors: jest.fn().mockReturnThis(),
+          normalize: jest.fn().mockReturnThis(),
+          copy: jest.fn().mockReturnThis(),
+          clone: jest.fn()
+        };
+        return Vector3Mock;
+      })(),
+      // Material classes
+      MeshStandardMaterial: jest.fn(() => ({
+        color: 0xffffff,
+        roughness: 0.3,
+        metalness: 0.2
+      })),
+      MeshBasicMaterial: jest.fn(() => ({
+        color: 0xffffff
+      })),
+      // Mesh class
+      Mesh: jest.fn(function (geometry, material) {
+        this.geometry = geometry;
+        this.material = material;
+        this.position = { x: 0, y: 0, z: 0, set: jest.fn(), copy: jest.fn() };
+        this.rotation = { x: 0, y: 0, z: 0, set: jest.fn() };
+        this.scale = { x: 1, y: 1, z: 1, set: jest.fn() };
+        this.castShadow = false;
+        this.receiveShadow = false;
+        this.name = '';
+        this.userData = {};
+        this.add = jest.fn();
+        this.remove = jest.fn();
+        this.children = [];
+        return this;
+      })
     };
   },
   { virtual: true }
