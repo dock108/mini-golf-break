@@ -335,4 +335,104 @@ describe('InputController', () => {
     inputController.handleHoleStarted();
     expect(inputController.isInputEnabled).toBe(true);
   });
+
+  test('should update power display', () => {
+    inputController.hitPower = 0.75;
+
+    expect(() => {
+      inputController.updatePowerDisplay();
+    }).not.toThrow();
+  });
+
+  test('should cleanup event listeners', () => {
+    const removeSpy = jest.spyOn(window, 'removeEventListener');
+
+    inputController.cleanup();
+
+    expect(removeSpy).toHaveBeenCalled();
+    removeSpy.mockRestore();
+  });
+
+  test('should handle mouse/touch coordinate conversion', () => {
+    inputController.setMousePosition(100, 200);
+
+    expect(inputController.mouse.x).toBeDefined();
+    expect(inputController.mouse.y).toBeDefined();
+  });
+
+  test('should handle game state changes', () => {
+    // Test transitioning state
+    const eventData = { newState: 'transitioning' };
+    inputController.handleGameStateChanged(eventData);
+    expect(inputController.isInputEnabled).toBe(false);
+
+    // Test aiming state
+    const aimingEventData = { newState: 'aiming' };
+    inputController.handleGameStateChanged(aimingEventData);
+    expect(inputController.isInputEnabled).toBe(true);
+  });
+
+  test('should handle window resize events', () => {
+    expect(() => {
+      inputController.handleWindowResize();
+    }).not.toThrow();
+  });
+
+  test('should handle ball moving events', () => {
+    inputController.handleBallMoving();
+    expect(inputController.isInputEnabled).toBe(false);
+  });
+
+  test('should handle touch velocity calculations', () => {
+    const startTime = performance.now() - 200;
+    inputController.touchStartTime = startTime;
+    inputController.mouseDownPosition.set(0, 0);
+    inputController.mouse.set(100, 100);
+
+    expect(() => {
+      inputController.calculateTouchVelocity();
+    }).not.toThrow();
+
+    expect(inputController.touchVelocity).toBeDefined();
+  });
+
+  test('should handle UI interactions', () => {
+    inputController.hitPower = 0.5;
+
+    // Test increase power
+    expect(() => {
+      inputController.increasePower();
+    }).not.toThrow();
+
+    // Test decrease power
+    expect(() => {
+      inputController.decreasePower();
+    }).not.toThrow();
+  });
+
+  test('should handle disabled input gracefully', () => {
+    inputController.isInputEnabled = false;
+
+    const mockEvent = {
+      clientX: 100,
+      clientY: 100,
+      preventDefault: jest.fn(),
+      stopPropagation: jest.fn()
+    };
+
+    expect(() => {
+      inputController.onMouseDown(mockEvent);
+      inputController.onMouseMove(mockEvent);
+      inputController.onMouseUp(mockEvent);
+    }).not.toThrow();
+  });
+
+  test('should handle mobile input optimization', () => {
+    inputController.isMobile = true;
+    inputController.hitPower = 0.8;
+
+    expect(() => {
+      inputController.applyMobileOptimizations();
+    }).not.toThrow();
+  });
 });
