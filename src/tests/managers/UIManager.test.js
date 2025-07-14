@@ -269,10 +269,25 @@ describe('UIManager', () => {
       existingOverlay.id = 'ui-overlay';
       document.body.appendChild(existingOverlay);
 
+      // Ensure getElementById can find our test element
+      const originalGetElementById = document.getElementById;
+      document.getElementById = jest.fn(id => {
+        if (id === 'ui-overlay') {
+          return existingOverlay;
+        }
+        if (id === 'ui-container') {
+          return null;
+        }
+        return originalGetElementById.call(document, id);
+      });
+
       uiManager.createMainContainer();
 
       expect(uiManager.uiContainer.id).toBe('ui-overlay');
       expect(uiManager.uiContainer).toBeTruthy();
+
+      // Restore
+      document.getElementById = originalGetElementById;
     });
 
     test('should clear existing container contents', () => {
