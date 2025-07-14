@@ -332,7 +332,9 @@ export class UIManager {
    * @param {number} duration - Duration in milliseconds
    */
   showMessage(message, duration = 2000) {
-    if (!this.messageElement) {return;}
+    if (!this.messageElement) {
+      return;
+    }
 
     // Clear existing timeout
     if (this.messageTimeout) {
@@ -357,7 +359,9 @@ export class UIManager {
    * Hide the message element.
    */
   hideMessage() {
-    if (!this.messageElement || !this.isShowingMessage) {return;}
+    if (!this.messageElement || !this.isShowingMessage) {
+      return;
+    }
 
     this.messageElement.style.opacity = '0';
     // Use transitionend event to set visibility hidden after fade

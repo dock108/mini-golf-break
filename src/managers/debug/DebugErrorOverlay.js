@@ -48,6 +48,14 @@ export class DebugErrorOverlay {
    * Initialize and create the error overlay DOM element.
    */
   init() {
+    // Check if we're in a test environment without proper DOM support
+    if (typeof document === 'undefined') {
+      console.warn(
+        '[DebugErrorOverlay] DOM not available, skipping initialization in test environment.'
+      );
+      return;
+    }
+
     // Check if element already exists
     this.errorOverlay = document.getElementById(this.OVERLAY_ID);
     if (this.errorOverlay) {
@@ -81,7 +89,17 @@ export class DebugErrorOverlay {
     if (!this.errorOverlay) {
       console.warn('[DebugErrorOverlay] Overlay not initialized, cannot show error.');
       this.init(); // Attempt to initialize if not already
-      if (!this.errorOverlay) return; // Still failed
+      if (!this.errorOverlay) {
+        return;
+      } // Still failed
+    }
+
+    // Check if we're in a test environment without proper DOM support
+    if (typeof document === 'undefined' || !this.errorOverlay.appendChild) {
+      console.warn(
+        '[DebugErrorOverlay] DOM methods not available, skipping error display in test environment.'
+      );
+      return;
     }
 
     console.log(`[DebugErrorOverlay] Displaying error: ${message}`);
@@ -91,7 +109,7 @@ export class DebugErrorOverlay {
     errorElement.style.cssText = this.ERROR_ITEM_STYLE;
 
     // Insert after the close button
-    if (this.errorOverlay.children.length > 0) {
+    if (this.errorOverlay.children && this.errorOverlay.children.length > 0) {
       this.errorOverlay.insertBefore(errorElement, this.errorOverlay.children[1]);
     } else {
       this.errorOverlay.appendChild(errorElement); // Fallback if no close button
@@ -137,7 +155,7 @@ export class DebugErrorOverlay {
    * Hide the overlay only if it contains no error messages (only the close button).
    */
   hideIfEmpty() {
-    if (this.errorOverlay && this.errorOverlay.children.length <= 1) {
+    if (this.errorOverlay && this.errorOverlay.children && this.errorOverlay.children.length <= 1) {
       this.hide();
       console.log('[DebugErrorOverlay] Overlay hidden automatically as it is empty.');
     }

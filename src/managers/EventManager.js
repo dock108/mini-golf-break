@@ -65,7 +65,9 @@ export class EventManager {
    * @param {object} context - The context of the callback
    */
   unsubscribe(eventType, callback, context = null) {
-    if (!this.subscribers.has(eventType)) {return;}
+    if (!this.subscribers.has(eventType)) {
+      return;
+    }
 
     const subscribers = this.subscribers.get(eventType);
     const index = subscribers.findIndex(s => s.callback === callback && s.context === context);
@@ -82,7 +84,9 @@ export class EventManager {
    * @param {object} source - Source object that triggered the event
    */
   publish(eventType, data = {}, source = null) {
-    if (!this.enabled) {return;}
+    if (!this.enabled) {
+      return;
+    }
 
     const event = new GameEvent(eventType, data, source);
 
@@ -94,7 +98,9 @@ export class EventManager {
     // Store in history
     this.addToHistory(event);
 
-    if (!this.subscribers.has(eventType)) {return;}
+    if (!this.subscribers.has(eventType)) {
+      return;
+    }
 
     this.subscribers.get(eventType).forEach(subscriber => {
       try {
@@ -158,7 +164,9 @@ export class EventManager {
    * @private
    */
   getSimplifiedData(data) {
-    if (!data || typeof data !== 'object') {return data;}
+    if (!data || typeof data !== 'object') {
+      return data;
+    }
 
     // Create a simplified copy for logging
     const simplified = {};
@@ -190,8 +198,12 @@ export class EventManager {
    * @private
    */
   getSourceIdentifier(source) {
-    if (!source) {return 'unknown';}
-    if (typeof source === 'string') {return source;}
+    if (!source) {
+      return 'unknown';
+    }
+    if (typeof source === 'string') {
+      return source;
+    }
     if (source.constructor && source.constructor.name) {
       return source.constructor.name;
     }

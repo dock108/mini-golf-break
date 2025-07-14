@@ -26,7 +26,7 @@ describe('Course and Hole Transitions Integration', () => {
     // Setup scene and game mock
     scene = new THREE.Scene();
     const renderer = new THREE.WebGLRenderer();
-    
+
     game = {
       scene,
       renderer,
@@ -35,7 +35,7 @@ describe('Course and Hole Transitions Integration', () => {
       stateManager: new StateManager({ eventManager: new EventManager() }),
       physicsManager: new PhysicsManager({ debugManager: { log: jest.fn() } }),
       ballManager: null,
-      uiManager: new UIManager({ 
+      uiManager: new UIManager({
         eventManager: new EventManager(),
         debugManager: { log: jest.fn() }
       }),
@@ -59,7 +59,7 @@ describe('Course and Hole Transitions Integration', () => {
     game.physicsManager.init();
     game.uiManager.init();
     game.uiManager.attachRenderer(renderer);
-    
+
     // Initialize ball manager
     game.ballManager = new BallManager(game);
     game.ballManager.init(game.physicsManager);
@@ -115,9 +115,15 @@ describe('Course and Hole Transitions Integration', () => {
 
     // Track events
     const events = [];
-    game.eventManager.subscribe('HOLE_COMPLETED', (data) => events.push({ type: 'HOLE_COMPLETED', data }));
-    game.eventManager.subscribe('HOLE_TRANSITION_START', (data) => events.push({ type: 'HOLE_TRANSITION_START', data }));
-    game.eventManager.subscribe('HOLE_TRANSITION_END', (data) => events.push({ type: 'HOLE_TRANSITION_END', data }));
+    game.eventManager.subscribe('HOLE_COMPLETED', data =>
+      events.push({ type: 'HOLE_COMPLETED', data })
+    );
+    game.eventManager.subscribe('HOLE_TRANSITION_START', data =>
+      events.push({ type: 'HOLE_TRANSITION_START', data })
+    );
+    game.eventManager.subscribe('HOLE_TRANSITION_END', data =>
+      events.push({ type: 'HOLE_TRANSITION_END', data })
+    );
 
     // Simulate hole completion
     game.eventManager.publish('BALL_IN_HOLE', { hole: 0 });
@@ -161,7 +167,7 @@ describe('Course and Hole Transitions Integration', () => {
     // Test camera positioning for multiple holes
     for (let i = 0; i < 3; i++) {
       await holeTransitionManager.transitionToHole(i);
-      
+
       expect(game.cameraController.positionCameraForHole).toHaveBeenCalledWith(
         course.holes[i],
         expect.any(Number)
@@ -196,7 +202,7 @@ describe('Course and Hole Transitions Integration', () => {
 
     // Complete last hole
     game.eventManager.publish('BALL_IN_HOLE', { hole: 8 });
-    
+
     // Wait for processing
     await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -208,7 +214,7 @@ describe('Course and Hole Transitions Integration', () => {
   test('should maintain game state consistency during transitions', async () => {
     // Track state changes
     const states = [];
-    game.stateManager.setGameState = jest.fn((state) => {
+    game.stateManager.setGameState = jest.fn(state => {
       states.push(state);
     });
 
@@ -233,7 +239,7 @@ describe('Course and Hole Transitions Integration', () => {
     expect(game.debugManager.error).toHaveBeenCalledWith(
       expect.stringContaining('Failed to reset ball')
     );
-    
+
     // Game should still be playable
     expect(game.stateManager.getGameState()).not.toBe('ERROR');
   });

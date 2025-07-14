@@ -80,7 +80,9 @@ export class PerformanceManager {
    * @returns {*} The value at the specified path or defaultValue if path is invalid
    */
   safelyGet(obj, path, defaultValue = null) {
-    if (!obj) {return defaultValue;}
+    if (!obj) {
+      return defaultValue;
+    }
 
     const props = path.split('.');
     let result = obj;
@@ -146,7 +148,9 @@ export class PerformanceManager {
    * @param {string} name - Name of the timer
    */
   startTimer(name) {
-    if (!this.enabled) {return;}
+    if (!this.enabled) {
+      return;
+    }
 
     this.markers[name] = performance.now();
   }
@@ -157,7 +161,9 @@ export class PerformanceManager {
    * @returns {number} Elapsed time in milliseconds
    */
   endTimer(name) {
-    if (!this.enabled || !this.markers[name]) {return 0;}
+    if (!this.enabled || !this.markers[name]) {
+      return 0;
+    }
 
     const now = performance.now();
     const elapsed = now - this.markers[name];
@@ -195,7 +201,9 @@ export class PerformanceManager {
    */
   checkBudget(name, value) {
     // Skip if no threshold defined
-    if (!PERFORMANCE_CONFIG.warningThresholds[name]) {return;}
+    if (!PERFORMANCE_CONFIG.warningThresholds[name]) {
+      return;
+    }
 
     const threshold = PERFORMANCE_CONFIG.warningThresholds[name];
     const isViolation = name === 'fps' ? value < threshold : value > threshold;
@@ -228,7 +236,9 @@ export class PerformanceManager {
    * Mark the beginning of a new frame
    */
   beginFrame() {
-    if (!this.enabled) {return;}
+    if (!this.enabled) {
+      return;
+    }
 
     this.frameStartTime = performance.now();
     this.isFrameActive = true;
@@ -242,7 +252,9 @@ export class PerformanceManager {
    * Mark the end of the current frame and update metrics
    */
   endFrame() {
-    if (!this.enabled || !this.isFrameActive) {return;}
+    if (!this.enabled || !this.isFrameActive) {
+      return;
+    }
 
     this.isFrameActive = false;
     const now = performance.now();
@@ -430,7 +442,9 @@ export class PerformanceManager {
    * Update the performance display with current metrics
    */
   updatePerformanceDisplay() {
-    if (!this.performanceDisplay) {return;}
+    if (!this.performanceDisplay) {
+      return;
+    }
 
     try {
       const data = this.getPerformanceData();

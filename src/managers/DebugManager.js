@@ -179,13 +179,17 @@ export class DebugManager {
    */
   setupDebugHelpers() {
     // Only proceed if debug helpers are enabled in config
-    if (!DEBUG_CONFIG.showHelpers) {return;}
+    if (!DEBUG_CONFIG.showHelpers) {
+      return;
+    }
 
     // Clear existing debug helpers
     this.removeDebugHelpers();
 
     // Only add helpers if we have a scene
-    if (!this.game || !this.game.scene) {return;}
+    if (!this.game || !this.game.scene) {
+      return;
+    }
 
     // Add axes helper
     const axesHelper = new THREE.AxesHelper(5);
@@ -247,7 +251,9 @@ export class DebugManager {
    * @param {THREE.Vector3} velocity - Ball velocity vector
    */
   logBallVelocity(velocity) {
-    if (!this.enabled || !DEBUG_CONFIG.logVelocity) {return;}
+    if (!this.enabled || !DEBUG_CONFIG.logVelocity) {
+      return;
+    }
 
     const speed = velocity.length();
 
@@ -370,7 +376,9 @@ export class DebugManager {
    * @returns {object} Object with debug properties
    */
   getDebugInfo() {
-    if (!this.enabled) {return {};}
+    if (!this.enabled) {
+      return {};
+    }
 
     const info = {
       FPS: Math.round(1 / this.game.deltaTime),
@@ -458,7 +466,9 @@ export class DebugManager {
       this.courseDebugState.currentHole
     );
 
-    if (holeNumber === null) {return;} // User canceled
+    if (holeNumber === null) {
+      return;
+    } // User canceled
 
     const holeNum = parseInt(holeNumber, 10);
     if (isNaN(holeNum) || holeNum < 1 || holeNum > maxHole) {

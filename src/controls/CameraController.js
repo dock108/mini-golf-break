@@ -185,7 +185,10 @@ export class CameraController {
     // during initial load. Subsequent hole starts might trigger positioning,
     // but initial setup is handled after course creation.
     if (this.game.debugManager) {
-      this.game.debugManager.log('CameraController.handleHoleStarted', 'Initial positioning deferred.');
+      this.game.debugManager.log(
+        'CameraController.handleHoleStarted',
+        'Initial positioning deferred.'
+      );
     }
   }
 
@@ -206,7 +209,10 @@ export class CameraController {
     // Reset user adjustment flag when ball is hit, so camera follows the shot
     this._userAdjustedCamera = false;
     if (this.game.debugManager) {
-      this.game.debugManager.log('CameraController.handleBallHit', 'Ball hit, resetting camera adjustment flag');
+      this.game.debugManager.log(
+        'CameraController.handleBallHit',
+        'Ball hit, resetting camera adjustment flag'
+      );
     }
   }
 
@@ -214,7 +220,9 @@ export class CameraController {
    * Handle window resize event
    */
   handleResize() {
-    if (!this.camera) {return;}
+    if (!this.camera) {
+      return;
+    }
 
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
@@ -388,7 +396,9 @@ export class CameraController {
   updateCameraFollowBall(deltaTime) {
     // Get the ball reference from the ball manager
     const ball = this.game.ballManager ? this.game.ballManager.ball : null;
-    if (!ball || !ball.mesh) {return;}
+    if (!ball || !ball.mesh) {
+      return;
+    }
 
     const ballPosition = ball.mesh.position.clone(); // Ball position is already WORLD
 
@@ -591,14 +601,18 @@ export class CameraController {
   positionCameraBehindBall() {
     // Get the ball reference from the ball manager
     const ball = this.game.ballManager ? this.game.ballManager.ball : null;
-    if (!ball || !ball.mesh) {return;}
+    if (!ball || !ball.mesh) {
+      return;
+    }
 
     // Get the ball's position
     const ballPosition = ball.mesh.position.clone();
 
     // Get hole position
     const holePosition = this.course ? this.course.getHolePosition() : null;
-    if (!holePosition) {return;}
+    if (!holePosition) {
+      return;
+    }
 
     // Calculate direction from ball to hole
     const direction = new THREE.Vector3().subVectors(holePosition, ballPosition).normalize();
@@ -791,11 +805,15 @@ export class CameraController {
    */
   panCameraOnEdge(direction, amount) {
     // Ignore if in transition or user is manually adjusting camera
-    if (this.isTransitioning || this._isRepositioning) {return;}
+    if (this.isTransitioning || this._isRepositioning) {
+      return;
+    }
 
     // Get ball reference if available
     const ball = this.game.ballManager ? this.game.ballManager.ball : null;
-    if (!ball || !ball.mesh) {return;}
+    if (!ball || !ball.mesh) {
+      return;
+    }
 
     // Get current camera and target positions
     const ballPosition = ball.mesh.position.clone();
@@ -846,7 +864,9 @@ export class CameraController {
    * Adjust zoom level for mobile optimization
    */
   adjustZoom(zoomFactor) {
-    if (!this.controls) {return;}
+    if (!this.controls) {
+      return;
+    }
 
     const currentDistance = this.camera.position.distanceTo(this.controls.target);
     const newDistance = currentDistance / zoomFactor;
@@ -861,7 +881,8 @@ export class CameraController {
         .subVectors(this.camera.position, this.controls.target)
         .normalize();
 
-      this.camera.position.copy(this.controls.target)
+      this.camera.position
+        .copy(this.controls.target)
         .add(direction.multiplyScalar(clampedDistance));
 
       this.controls.update();
@@ -873,7 +894,9 @@ export class CameraController {
    * Optimize camera settings for mobile devices
    */
   optimizeForMobile() {
-    if (!this.controls) {return;}
+    if (!this.controls) {
+      return;
+    }
 
     // Reduce damping for more responsive controls on touch
     this.controls.enableDamping = true;

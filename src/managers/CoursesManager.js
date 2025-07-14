@@ -180,7 +180,9 @@ export class CoursesManager {
 
     // Remove existing hole meshes and dispose of resources
     this.courseObjects.forEach(obj => {
-      if (obj.geometry) {obj.geometry.dispose();}
+      if (obj.geometry) {
+        obj.geometry.dispose();
+      }
       if (obj.material) {
         if (Array.isArray(obj.material)) {
           obj.material.forEach(mat => mat.dispose());

@@ -41,7 +41,7 @@ describe('SpaceDecorations', () => {
   beforeEach(() => {
     // Mock scene
     scene = {
-      add: jest.fn((object) => {
+      add: jest.fn(object => {
         // Simulate Three.js behavior of setting parent when adding to scene
         object.parent = scene;
       }),

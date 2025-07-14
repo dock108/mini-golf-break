@@ -323,23 +323,53 @@ export class Game {
       }
 
       // Clean up managers in reverse order of initialization
-      if (this.inputController) {this.inputController.cleanup();}
-      if (this.ballManager) {this.ballManager.cleanup();}
-      if (this.holeCompletionManager) {this.holeCompletionManager.cleanup();}
-      if (this.holeTransitionManager) {this.holeTransitionManager.cleanup();}
-      if (this.holeStateManager) {this.holeStateManager.cleanup();}
-      if (this.hazardManager) {this.hazardManager.cleanup();}
-      if (this.audioManager) {this.audioManager.cleanup();}
-      if (this.physicsManager) {this.physicsManager.cleanup();}
-      if (this.visualEffectsManager) {this.visualEffectsManager.cleanup();}
-      if (this.cameraController) {this.cameraController.cleanup();}
-      if (this.uiManager) {this.uiManager.cleanup();}
-      if (this.stateManager) {this.stateManager.cleanup();}
-      if (this.performanceManager) {this.performanceManager.cleanup();}
+      if (this.inputController) {
+        this.inputController.cleanup();
+      }
+      if (this.ballManager) {
+        this.ballManager.cleanup();
+      }
+      if (this.holeCompletionManager) {
+        this.holeCompletionManager.cleanup();
+      }
+      if (this.holeTransitionManager) {
+        this.holeTransitionManager.cleanup();
+      }
+      if (this.holeStateManager) {
+        this.holeStateManager.cleanup();
+      }
+      if (this.hazardManager) {
+        this.hazardManager.cleanup();
+      }
+      if (this.audioManager) {
+        this.audioManager.cleanup();
+      }
+      if (this.physicsManager) {
+        this.physicsManager.cleanup();
+      }
+      if (this.visualEffectsManager) {
+        this.visualEffectsManager.cleanup();
+      }
+      if (this.cameraController) {
+        this.cameraController.cleanup();
+      }
+      if (this.uiManager) {
+        this.uiManager.cleanup();
+      }
+      if (this.stateManager) {
+        this.stateManager.cleanup();
+      }
+      if (this.performanceManager) {
+        this.performanceManager.cleanup();
+      }
 
       // Core systems last
-      if (this.eventManager) {this.eventManager.cleanup();}
-      if (this.debugManager) {this.debugManager.cleanup();}
+      if (this.eventManager) {
+        this.eventManager.cleanup();
+      }
+      if (this.debugManager) {
+        this.debugManager.cleanup();
+      }
 
       // Remove objects from scene
       if (this.scene) {
@@ -348,7 +378,9 @@ export class Game {
           this.scene.remove(object);
 
           // Dispose of geometries and materials
-          if (object.geometry) {object.geometry.dispose();}
+          if (object.geometry) {
+            object.geometry.dispose();
+          }
           if (object.material) {
             if (Array.isArray(object.material)) {
               object.material.forEach(material => material.dispose());

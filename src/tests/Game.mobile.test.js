@@ -163,7 +163,6 @@ Object.defineProperty(global, 'performance', {
   }
 });
 
-
 describe('Game - Mobile Optimizations', () => {
   let game;
 
@@ -352,7 +351,9 @@ describe('Game - Mobile Optimizations', () => {
   });
 
   test('should detect mobile device correctly', () => {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(global.navigator.userAgent);
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      global.navigator.userAgent
+    );
     expect(isMobile).toBe(true);
   });
 
@@ -360,7 +361,10 @@ describe('Game - Mobile Optimizations', () => {
     await game.init();
 
     expect(game.renderer).toBeDefined();
-    expect(game.renderer.setSize).toHaveBeenCalledWith(global.window.innerWidth, global.window.innerHeight);
+    expect(game.renderer.setSize).toHaveBeenCalledWith(
+      global.window.innerWidth,
+      global.window.innerHeight
+    );
     expect(game.renderer.shadowMap.enabled).toBe(true);
   });
 

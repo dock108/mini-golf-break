@@ -117,12 +117,12 @@ describe('BallManager', () => {
           x: 0,
           y: 0,
           z: 0,
-          clone: jest.fn(function() {
+          clone: jest.fn(function () {
             const cloned = {
               x: this.x,
               y: this.y,
               z: this.z,
-              setY: jest.fn(function(newY) {
+              setY: jest.fn(function (newY) {
                 this.y = newY;
                 return this;
               })
@@ -272,7 +272,9 @@ describe('BallManager', () => {
 
     // Update the course to return the hole position we expect
     mockGame.course.getHolePosition.mockReturnValue({
-      x: 10, y: 0, z: 10,
+      x: 10,
+      y: 0,
+      z: 10,
       clone: jest.fn(() => ({ x: 10, y: 0, z: 10 }))
     });
 

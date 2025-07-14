@@ -161,11 +161,7 @@ export class SpaceDecorations {
 
     for (let i = 0; i < 3; i++) {
       const star = new THREE.Mesh(starGeometry, starMaterial);
-      star.position.set(
-        Math.random() * 100 - 50,
-        Math.random() * 20 + 30,
-        -50
-      );
+      star.position.set(Math.random() * 100 - 50, Math.random() * 20 + 30, -50);
       star.rotation.z = Math.PI / 2;
       star.visible = false; // Will be animated
       star.userData.type = 'shootingStar';

@@ -4,21 +4,28 @@ import { CameraController } from '../controls/CameraController';
 jest.mock('three', () => ({
   PerspectiveCamera: jest.fn(() => ({
     position: {
-      set: jest.fn(function(x, y, z) { this.x = x; this.y = y; this.z = z; return this; }),
-      copy: jest.fn(function(v) {
+      set: jest.fn(function (x, y, z) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+        return this;
+      }),
+      copy: jest.fn(function (v) {
         this.x = v.x;
         this.y = v.y;
         this.z = v.z;
         return this;
       }),
-      add: jest.fn(function(v) {
+      add: jest.fn(function (v) {
         this.x += v.x;
         this.y += v.y;
         this.z += v.z;
         return this;
       }),
       distanceTo: jest.fn(() => 10),
-      lerp: jest.fn(function(_v, _t) { return this; }),
+      lerp: jest.fn(function (_v, _t) {
+        return this;
+      }),
       x: 0,
       y: 0,
       z: 0
@@ -32,26 +39,75 @@ jest.mock('three', () => ({
   })),
   Vector3: jest.fn(() => {
     const createVector3Mock = (x = 0, y = 0, z = 0) => ({
-      x, y, z,
-      set: jest.fn(function(x, y, z) { this.x = x; this.y = y; this.z = z; return this; }),
-      copy: jest.fn(function(v) { this.x = v.x; this.y = v.y; this.z = v.z; return this; }),
-      clone: jest.fn(function() { return createVector3Mock(this.x, this.y, this.z); }),
-      add: jest.fn(function(v) { this.x += v.x; this.y += v.y; this.z += v.z; return this; }),
-      addVectors: jest.fn(function(a, b) { this.x = a.x + b.x; this.y = a.y + b.y; this.z = a.z + b.z; return this; }),
-      subVectors: jest.fn(function(a, b) { this.x = a.x - b.x; this.y = a.y - b.y; this.z = a.z - b.z; return this; }),
-      lerpVectors: jest.fn(function(a, b, t) { this.x = a.x + (b.x - a.x) * t; this.y = a.y + (b.y - a.y) * t; this.z = a.z + (b.z - a.z) * t; return this; }),
-      multiplyScalar: jest.fn(function(s) { this.x *= s; this.y *= s; this.z *= s; return this; }),
-      normalize: jest.fn(function() { return this; }),
-      addScaledVector: jest.fn(function(v, s) { this.x += v.x * s; this.y += v.y * s; this.z += v.z * s; return this; }),
+      x,
+      y,
+      z,
+      set: jest.fn(function (x, y, z) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+        return this;
+      }),
+      copy: jest.fn(function (v) {
+        this.x = v.x;
+        this.y = v.y;
+        this.z = v.z;
+        return this;
+      }),
+      clone: jest.fn(function () {
+        return createVector3Mock(this.x, this.y, this.z);
+      }),
+      add: jest.fn(function (v) {
+        this.x += v.x;
+        this.y += v.y;
+        this.z += v.z;
+        return this;
+      }),
+      addVectors: jest.fn(function (a, b) {
+        this.x = a.x + b.x;
+        this.y = a.y + b.y;
+        this.z = a.z + b.z;
+        return this;
+      }),
+      subVectors: jest.fn(function (a, b) {
+        this.x = a.x - b.x;
+        this.y = a.y - b.y;
+        this.z = a.z - b.z;
+        return this;
+      }),
+      lerpVectors: jest.fn(function (a, b, t) {
+        this.x = a.x + (b.x - a.x) * t;
+        this.y = a.y + (b.y - a.y) * t;
+        this.z = a.z + (b.z - a.z) * t;
+        return this;
+      }),
+      multiplyScalar: jest.fn(function (s) {
+        this.x *= s;
+        this.y *= s;
+        this.z *= s;
+        return this;
+      }),
+      normalize: jest.fn(function () {
+        return this;
+      }),
+      addScaledVector: jest.fn(function (v, s) {
+        this.x += v.x * s;
+        this.y += v.y * s;
+        this.z += v.z * s;
+        return this;
+      }),
       distanceTo: jest.fn(() => 5),
       distanceToSquared: jest.fn(() => 25),
       toArray: jest.fn(() => [this.x, this.y, this.z]),
-      setY: jest.fn(function(y) { this.y = y; return this; })
+      setY: jest.fn(function (y) {
+        this.y = y;
+        return this;
+      })
     });
     return createVector3Mock();
   }),
   MathUtils: {
-    degToRad: jest.fn((deg) => deg * Math.PI / 180),
+    degToRad: jest.fn(deg => (deg * Math.PI) / 180),
     lerp: jest.fn((a, b, t) => a + (b - a) * t)
   }
 }));
@@ -73,9 +129,16 @@ jest.mock('three/examples/jsm/controls/OrbitControls', () => ({
     enableRotate: true,
     enabled: true,
     target: {
-      copy: jest.fn(function(v) { this.x = v.x; this.y = v.y; this.z = v.z; return this; }),
-      lerp: jest.fn(function(_v, _t) { return this; }),
-      add: jest.fn(function(v) {
+      copy: jest.fn(function (v) {
+        this.x = v.x;
+        this.y = v.y;
+        this.z = v.z;
+        return this;
+      }),
+      lerp: jest.fn(function (_v, _t) {
+        return this;
+      }),
+      add: jest.fn(function (v) {
         this.x = (this.x || 0) + v.x;
         this.y = (this.y || 0) + v.y;
         this.z = (this.z || 0) + v.z;
@@ -105,7 +168,7 @@ describe('CameraController', () => {
     }
 
     // Mock DOM elements
-    global.document.createElement = jest.fn((tag) => {
+    global.document.createElement = jest.fn(tag => {
       if (tag === 'canvas') {
         return {
           width: 800,
@@ -164,17 +227,17 @@ describe('CameraController', () => {
               x: 0,
               y: 0,
               z: 0,
-              clone: jest.fn(function() {
+              clone: jest.fn(function () {
                 return {
                   x: this.x,
                   y: this.y,
                   z: this.z,
-                  clone: jest.fn(function() {
+                  clone: jest.fn(function () {
                     return {
                       x: this.x,
                       y: this.y,
                       z: this.z,
-                      add: jest.fn(function(v) {
+                      add: jest.fn(function (v) {
                         return {
                           x: this.x + v.x,
                           y: this.y + v.y,
@@ -183,17 +246,17 @@ describe('CameraController', () => {
                       })
                     };
                   }),
-                  add: jest.fn(function(v) {
+                  add: jest.fn(function (v) {
                     return {
                       x: this.x + v.x,
                       y: this.y + v.y,
                       z: this.z + v.z,
-                      clone: jest.fn(function() {
+                      clone: jest.fn(function () {
                         return {
                           x: this.x,
                           y: this.y,
                           z: this.z,
-                          add: jest.fn(function(v) {
+                          add: jest.fn(function (v) {
                             return {
                               x: this.x + v.x,
                               y: this.y + v.y,
@@ -204,7 +267,10 @@ describe('CameraController', () => {
                       })
                     };
                   }),
-                  setY: jest.fn(function(newY) { this.y = newY; return this; })
+                  setY: jest.fn(function (newY) {
+                    this.y = newY;
+                    return this;
+                  })
                 };
               })
             }

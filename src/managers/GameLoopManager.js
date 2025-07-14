@@ -30,7 +30,9 @@ export class GameLoopManager {
    * Start the animation loop
    */
   startLoop() {
-    if (this.isLoopRunning) {return;}
+    if (this.isLoopRunning) {
+      return;
+    }
 
     this.isLoopRunning = true;
     this.lastFrameTime = performance.now();
@@ -80,7 +82,9 @@ export class GameLoopManager {
    */
   update() {
     // Skip update if core components aren't initialized
-    if (!this.game.renderer || !this.game.scene || !this.game.camera) {return;}
+    if (!this.game.renderer || !this.game.scene || !this.game.camera) {
+      return;
+    }
 
     // 1. Update managers in sequence
 

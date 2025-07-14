@@ -236,10 +236,14 @@ export class InputController {
     }
 
     // Only handle left mouse button
-    if (event.button !== 0) {return;}
+    if (event.button !== 0) {
+      return;
+    }
 
     // Check if mouse is over the canvas
-    if (!this.isEventInsideCanvas(event)) {return;}
+    if (!this.isEventInsideCanvas(event)) {
+      return;
+    }
 
     // First, check if the ball is in motion - if so, we shouldn't allow new shots
     if (this.game.stateManager && this.game.stateManager.isBallInMotion()) {
@@ -327,7 +331,9 @@ export class InputController {
 
   onMouseMove(event) {
     // Skip if input is not active or no drag started
-    if (!this.isInputEnabled || !this.isPointerDown) {return;}
+    if (!this.isInputEnabled || !this.isPointerDown) {
+      return;
+    }
 
     // Set dragging flag
     this.isDragging = true;
@@ -354,10 +360,18 @@ export class InputController {
       const nearBottom = screenY < edgeThreshold;
 
       // Calculate pan direction and strength
-      if (nearLeft) {panX = -panSpeed * (1 - screenX / edgeThreshold);}
-      if (nearRight) {panX = panSpeed * (1 - (1 - screenX) / edgeThreshold);}
-      if (nearTop) {panZ = -panSpeed * (1 - (1 - screenY) / edgeThreshold);}
-      if (nearBottom) {panZ = panSpeed * (1 - screenY / edgeThreshold);}
+      if (nearLeft) {
+        panX = -panSpeed * (1 - screenX / edgeThreshold);
+      }
+      if (nearRight) {
+        panX = panSpeed * (1 - (1 - screenX) / edgeThreshold);
+      }
+      if (nearTop) {
+        panZ = -panSpeed * (1 - (1 - screenY) / edgeThreshold);
+      }
+      if (nearBottom) {
+        panZ = panSpeed * (1 - screenY / edgeThreshold);
+      }
 
       // Apply panning if needed
       if (panX !== 0 || panZ !== 0) {
@@ -409,7 +423,9 @@ export class InputController {
     );
 
     // Only handle left mouse button (or touch equivalent)
-    if (event.button !== 0) {return;}
+    if (event.button !== 0) {
+      return;
+    }
 
     let adClicked = false;
     // --- Ad Click Check (Only perform if NOT dragging for a shot) ---
@@ -419,7 +435,7 @@ export class InputController {
       this.pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
       this.raycaster.setFromCamera(this.pointer, this.camera);
 
-      const adBannerMeshes = []// this.adShipManager?.ships removed
+      const adBannerMeshes = [] // this.adShipManager?.ships removed
         ?.map(ship => ship.bannerMesh)
         ?.filter(mesh => mesh);
 
@@ -675,7 +691,9 @@ export class InputController {
   }
 
   updateDirectionLine() {
-    if (!this.directionLine || !this.game.ballManager.ball.mesh) {return;}
+    if (!this.directionLine || !this.game.ballManager.ball.mesh) {
+      return;
+    }
 
     // Get ball position
     const ballPosition = this.game.ballManager.ball.mesh.position.clone();
@@ -730,7 +748,9 @@ export class InputController {
   }
 
   updatePowerIndicator(power) {
-    if (!this.powerIndicator) {return;}
+    if (!this.powerIndicator) {
+      return;
+    }
 
     // Calculate power percentage (0-100)
     const powerPercentage = power * 100;
@@ -848,7 +868,9 @@ export class InputController {
    */
   detectMobileDevice() {
     if (typeof navigator !== 'undefined') {
-      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent
+      );
     }
     return false;
   }
@@ -1003,7 +1025,9 @@ export class InputController {
    */
   onKeyDown(event) {
     if (event.key.toLowerCase() === 'i') {
-      if (!this.stateManager || !this.game.cameraController?.controls) {return;}
+      if (!this.stateManager || !this.game.cameraController?.controls) {
+        return;
+      }
 
       const currentState = this.stateManager.getGameState();
 

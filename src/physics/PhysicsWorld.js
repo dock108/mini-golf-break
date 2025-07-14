@@ -115,7 +115,9 @@ export class PhysicsWorld {
     let dt = time - this.lastCallTime;
 
     // Cap the delta time to prevent large jumps
-    if (dt > 0.1) {dt = 0.1;}
+    if (dt > 0.1) {
+      dt = 0.1;
+    }
 
     this.lastCallTime = time;
 

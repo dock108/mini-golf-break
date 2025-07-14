@@ -81,7 +81,9 @@ export class AudioManager {
    * Play the hit sound
    */
   playHitSound(volume = 1.0) {
-    if (!this.sounds.hit || !this.sounds.hit.context) {return;}
+    if (!this.sounds.hit || !this.sounds.hit.context) {
+      return;
+    }
 
     // Create new oscillator each time for hit sound
     const oscillator = this.sounds.hit.context.createOscillator();
@@ -105,7 +107,9 @@ export class AudioManager {
    * Play the success sound
    */
   playSuccessSound(volume = 1.0) {
-    if (!this.sounds.success || !this.sounds.success.context) {return;}
+    if (!this.sounds.success || !this.sounds.success.context) {
+      return;
+    }
 
     // Create new oscillator each time for success sound
     const oscillator = this.sounds.success.context.createOscillator();

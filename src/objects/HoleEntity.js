@@ -51,10 +51,14 @@ export class HoleEntity extends BaseElement {
     // If targetGroup exists, add this.group (at 0,0,0) to it.
     // Otherwise, add this.group directly to the main scene.
     if (targetGroup) {
-      if (this.group && !this.group.parent) {targetGroup.add(this.group);}
+      if (this.group && !this.group.parent) {
+        targetGroup.add(this.group);
+      }
       this.parentGroup = targetGroup; // Store reference if needed
     } else {
-      if (this.group && !this.group.parent) {this.scene.add(this.group);}
+      if (this.group && !this.group.parent) {
+        this.scene.add(this.group);
+      }
       this.parentGroup = null;
     }
 
@@ -63,13 +67,13 @@ export class HoleEntity extends BaseElement {
       Array.isArray(config.boundaryShape) && config.boundaryShape.length >= 3
         ? config.boundaryShape.map(p => new THREE.Vector2(p.x, p.y)) // Ensure Vector2, use y for world z
         : [
-          // Default rectangular shape if invalid
-          new THREE.Vector2(-2, -10),
-          new THREE.Vector2(-2, 10),
-          new THREE.Vector2(2, 10),
-          new THREE.Vector2(2, -10),
-          new THREE.Vector2(-2, -10)
-        ];
+            // Default rectangular shape if invalid
+            new THREE.Vector2(-2, -10),
+            new THREE.Vector2(-2, 10),
+            new THREE.Vector2(2, 10),
+            new THREE.Vector2(2, -10),
+            new THREE.Vector2(-2, -10)
+          ];
 
     // Hole-specific properties
     this.wallHeight = 1.0;
@@ -83,18 +87,18 @@ export class HoleEntity extends BaseElement {
       config.startPosition instanceof THREE.Vector3
         ? config.startPosition.clone()
         : new THREE.Vector3(
-          config.startPosition?.x || 0,
-          config.startPosition?.y || 0,
-          config.startPosition?.z || 0
-        );
+            config.startPosition?.x || 0,
+            config.startPosition?.y || 0,
+            config.startPosition?.z || 0
+          );
     this.worldHolePosition =
       config.holePosition instanceof THREE.Vector3
         ? config.holePosition.clone()
         : new THREE.Vector3(
-          config.holePosition?.x || 0,
-          config.holePosition?.y || 0,
-          config.holePosition?.z || 0
-        );
+            config.holePosition?.x || 0,
+            config.holePosition?.y || 0,
+            config.holePosition?.z || 0
+          );
 
     console.log(`[HoleEntity] Created for hole index ${config.index + 1}. Group at (0,0,0).`);
     console.log(
@@ -230,7 +234,9 @@ export class HoleEntity extends BaseElement {
           const cutterMesh = new THREE.Mesh(cutterGeom);
           // Position cutter vertically centered with the green mesh
           cutterMesh.position.set(hazardWorldPos.x, baseGreenMesh.position.y, hazardWorldPos.z);
-          if (hazardConfig.rotation) {cutterMesh.rotation.copy(hazardConfig.rotation);}
+          if (hazardConfig.rotation) {
+            cutterMesh.rotation.copy(hazardConfig.rotation);
+          }
           cutterMesh.updateMatrix();
           cutters.push(cutterMesh);
         }
@@ -351,7 +357,9 @@ export class HoleEntity extends BaseElement {
 
       const segmentVector = new THREE.Vector2().subVectors(endPoint, startPoint);
       const length = segmentVector.length();
-      if (length < 0.01) {continue;} // Skip zero-length segments
+      if (length < 0.01) {
+        continue;
+      } // Skip zero-length segments
 
       const angle = Math.atan2(segmentVector.y, segmentVector.x); // Angle in XZ plane
 
@@ -443,7 +451,9 @@ export class HoleEntity extends BaseElement {
     // HazardFactory needs to handle this correctly or be updated.
     // FOR NOW: Assuming HazardFactory adds meshes/bodies directly to world using config coords.
     const hazardConfigs = this.config.hazards || [];
-    if (hazardConfigs.length === 0) {return;}
+    if (hazardConfigs.length === 0) {
+      return;
+    }
 
     hazardConfigs.forEach(hazardConfig => {
       try {
@@ -452,10 +462,10 @@ export class HoleEntity extends BaseElement {
           hazardConfig.position instanceof THREE.Vector3
             ? hazardConfig.position.clone()
             : new THREE.Vector3(
-              hazardConfig.position?.x || 0,
-              hazardConfig.position?.y || 0,
-              hazardConfig.position?.z || 0
-            );
+                hazardConfig.position?.x || 0,
+                hazardConfig.position?.y || 0,
+                hazardConfig.position?.z || 0
+              );
 
         // Create config to pass, ensuring WORLD position is used
         const factoryConfig = {
@@ -481,7 +491,9 @@ export class HoleEntity extends BaseElement {
   createBumpers() {
     // Bumpers defined with WORLD coordinates relative to origin (0,0,0)
     const bumperConfigs = this.config.bumpers || [];
-    if (bumperConfigs.length === 0) {return;}
+    if (bumperConfigs.length === 0) {
+      return;
+    }
 
     bumperConfigs.forEach((bumperConfig, index) => {
       try {
@@ -490,20 +502,20 @@ export class HoleEntity extends BaseElement {
           bumperConfig.position instanceof THREE.Vector3
             ? bumperConfig.position.clone()
             : new THREE.Vector3(
-              bumperConfig.position?.x || 0,
-              bumperConfig.position?.y || 0,
-              bumperConfig.position?.z || 0
-            );
+                bumperConfig.position?.x || 0,
+                bumperConfig.position?.y || 0,
+                bumperConfig.position?.z || 0
+              );
 
         // Ensure bumper rotation is Euler
         const worldBumperRot =
           bumperConfig.rotation instanceof THREE.Euler
             ? bumperConfig.rotation.clone()
             : new THREE.Euler(
-              bumperConfig.rotation?.x || 0,
-              bumperConfig.rotation?.y || 0,
-              bumperConfig.rotation?.z || 0
-            );
+                bumperConfig.rotation?.x || 0,
+                bumperConfig.rotation?.y || 0,
+                bumperConfig.rotation?.z || 0
+              );
 
         // Create visual mesh
         const bumperMaterial = new THREE.MeshStandardMaterial({
@@ -591,7 +603,9 @@ export class HoleEntity extends BaseElement {
         }
 
         // Dispose geometry and material
-        if (mesh.geometry) {mesh.geometry.dispose();}
+        if (mesh.geometry) {
+          mesh.geometry.dispose();
+        }
         if (mesh.material) {
           if (Array.isArray(mesh.material)) {
             mesh.material.forEach(mat => mat?.dispose());

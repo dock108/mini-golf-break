@@ -6,7 +6,7 @@ jest.mock('three', () => ({
   Vector2: jest.fn(() => ({
     x: 0,
     y: 0,
-    set: jest.fn(function(x, y) {
+    set: jest.fn(function (x, y) {
       this.x = x;
       this.y = y;
     }),
@@ -106,7 +106,7 @@ describe('InputController', () => {
     };
 
     // Set up createElement mock
-    global.document.createElement = jest.fn((tag) => {
+    global.document.createElement = jest.fn(tag => {
       if (tag === 'canvas') {
         return {
           getContext: jest.fn(() => mockContext),
@@ -252,10 +252,12 @@ describe('InputController', () => {
   test('should handle touch start events', () => {
     const mockTouchEvent = {
       preventDefault: jest.fn(),
-      touches: [{
-        clientX: 100,
-        clientY: 100
-      }]
+      touches: [
+        {
+          clientX: 100,
+          clientY: 100
+        }
+      ]
     };
 
     inputController.onTouchStart(mockTouchEvent);

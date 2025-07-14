@@ -203,7 +203,7 @@ export class NineHoleCourse extends CoursesManager {
       // 💫 5. Saturn's Rings - Timing challenge
       {
         index: 4,
-        description: '5. Saturn\'s Rings',
+        description: "5. Saturn's Rings",
         par: 3,
         boundaryShape: [
           new THREE.Vector2(-5, -10),
@@ -461,7 +461,9 @@ export class NineHoleCourse extends CoursesManager {
   static async create(game) {
     debug.log('[NineHoleCourse.create] Start');
     const physicsWorld = game.physicsManager.getWorld();
-    if (!physicsWorld) {throw new Error('Physics world not available');}
+    if (!physicsWorld) {
+      throw new Error('Physics world not available');
+    }
 
     const course = new NineHoleCourse(game, { physicsWorld });
     debug.log('[NineHoleCourse.create] Instance created with 9 hole groups.');

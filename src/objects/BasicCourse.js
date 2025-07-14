@@ -113,7 +113,9 @@ export class BasicCourse extends CoursesManager {
   static async create(game) {
     console.log('[BasicCourse.create] Start');
     const physicsWorld = game.physicsManager.getWorld();
-    if (!physicsWorld) {throw new Error('Physics world not available');}
+    if (!physicsWorld) {
+      throw new Error('Physics world not available');
+    }
 
     const course = new BasicCourse(game, { physicsWorld });
     console.log('[BasicCourse.create] Instance created');

@@ -8,7 +8,7 @@ jest.mock('cannon-es', () => ({
       y: 0,
       z: 0,
       copy: jest.fn(),
-      set: jest.fn(function(x, y, z) {
+      set: jest.fn(function (x, y, z) {
         this.x = x;
         this.y = y;
         this.z = z;
@@ -18,7 +18,7 @@ jest.mock('cannon-es', () => ({
       x: 0,
       y: 0,
       z: 0,
-      set: jest.fn(function(x, y, z) {
+      set: jest.fn(function (x, y, z) {
         this.x = x;
         this.y = y;
         this.z = z;
@@ -29,7 +29,7 @@ jest.mock('cannon-es', () => ({
       x: 0,
       y: 0,
       z: 0,
-      set: jest.fn(function(x, y, z) {
+      set: jest.fn(function (x, y, z) {
         this.x = x;
         this.y = y;
         this.z = z;
@@ -39,7 +39,7 @@ jest.mock('cannon-es', () => ({
       x: 0,
       y: 0,
       z: 0,
-      set: jest.fn(function(x, y, z) {
+      set: jest.fn(function (x, y, z) {
         this.x = x;
         this.y = y;
         this.z = z;
@@ -49,7 +49,7 @@ jest.mock('cannon-es', () => ({
       x: 0,
       y: 0,
       z: 0,
-      set: jest.fn(function(x, y, z) {
+      set: jest.fn(function (x, y, z) {
         this.x = x;
         this.y = y;
         this.z = z;
@@ -93,7 +93,9 @@ jest.mock('three', () => ({
     material: { dispose: jest.fn() }
   })),
   Vector3: jest.fn(() => ({
-    x: 0, y: 0, z: 0,
+    x: 0,
+    y: 0,
+    z: 0,
     set: jest.fn(),
     copy: jest.fn(),
     multiplyScalar: jest.fn(),
@@ -135,7 +137,7 @@ describe('Ball', () => {
     }
 
     // Mock DOM elements for canvas texture creation
-    global.document.createElement = jest.fn((tag) => {
+    global.document.createElement = jest.fn(tag => {
       if (tag === 'canvas') {
         return {
           width: 512,

@@ -80,7 +80,7 @@ jest.mock('../physics/PhysicsWorld', () => ({
       setupCollideListener: jest.fn(),
       createContactMaterials: jest.fn(),
       setCollisionCallback: jest.fn(),
-      update: jest.fn(function() {
+      update: jest.fn(function () {
         // Simulate the update method calling world.step
         this.world.step(this.fixedTimeStep, 0.016, this.maxSubSteps);
       }),

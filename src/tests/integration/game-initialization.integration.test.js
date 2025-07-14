@@ -28,7 +28,7 @@ describe('Game Initialization Integration', () => {
   beforeEach(() => {
     // Reset DOM
     document.body.innerHTML = '<div id="game-container"></div>';
-    
+
     // Create game instance
     game = new Game();
   });
@@ -104,11 +104,11 @@ describe('Game Initialization Integration', () => {
 
   test('should publish initialization events in correct sequence', async () => {
     const publishedEvents = [];
-    
+
     // Mock event publishing to track sequence
     game.eventManager = {
       init: jest.fn(),
-      publish: jest.fn((eventType) => {
+      publish: jest.fn(eventType => {
         publishedEvents.push(eventType);
       }),
       subscribe: jest.fn(() => () => {})
@@ -119,7 +119,7 @@ describe('Game Initialization Integration', () => {
     // Verify critical events were published
     expect(publishedEvents).toContain('GAME_INITIALIZED');
     expect(publishedEvents).toContain('PHYSICS_INITIALIZED');
-    
+
     // Verify event order (physics should be before game)
     const physicsIndex = publishedEvents.indexOf('PHYSICS_INITIALIZED');
     const gameIndex = publishedEvents.indexOf('GAME_INITIALIZED');

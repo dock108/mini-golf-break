@@ -209,7 +209,9 @@ export class Ball {
 
   onCollide(event) {
     // Handle collision events
-    if (!event.body) {return;} // Safety check
+    if (!event.body) {
+      return;
+    } // Safety check
 
     const otherBody = event.body;
     const otherUserData = otherBody.userData;
@@ -606,7 +608,9 @@ export class Ball {
 
   // Modify applyForce to store position *before* applying impulse
   applyForce(direction, power) {
-    if (!this.body) {return;}
+    if (!this.body) {
+      return;
+    }
 
     // Store position just before hitting
     this.storeLastHitPosition();
@@ -688,7 +692,9 @@ export class Ball {
   }
 
   isStopped() {
-    if (!this.body) {return true;}
+    if (!this.body) {
+      return true;
+    }
 
     const velocity = this.body.velocity;
     const angularVelocity = this.body.angularVelocity;
@@ -787,7 +793,9 @@ export class Ball {
    */
   isInHole() {
     // Check distance to hole position
-    if (!this.currentHolePosition) {return false;}
+    if (!this.currentHolePosition) {
+      return false;
+    }
 
     const ballPosition = new THREE.Vector3();
     this.mesh.getWorldPosition(ballPosition);
@@ -873,7 +881,10 @@ export class Ball {
       this.successMaterial.dispose();
 
       // Dispose of bump map texture if it exists
-      if (this.defaultMaterial.bumpMap && typeof this.defaultMaterial.bumpMap.dispose === 'function') {
+      if (
+        this.defaultMaterial.bumpMap &&
+        typeof this.defaultMaterial.bumpMap.dispose === 'function'
+      ) {
         this.defaultMaterial.bumpMap.dispose();
       }
     }
