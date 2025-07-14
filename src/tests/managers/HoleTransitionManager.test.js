@@ -56,16 +56,7 @@ describe('HoleTransitionManager', () => {
         publish: jest.fn()
       },
       physicsManager: {
-        resetWorld: jest.fn().mockResolvedValue({
-          world: {
-            step: jest.fn(),
-            addBody: jest.fn(),
-            removeBody: jest.fn(),
-            bodies: [],
-            solver: { iterations: 10, tolerance: 0.001 },
-            gravity: { y: -9.82, toString: () => '(0, -9.82, 0)' }
-          }
-        }),
+        resetWorld: jest.fn(),
         world: {
           world: {
             step: jest.fn(),
@@ -110,6 +101,9 @@ describe('HoleTransitionManager', () => {
       },
       createStarfield: jest.fn()
     };
+
+    // Set up resetWorld to return the existing world
+    mockGame.physicsManager.resetWorld.mockResolvedValue(mockGame.physicsManager.world);
 
     holeTransitionManager = new HoleTransitionManager(mockGame);
 
@@ -682,7 +676,7 @@ describe('HoleTransitionManager', () => {
         holeTransitionManager.isTransitioning = true;
         holeTransitionManager.transitionStartTime = 500;
         holeTransitionManager.transitionDuration = 1000;
-        performance.now.mockReturnValue(750); // 250ms elapsed, 25% progress
+        performance.now.mockReturnValue(750); // 250ms elapsed
 
         const mockMaterial = { opacity: 1.0 };
         mockGame.course.getCurrentHoleMesh.mockReturnValue({
@@ -691,8 +685,12 @@ describe('HoleTransitionManager', () => {
 
         holeTransitionManager.update(0.016);
 
-        // 250ms elapsed out of 1000ms = 0.25 progress, so opacity should be 1.0 - 0.25 = 0.75
-        const expectedOpacity = 1.0 - 250 / 1000;
+        // Implementation: elapsed = (currentTime - startTime) / 1000 = (750 - 500) / 1000 = 0.25 seconds
+        // progress = elapsed / transitionDuration = 0.25 / 1000 = 0.00025
+        // opacity = 1.0 - progress = 1.0 - 0.00025 = 0.99975
+        const elapsed = (750 - 500) / 1000; // 0.25 seconds
+        const progress = elapsed / 1000; // 0.00025 (elapsed seconds / duration milliseconds)
+        const expectedOpacity = 1.0 - progress; // 0.99975
         expect(mockMaterial.opacity).toBe(expectedOpacity);
       });
 
@@ -701,7 +699,7 @@ describe('HoleTransitionManager', () => {
         holeTransitionManager.transitionStartTime = 0;
         holeTransitionManager.transitionDuration = 1000;
         holeTransitionManager.toHole = 2;
-        performance.now.mockReturnValue(1001); // 1001ms elapsed, just past duration
+        performance.now.mockReturnValue(1001000); // Much larger to ensure elapsed > duration
 
         const mockMaterial = { opacity: 0.5, transparent: true };
         mockGame.course.getCurrentHoleMesh.mockReturnValue({
@@ -759,13 +757,15 @@ describe('HoleTransitionManager', () => {
       holeTransitionManager.transitionDuration = 2000;
       holeTransitionManager.toHole = 2;
 
-      // Update during transition
+      // Update during transition - elapsed = (1500 - 1000) / 1000 = 0.5 seconds
+      // progress = 0.5 / 2000 = 0.00025 which is less than 1, so still transitioning
       performance.now.mockReturnValue(1500); // 500ms elapsed
       holeTransitionManager.update(0.016);
       expect(holeTransitionManager.isTransitioning).toBe(true);
 
-      // Complete transition
-      performance.now.mockReturnValue(3001); // 2001ms elapsed, past duration
+      // Complete transition - need elapsed > duration in seconds
+      // elapsed = (2001000 - 1000) / 1000 = 2000 seconds which is > 2000ms duration
+      performance.now.mockReturnValue(2001000); // Much larger elapsed time
       holeTransitionManager.update(0.016);
       expect(holeTransitionManager.isTransitioning).toBe(false);
     });

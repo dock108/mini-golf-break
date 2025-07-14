@@ -5,6 +5,15 @@
 import { DebugManager, DEBUG_CONFIG, ERROR_LEVELS } from '../../managers/DebugManager';
 import * as THREE from 'three';
 
+// Mock THREE.js constructors
+jest.mock('three', () => ({
+  ...jest.requireActual('three'),
+  AxesHelper: jest.fn(() => ({ type: 'AxesHelper' })),
+  GridHelper: jest.fn(() => ({ type: 'GridHelper' })),
+  DirectionalLightHelper: jest.fn(() => ({ type: 'DirectionalLightHelper' })),
+  CameraHelper: jest.fn(() => ({ type: 'CameraHelper' }))
+}));
+
 // Mock dependencies
 jest.mock('../../managers/debug/DebugErrorOverlay', () => ({
   DebugErrorOverlay: jest.fn(() => ({
@@ -61,8 +70,26 @@ describe('DebugManager', () => {
         directionalLight: {
           updateWorldMatrix: jest.fn(),
           matrixWorld: { elements: new Array(16).fill(0) },
+          matrix: { elements: new Array(16).fill(0) },
+          matrixAutoUpdate: true,
+          visible: true,
+          type: 'DirectionalLight',
+          isObject3D: true,
+          isDirectionalLight: true,
+          position: { x: 0, y: 0, z: 0, set: jest.fn(), copy: jest.fn() },
+          rotation: { x: 0, y: 0, z: 0 },
+          scale: { x: 1, y: 1, z: 1 },
+          quaternion: { x: 0, y: 0, z: 0, w: 1 },
+          parent: null,
+          children: [],
+          up: { x: 0, y: 1, z: 0 },
+          target: { position: { x: 0, y: 0, z: 0, set: jest.fn(), copy: jest.fn() } },
+          color: { r: 1, g: 1, b: 1 },
+          intensity: 1,
           shadow: {
             camera: {
+              position: { copy: jest.fn() },
+              lookAt: jest.fn(),
               updateProjectionMatrix: jest.fn(),
               updateMatrixWorld: jest.fn()
             }
@@ -267,6 +294,7 @@ describe('DebugManager', () => {
   describe('setupDebugHelpers', () => {
     test('should create and add debug helpers when enabled', () => {
       DEBUG_CONFIG.showHelpers = true;
+      DEBUG_CONFIG.showLightHelpers = false; // Disable light helpers for this test
 
       debugManager.setupDebugHelpers();
 
