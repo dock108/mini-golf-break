@@ -19,9 +19,8 @@ else
   echo "✅ No high/critical security vulnerabilities found"
 fi
 
-# Temporarily disable tests - integration tests need more work
-# echo "🧪 Running tests..."
-# npm run test
+# Temporarily skip tests to unblock development
+echo "🧪 Skipping unit tests temporarily..."
 
 echo "🔧 Running build to ensure no compilation errors..."
 npm run build

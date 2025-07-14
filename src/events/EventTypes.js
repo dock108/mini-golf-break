@@ -16,6 +16,7 @@ export const EventTypes = {
   HOLE_STARTED: 'hole:started',
   GAME_COMPLETED: 'game:completed',
   GAME_STARTED: 'game:started',
+  GAME_INITIALIZED: 'game:initialized',
   STATE_CHANGED: 'state:changed',
 
   // Hazard events
@@ -30,5 +31,6 @@ export const EventTypes = {
   INPUT_DISABLED: 'input:disabled',
 
   // System events
-  ERROR_OCCURRED: 'system:error'
+  ERROR_OCCURRED: 'system:error',
+  PHYSICS_INITIALIZED: 'physics:initialized'
 };

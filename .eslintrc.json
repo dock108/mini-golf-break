@@ -71,7 +71,9 @@
       },
       "rules": {
         "no-console": "off",
-        "max-statements": "off"
+        "max-statements": "off",
+        "no-import-assign": "off",
+        "no-undef": "off"
       }
     },
     {

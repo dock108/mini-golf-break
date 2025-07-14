@@ -1,4 +1,5 @@
 import * as CANNON from 'cannon-es';
+import * as THREE from 'three';
 
 /**
  * Calculates the angle between the ball's velocity vector and the vector from the ball to the hole center.
@@ -148,4 +149,107 @@ export function checkHoleEntry(ballBody, holeTriggerBody, thresholds) {
   // Ball is not within the hole trigger radius
   console.log('[PhysicsUtils.checkHoleEntry] Result: Missed (Outside Radius)');
   return false;
+}
+
+/**
+ * Convert THREE.Vector3 to CANNON.Vec3
+ * @param {THREE.Vector3} threeVector - Three.js vector
+ * @returns {CANNON.Vec3} Cannon vector
+ */
+export function threeToCannonVec3(threeVector) {
+  return new CANNON.Vec3(threeVector.x, threeVector.y, threeVector.z);
+}
+
+/**
+ * Convert CANNON.Vec3 to THREE.Vector3
+ * @param {CANNON.Vec3} cannonVector - Cannon vector
+ * @returns {THREE.Vector3} Three.js vector
+ */
+export function cannonToThreeVec3(cannonVector) {
+  return new THREE.Vector3(cannonVector.x, cannonVector.y, cannonVector.z);
+}
+
+/**
+ * Convert THREE.Quaternion to CANNON.Quaternion
+ * @param {THREE.Quaternion} threeQuat - Three.js quaternion
+ * @returns {CANNON.Quaternion} Cannon quaternion
+ */
+export function threeToCannonQuaternion(threeQuat) {
+  return new CANNON.Quaternion(threeQuat.x, threeQuat.y, threeQuat.z, threeQuat.w);
+}
+
+/**
+ * Convert CANNON.Quaternion to THREE.Quaternion
+ * @param {CANNON.Quaternion} cannonQuat - Cannon quaternion
+ * @returns {THREE.Quaternion} Three.js quaternion
+ */
+export function cannonToThreeQuaternion(cannonQuat) {
+  return new THREE.Quaternion(cannonQuat.x, cannonQuat.y, cannonQuat.z, cannonQuat.w);
+}
+
+/**
+ * Calculate velocity magnitude
+ * @param {CANNON.Vec3|Object} velocity - Velocity vector
+ * @returns {number} Magnitude
+ */
+export function calculateVelocityMagnitude(velocity) {
+  return Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z);
+}
+
+/**
+ * Check if a physics body is at rest
+ * @param {CANNON.Body} body - Physics body
+ * @param {number} [threshold=0.1] - Velocity threshold
+ * @returns {boolean} True if body is at rest
+ */
+export function isBodyAtRest(body, threshold = 0.1) {
+  const velocityMagnitude = calculateVelocityMagnitude(body.velocity);
+  const angularVelocityMagnitude = calculateVelocityMagnitude(body.angularVelocity);
+
+  return velocityMagnitude < threshold && angularVelocityMagnitude < threshold;
+}
+
+/**
+ * Apply impulse to a physics body
+ * @param {CANNON.Body} body - Physics body
+ * @param {CANNON.Vec3} impulse - Impulse vector
+ * @param {CANNON.Vec3} [worldPoint] - Point of application (optional)
+ */
+export function applyImpulse(body, impulse, worldPoint) {
+  if (worldPoint) {
+    body.applyImpulse(impulse, worldPoint);
+  } else {
+    body.applyImpulse(impulse, body.position);
+  }
+}
+
+/**
+ * Create a physics body with common options
+ * @param {Object} options - Body options
+ * @returns {CANNON.Body} Physics body
+ */
+export function createPhysicsBody(options) {
+  let shape;
+
+  if (options.type === 'sphere') {
+    shape = new CANNON.Sphere(options.radius || 1);
+  } else if (options.type === 'box') {
+    const size = options.size || new CANNON.Vec3(1, 1, 1);
+    shape = new CANNON.Box(size);
+  }
+
+  const body = new CANNON.Body({
+    mass: options.mass || 0,
+    shape
+  });
+
+  if (options.position) {
+    body.position.copy(options.position);
+  }
+
+  if (options.quaternion) {
+    body.quaternion.copy(options.quaternion);
+  }
+
+  return body;
 }

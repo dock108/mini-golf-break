@@ -16,6 +16,9 @@ export class UIManager {
     // Main UI container
     this.uiContainer = null;
 
+    // Renderer reference
+    this.renderer = null;
+
     // UI Submodules
     this.scoreOverlay = null;
     this.debugOverlay = null;
@@ -217,7 +220,7 @@ export class UIManager {
    * Handle game completed event - Shows final scorecard via overlay.
    * @param {GameEvent} event - Game completed event
    */
-  handleGameCompleted(event) {
+  handleGameCompleted(_event) {
     debug.log('[UIManager.handleGameCompleted] Event received!');
 
     // Extra debug info
@@ -237,6 +240,7 @@ export class UIManager {
         `[UIManager.handleGameCompleted] ERROR: Cannot show scorecard - scoreOverlay is ${this.scoreOverlay ? 'missing showFinalScorecard method' : 'not initialized'}`
       );
       // Alert as a last resort to show something
+      // eslint-disable-next-line no-alert
       alert('Game Complete! Total strokes: ' + this.game.scoringSystem.getTotalStrokes());
     }
   }
@@ -245,7 +249,7 @@ export class UIManager {
    * Handle ball hit event - Updates score overlay.
    * @param {GameEvent} event - Ball hit event
    */
-  handleBallHit(event) {
+  handleBallHit(_event) {
     // Delegate updates to score overlay
     this.scoreOverlay?.updateScore();
     this.scoreOverlay?.updateStrokes();
@@ -255,7 +259,7 @@ export class UIManager {
    * Handle ball in hole event
    * @param {GameEvent} event - Ball in hole event
    */
-  handleBallInHole(event) {
+  handleBallInHole(_event) {
     // Currently no specific UI action needed here besides what HoleCompleted handles.
   }
 
@@ -295,6 +299,9 @@ export class UIManager {
       this.game.debugManager?.warn('UIManager.attachRenderer', 'Invalid renderer or domElement');
       return;
     }
+
+    // Store renderer reference
+    this.renderer = renderer;
 
     // Prefer a specific container if it exists
     let container = document.getElementById('game-container');

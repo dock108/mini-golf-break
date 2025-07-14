@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { HoleEntity, BaseElement } from './HoleEntity';
+import { HoleEntity } from './HoleEntity';
+import { BaseElement } from './BaseElement';
 import { BunkerElement } from './BunkerElement';
 import { WallElement } from './WallElement';
 

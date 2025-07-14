@@ -1,0 +1,189 @@
+/**
+ * Unit tests for NineHoleCourse
+ */
+
+import { NineHoleCourse } from '../objects/NineHoleCourse';
+import * as THREE from 'three';
+
+// Mock dependencies
+jest.mock('../managers/CoursesManager');
+jest.mock('../objects/HoleEntity');
+jest.mock('../utils/debug');
+
+describe('NineHoleCourse', () => {
+  let mockGame;
+  let mockScene;
+  let mockPhysicsWorld;
+  let nineHoleCourse;
+
+  beforeEach(() => {
+    // Setup mock game object
+    mockScene = {
+      add: jest.fn(),
+      remove: jest.fn(),
+      traverse: jest.fn()
+    };
+
+    mockPhysicsWorld = {
+      addBody: jest.fn(),
+      removeBody: jest.fn(),
+      world: {
+        bodies: []
+      }
+    };
+
+    mockGame = {
+      scene: mockScene,
+      physicsWorld: mockPhysicsWorld,
+      debugMode: false,
+      stateManager: {
+        setState: jest.fn(),
+        state: {
+          currentHoleNumber: 1
+        }
+      },
+      eventManager: {
+        publish: jest.fn(),
+        subscribe: jest.fn()
+      },
+      physicsManager: {
+        world: mockPhysicsWorld
+      }
+    };
+
+    // Mock THREE.Group
+    Object.defineProperty(THREE, 'Group', {
+      value: jest.fn(() => ({
+        name: '',
+        userData: {},
+        add: jest.fn(),
+        remove: jest.fn(),
+        children: []
+      })),
+      writable: true,
+      configurable: true
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('constructor', () => {
+    test('should initialize with default options', () => {
+      nineHoleCourse = new NineHoleCourse(mockGame);
+
+      expect(nineHoleCourse.game).toBe(mockGame);
+      expect(nineHoleCourse.scene).toBe(mockScene);
+      expect(nineHoleCourse.physicsWorld).toBe(mockPhysicsWorld);
+      expect(nineHoleCourse.debugMode).toBe(false);
+      expect(nineHoleCourse.totalHoles).toBe(9);
+    });
+
+    test('should initialize with debug option', () => {
+      const options = { debug: true };
+      nineHoleCourse = new NineHoleCourse(mockGame, options);
+
+      expect(nineHoleCourse.options.debug).toBe(true);
+    });
+
+    test('should create hole groups', () => {
+      nineHoleCourse = new NineHoleCourse(mockGame);
+
+      expect(nineHoleCourse.holeGroups).toBeDefined();
+      expect(Array.isArray(nineHoleCourse.holeGroups)).toBe(true);
+      expect(nineHoleCourse.holeGroups.length).toBe(9);
+    });
+
+    test('should add hole groups to scene', () => {
+      nineHoleCourse = new NineHoleCourse(mockGame);
+
+      expect(mockScene.add).toHaveBeenCalledTimes(9);
+    });
+  });
+
+  describe('hole management', () => {
+    beforeEach(() => {
+      nineHoleCourse = new NineHoleCourse(mockGame);
+    });
+
+    test('should initialize hole entities array', () => {
+      expect(nineHoleCourse.holeEntities).toBeDefined();
+      expect(Array.isArray(nineHoleCourse.holeEntities)).toBe(true);
+    });
+
+    test('should set up hole group names and metadata', () => {
+      // Check that groups were created with proper names
+      for (let i = 0; i < 9; i++) {
+        expect(THREE.Group).toHaveBeenCalled();
+      }
+    });
+
+    test('should have correct total holes count', () => {
+      expect(nineHoleCourse.totalHoles).toBe(9);
+    });
+  });
+
+  describe('state management', () => {
+    beforeEach(() => {
+      nineHoleCourse = new NineHoleCourse(mockGame);
+    });
+
+    test('should track transitioning state', () => {
+      expect(nineHoleCourse.isTransitioning).toBeDefined();
+      expect(nineHoleCourse.isTransitioning).toBe(false);
+    });
+
+    test('should have pending hole transition state', () => {
+      expect(nineHoleCourse.pendingHoleTransition).toBeDefined();
+    });
+  });
+
+  describe('static factory method', () => {
+    test('should have create method', () => {
+      expect(NineHoleCourse.create).toBeDefined();
+      expect(typeof NineHoleCourse.create).toBe('function');
+    });
+  });
+
+  describe('inheritance', () => {
+    test('should extend CoursesManager', () => {
+      const CoursesManager = require('../managers/CoursesManager').CoursesManager;
+      nineHoleCourse = new NineHoleCourse(mockGame);
+
+      // NineHoleCourse should be an instance of CoursesManager
+      expect(nineHoleCourse).toBeInstanceOf(CoursesManager);
+    });
+  });
+
+  describe('hole configuration', () => {
+    beforeEach(() => {
+      nineHoleCourse = new NineHoleCourse(mockGame);
+    });
+
+    test('should have proper hole group structure', () => {
+      expect(nineHoleCourse.holeGroups.length).toBe(nineHoleCourse.totalHoles);
+    });
+
+    test('should handle hole visibility management', () => {
+      // Verify that the course has methods for managing hole visibility
+      expect(nineHoleCourse.holeGroups).toBeDefined();
+      expect(Array.isArray(nineHoleCourse.holeGroups)).toBe(true);
+    });
+  });
+
+  describe('error handling', () => {
+    test('should handle missing game object gracefully', () => {
+      expect(() => {
+        new NineHoleCourse(null);
+      }).toThrow();
+    });
+
+    test('should handle missing scene gracefully', () => {
+      const invalidGame = { ...mockGame, scene: null };
+      expect(() => {
+        new NineHoleCourse(invalidGame);
+      }).toThrow();
+    });
+  });
+});

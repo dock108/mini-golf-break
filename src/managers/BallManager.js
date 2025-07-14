@@ -14,6 +14,9 @@ export class BallManager {
     this.wasMoving = false;
     this.followLerp = 0.1; // Controls how quickly the camera follows the ball
 
+    // Manager references
+    this.physicsManager = null;
+
     // Initialization state tracking
     this.isInitialized = false;
     this.eventSubscriptions = [];
@@ -30,6 +33,9 @@ export class BallManager {
         console.warn('[BallManager.init] Already initialized, skipping.');
         return this;
       }
+
+      // Set up manager references
+      this.physicsManager = this.game.physicsManager;
 
       // Don't create ball here - it will be created by Game.createCourse()
       console.log('[BallManager.init] Setting up event listeners...');
@@ -417,7 +423,7 @@ export class BallManager {
    * Handle hazard detection
    */
   handleHazardDetected(event) {
-    const _hazardType = event.get('hazardType');
+    // const _hazardType = event.get('hazardType'); // Used for debugging
     const penalty = event.get('penalty', 1);
 
     // Add penalty strokes

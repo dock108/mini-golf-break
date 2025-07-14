@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { BaseElement } from './HoleEntity';
+import { BaseElement } from './BaseElement';
 
 /**
  * BunkerElement - A standalone sand bunker element

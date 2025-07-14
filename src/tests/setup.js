@@ -75,8 +75,32 @@ global.document.createElement = jest.fn(elementType => {
   const element = {
     style: {},
     addEventListener: jest.fn(),
-    removeEventListener: jest.fn()
+    removeEventListener: jest.fn(),
+    appendChild: jest.fn(),
+    removeChild: jest.fn(),
+    textContent: '',
+    id: '',
+    children: [],
+    parentNode: null,
+    innerHTML: '',
+    setAttribute: jest.fn(),
+    getAttribute: jest.fn(),
+    removeAttribute: jest.fn(),
+    classList: {
+      add: jest.fn(),
+      remove: jest.fn(),
+      contains: jest.fn(),
+      toggle: jest.fn()
+    }
   };
+
+  // Add style.cssText property
+  Object.defineProperty(element.style, 'cssText', {
+    get: jest.fn(() => ''),
+    set: jest.fn(),
+    enumerable: true,
+    configurable: true
+  });
 
   // Mock canvas-specific methods
   if (elementType === 'canvas') {
@@ -97,6 +121,30 @@ global.document.createElement = jest.fn(elementType => {
 
   return element;
 });
+
+// Mock additional document methods
+global.document.getElementById = jest.fn(id => {
+  // Return a mock element with the requested ID
+  const element = global.document.createElement('div');
+  element.id = id;
+  return element;
+});
+
+global.document.querySelector = jest.fn(() => {
+  // Return a mock element for any selector
+  return global.document.createElement('div');
+});
+
+global.document.querySelectorAll = jest.fn(() => {
+  // Return an empty array for any selector
+  return [];
+});
+
+// Enhance existing document.body with missing methods
+if (global.document.body) {
+  global.document.body.appendChild = jest.fn();
+  global.document.body.removeChild = jest.fn();
+}
 
 // Mock window performance
 global.performance = {

@@ -5,6 +5,7 @@
 
 import { Game } from '../../scenes/Game';
 import { GameState } from '../../states/GameState';
+import { EventTypes } from '../../events/EventTypes';
 
 // Mock Three.js and other dependencies
 jest.mock('three/examples/jsm/controls/OrbitControls', () => ({
@@ -117,12 +118,12 @@ describe('Game Initialization Integration', () => {
     await game.init();
 
     // Verify critical events were published
-    expect(publishedEvents).toContain('GAME_INITIALIZED');
-    expect(publishedEvents).toContain('PHYSICS_INITIALIZED');
+    expect(publishedEvents).toContain(EventTypes.GAME_INITIALIZED);
+    expect(publishedEvents).toContain(EventTypes.PHYSICS_INITIALIZED);
 
     // Verify event order (physics should be before game)
-    const physicsIndex = publishedEvents.indexOf('PHYSICS_INITIALIZED');
-    const gameIndex = publishedEvents.indexOf('GAME_INITIALIZED');
+    const physicsIndex = publishedEvents.indexOf(EventTypes.PHYSICS_INITIALIZED);
+    const gameIndex = publishedEvents.indexOf(EventTypes.GAME_INITIALIZED);
     expect(physicsIndex).toBeLessThan(gameIndex);
   });
 
