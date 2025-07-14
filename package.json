@@ -5,14 +5,14 @@
   "main": "src/main.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dock108/mini-golf-break.git"
+    "url": "git+https://github.com/highlyprofitable108/mini-golf-break.git"
   },
   "bugs": {
-    "url": "https://github.com/dock108/mini-golf-break/issues"
+    "url": "https://github.com/highlyprofitable108/mini-golf-break/issues"
   },
-  "homepage": "https://github.com/dock108/mini-golf-break#readme",
-  "author": "dock108",
-  "license": "MIT",
+  "homepage": "https://github.com/highlyprofitable108/mini-golf-break#readme",
+  "author": "",
+  "license": "ISC",
   "sideEffects": false,
   "scripts": {
     "start": "webpack serve --mode development",
@@ -35,8 +35,12 @@
     "lint:fix": "eslint src/**/*.js --fix",
     "format": "prettier --write \"src/**/*.js\"",
     "format:check": "prettier --check \"src/**/*.js\"",
+    "security": "npm audit && npm run security:check",
+    "security:check": "npm audit --audit-level=moderate",
+    "security:fix": "npm audit fix",
     "quality": "npm run lint && npm run format:check && npm run test",
     "quality:full": "npm run lint && npm run format:check && npm run test:coverage && npm run build",
+    "quality:security": "npm run quality && npm run security",
     "pre-commit": "lint-staged",
     "prepare": "husky"
   },
@@ -56,7 +60,6 @@
     "glob": "^10.3.10",
     "html-webpack-plugin": "^5.6.0",
     "husky": "^9.1.7",
-    "image-webpack-loader": "^8.1.0",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "lint-staged": "^16.1.2",
@@ -78,15 +81,5 @@
   "directories": {
     "doc": "docs"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/highlyprofitable108/mini-golf-break.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/highlyprofitable108/mini-golf-break/issues"
-  },
-  "homepage": "https://github.com/highlyprofitable108/mini-golf-break#readme"
+  "keywords": []
 }
