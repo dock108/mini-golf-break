@@ -210,11 +210,11 @@ describe('DebugErrorOverlay', () => {
     test('should set proper styles on created elements', () => {
       const mockElement = {
         id: '',
-        style: { cssText: jest.fn() },
+        style: { cssText: '' },
         appendChild: jest.fn()
       };
       const mockButton = {
-        style: { cssText: jest.fn() },
+        style: { cssText: '' },
         textContent: '',
         addEventListener: jest.fn()
       };
@@ -223,8 +223,8 @@ describe('DebugErrorOverlay', () => {
       debugErrorOverlay.init();
 
       expect(mockElement.id).toBe('error-overlay');
-      expect(mockElement.style.cssText).toHaveBeenCalled();
-      expect(mockButton.style.cssText).toHaveBeenCalled();
+      expect(mockElement.style.cssText).toContain('position: fixed');
+      expect(mockButton.style.cssText).toContain('position: absolute');
     });
   });
 
@@ -278,14 +278,16 @@ describe('DebugErrorOverlay', () => {
       };
       document.createElement.mockReturnValue(mockErrorElement);
 
-      // Mock overlay with close button
-      debugErrorOverlay.errorOverlay.children = [{ id: 'close-button' }, null];
+      // Mock overlay with close button and another element
+      const mockCloseButton = { id: 'close-button' };
+      const mockExistingElement = { id: 'existing-element' };
+      debugErrorOverlay.errorOverlay.children = [mockCloseButton, mockExistingElement];
 
       debugErrorOverlay.showError(message);
 
       expect(debugErrorOverlay.errorOverlay.insertBefore).toHaveBeenCalledWith(
         mockErrorElement,
-        debugErrorOverlay.errorOverlay.children[1]
+        mockExistingElement
       );
     });
 

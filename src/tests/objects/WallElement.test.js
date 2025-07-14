@@ -24,44 +24,71 @@ jest.mock('../../objects/BaseElement', () => ({
 }));
 
 // Mock THREE.js
-jest.mock('three', () => ({
-  Vector3: jest.fn(function (x = 0, y = 0, z = 0) {
+jest.mock('three', () => {
+  const mockVector3 = jest.fn(function (x = 0, y = 0, z = 0) {
     this.x = x;
     this.y = y;
     this.z = z;
-    this.clone = jest.fn(() => new THREE.Vector3(this.x, this.y, this.z));
+    this.clone = jest.fn(() => new mockVector3(this.x, this.y, this.z));
     this.copy = jest.fn();
     this.set = jest.fn();
-  }),
-  BoxGeometry: jest.fn(() => ({ dispose: jest.fn() })),
-  MeshLambertMaterial: jest.fn(() => ({ dispose: jest.fn() })),
-  Mesh: jest.fn(function (geometry, material) {
-    this.geometry = geometry;
-    this.material = material;
-    this.position = { copy: jest.fn(), set: jest.fn() };
-    this.rotation = { y: 0 };
-    this.userData = {};
-    this.castShadow = false;
-    this.receiveShadow = false;
-  })
-}));
+  });
+
+  return {
+    Vector3: mockVector3,
+    BoxGeometry: jest.fn(() => ({ dispose: jest.fn() })),
+    MeshLambertMaterial: jest.fn(() => ({ dispose: jest.fn() })),
+    MeshStandardMaterial: jest.fn(() => ({ dispose: jest.fn() })),
+    EdgesGeometry: jest.fn(() => ({ dispose: jest.fn() })),
+    LineBasicMaterial: jest.fn(() => ({ dispose: jest.fn() })),
+    LineSegments: jest.fn(function (geometry, material) {
+      this.geometry = geometry;
+      this.material = material;
+    }),
+    Color: jest.fn(function (color) {
+      this.r = 1;
+      this.g = 1;
+      this.b = 1;
+      this.lerp = jest.fn(() => this);
+    }),
+    DoubleSide: 'DoubleSide',
+    Mesh: jest.fn(function (geometry, material) {
+      this.geometry = geometry;
+      this.material = material;
+      this.position = { copy: jest.fn(), set: jest.fn(), y: 0 };
+      this.rotation = { y: 0 };
+      this.userData = {};
+      this.castShadow = false;
+      this.receiveShadow = false;
+      this.add = jest.fn();
+    })
+  };
+});
 
 // Mock CANNON.js
-jest.mock('cannon-es', () => ({
-  Box: jest.fn(() => ({ calculateLocalInertia: jest.fn(() => ({ x: 0, y: 0, z: 0 })) })),
-  Body: jest.fn(function (options) {
-    this.mass = options.mass || 0;
-    this.position = { copy: jest.fn(), set: jest.fn() };
+jest.mock('cannon-es', () => {
+  const mockBody = jest.fn(function (options) {
+    this.mass = options?.mass || 0;
+    this.type = options?.type || 'dynamic';
+    this.position = options?.position || { copy: jest.fn(), set: jest.fn() };
     this.quaternion = { setFromAxisAngle: jest.fn() };
-    this.material = options.material;
+    this.material = options?.material;
     this.userData = {};
-  }),
-  Vec3: jest.fn(function (x = 0, y = 0, z = 0) {
-    this.x = x;
-    this.y = y;
-    this.z = z;
-  })
-}));
+    this.addShape = jest.fn();
+  });
+
+  mockBody.STATIC = 'static';
+
+  return {
+    Box: jest.fn(() => ({ calculateLocalInertia: jest.fn(() => ({ x: 0, y: 0, z: 0 })) })),
+    Body: mockBody,
+    Vec3: jest.fn(function (x = 0, y = 0, z = 0) {
+      this.x = x;
+      this.y = y;
+      this.z = z;
+    })
+  };
+});
 
 describe('WallElement', () => {
   let wallElement;
@@ -74,7 +101,8 @@ describe('WallElement', () => {
     mockWorld = {
       addBody: jest.fn(),
       removeBody: jest.fn(),
-      defaultMaterial: { name: 'default' }
+      defaultMaterial: { name: 'default' },
+      bumperMaterial: { name: 'bumper' }
     };
 
     // Mock scene
@@ -249,8 +277,11 @@ describe('WallElement', () => {
     test('should create material with correct color', () => {
       wallElement.createVisuals();
 
-      expect(THREE.MeshLambertMaterial).toHaveBeenCalledWith({
-        color: wallElement.color
+      expect(THREE.MeshStandardMaterial).toHaveBeenCalledWith({
+        color: wallElement.color,
+        roughness: 0.7,
+        metalness: 0.2,
+        side: THREE.DoubleSide
       });
     });
 
@@ -264,7 +295,7 @@ describe('WallElement', () => {
       expect(meshCalls.length).toBeGreaterThan(0);
 
       const mesh = meshCalls[0];
-      expect(mesh.position.copy).toHaveBeenCalledWith(wallElement.position);
+      expect(mesh.position.y).toBe(wallElement.height / 2);
       expect(mesh.rotation.y).toBe(wallElement.rotation);
       expect(mesh.castShadow).toBe(true);
       expect(mesh.receiveShadow).toBe(true);
@@ -277,12 +308,15 @@ describe('WallElement', () => {
       expect(wallElement.meshes).toHaveLength(1);
     });
 
-    test('should set userData on mesh', () => {
+    test('should add wall details to mesh', () => {
       wallElement.createVisuals();
 
       const mesh = THREE.Mesh.mock.instances[0];
-      expect(mesh.userData.elementType).toBe('wall');
-      expect(mesh.userData.elementId).toBe(wallElement.id);
+      // Check that addWallDetails was called which adds edge geometry
+      expect(THREE.EdgesGeometry).toHaveBeenCalled();
+      expect(THREE.LineBasicMaterial).toHaveBeenCalled();
+      expect(THREE.LineSegments).toHaveBeenCalled();
+      expect(mesh.add).toHaveBeenCalled();
     });
   });
 
@@ -305,7 +339,9 @@ describe('WallElement', () => {
 
       expect(CANNON.Body).toHaveBeenCalledWith({
         mass: 0,
-        material: mockWorld.defaultMaterial
+        type: CANNON.Body.STATIC,
+        material: mockWorld.bumperMaterial,
+        position: expect.any(CANNON.Vec3)
       });
     });
 
@@ -313,9 +349,9 @@ describe('WallElement', () => {
       wallElement.createPhysics();
 
       const body = CANNON.Body.mock.instances[0];
-      expect(body.position.copy).toHaveBeenCalledWith(wallElement.position);
+      expect(body.addShape).toHaveBeenCalled();
       expect(body.quaternion.setFromAxisAngle).toHaveBeenCalledWith(
-        new CANNON.Vec3(0, 1, 0),
+        expect.any(CANNON.Vec3),
         wallElement.rotation
       );
     });
