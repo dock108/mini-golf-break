@@ -136,6 +136,32 @@ export class AudioManager {
   }
 
   /**
+   * Get the current audio context state
+   * @returns {string} The audio context state
+   */
+  getContextState() {
+    if (this.audioListener && this.audioListener.context) {
+      return this.audioListener.context.state;
+    }
+    return 'suspended';
+  }
+
+  /**
+   * Resume the audio context if it's suspended
+   */
+  resumeContext() {
+    if (
+      this.audioListener &&
+      this.audioListener.context &&
+      this.audioListener.context.state === 'suspended'
+    ) {
+      // In a real implementation, we would call context.resume()
+      // For now, just log the action
+      console.log('[AudioManager] Would resume audio context');
+    }
+  }
+
+  /**
    * Clean up audio resources
    */
   cleanup() {

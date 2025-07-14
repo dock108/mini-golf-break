@@ -32,7 +32,10 @@ global.THREE = {
   Group: jest.fn(() => ({
     add: jest.fn(),
     remove: jest.fn(),
-    position: { x: 0, y: 0, z: 0, copy: jest.fn() }
+    position: { x: 0, y: 0, z: 0, copy: jest.fn() },
+    name: '',
+    userData: {},
+    children: []
   })),
   SphereGeometry: jest.fn(),
   CircleGeometry: jest.fn(),

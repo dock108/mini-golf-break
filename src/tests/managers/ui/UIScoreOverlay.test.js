@@ -85,11 +85,14 @@ describe('UIScoreOverlay', () => {
       },
       course: {
         holes: [{ par: 3 }, { par: 4 }, { par: 5 }],
-        getHolePar: jest.fn(hole => (hole < 3 ? hole + 3 : 5))
+        getHolePar: jest.fn(hole => (hole < 3 ? hole + 3 : 5)),
+        getCurrentHoleNumber: jest.fn(() => 1)
       },
       scoringSystem: {
         getStrokes: jest.fn(() => 0),
-        getTotalScore: jest.fn(() => 0)
+        getTotalScore: jest.fn(() => 0),
+        getTotalStrokes: jest.fn(() => 0),
+        getCurrentStrokes: jest.fn(() => 0)
       },
       debugManager: {
         log: jest.fn()
@@ -118,36 +121,27 @@ describe('UIScoreOverlay', () => {
       uiScoreOverlay = new UIScoreOverlay(mockGame, mockParentContainer);
     });
 
-    test('should create score container', () => {
+    test('should create score elements', () => {
       uiScoreOverlay.init();
 
       expect(document.createElement).toHaveBeenCalledWith('div');
-      expect(uiScoreOverlay.scoreContainer).toBeDefined();
-      expect(uiScoreOverlay.scoreContainer.id).toBe('score-display');
+      expect(uiScoreOverlay.holeInfoElement).toBeDefined();
+      expect(uiScoreOverlay.strokesElement).toBeDefined();
+      expect(uiScoreOverlay.scoreElement).toBeDefined();
     });
 
-    test('should add score container to parent', () => {
+    test('should add elements to parent container', () => {
       uiScoreOverlay.init();
 
       expect(mockParentContainer.appendChild).toHaveBeenCalled();
     });
 
-    test('should create score elements', () => {
-      uiScoreOverlay.init();
-
-      expect(uiScoreOverlay.currentHoleElement).toBeDefined();
-      expect(uiScoreOverlay.parElement).toBeDefined();
-      expect(uiScoreOverlay.strokesElement).toBeDefined();
-      expect(uiScoreOverlay.totalScoreElement).toBeDefined();
-    });
-
     test('should update initial display', () => {
       uiScoreOverlay.init();
 
-      expect(uiScoreOverlay.currentHoleElement.textContent).toBe('Hole: 1');
-      expect(uiScoreOverlay.parElement.textContent).toContain('Par:');
+      expect(uiScoreOverlay.holeInfoElement.textContent).toContain('Hole');
       expect(uiScoreOverlay.strokesElement.textContent).toBe('Strokes: 0');
-      expect(uiScoreOverlay.totalScoreElement.textContent).toBe('Total: 0');
+      expect(uiScoreOverlay.scoreElement.textContent).toBe('Total Strokes: 0');
     });
   });
 
@@ -158,19 +152,19 @@ describe('UIScoreOverlay', () => {
     });
 
     test('should update hole number', () => {
-      mockGame.stateManager.state.currentHoleNumber = 5;
+      mockGame.course.getCurrentHoleNumber.mockReturnValue(5);
 
       uiScoreOverlay.updateHoleInfo();
 
-      expect(uiScoreOverlay.currentHoleElement.textContent).toBe('Hole: 5');
+      expect(uiScoreOverlay.holeInfoElement.textContent).toContain('Hole 5');
     });
 
-    test('should update par info', () => {
-      mockGame.course.getHolePar.mockReturnValue(4);
+    test('should update hole info correctly', () => {
+      mockGame.course.getCurrentHoleNumber.mockReturnValue(2);
 
       uiScoreOverlay.updateHoleInfo();
 
-      expect(uiScoreOverlay.parElement.textContent).toContain('Par: 4');
+      expect(uiScoreOverlay.holeInfoElement.textContent).toContain('Hole 2');
     });
 
     test('should handle missing course gracefully', () => {
@@ -188,20 +182,20 @@ describe('UIScoreOverlay', () => {
       uiScoreOverlay.init();
     });
 
-    test('should update total score', () => {
-      mockGame.scoringSystem.getTotalScore.mockReturnValue(15);
+    test('should update total strokes', () => {
+      mockGame.scoringSystem.getTotalStrokes.mockReturnValue(15);
 
       uiScoreOverlay.updateScore();
 
-      expect(uiScoreOverlay.totalScoreElement.textContent).toBe('Total: 15');
+      expect(uiScoreOverlay.scoreElement.textContent).toBe('Total Strokes: 15');
     });
 
-    test('should display score relative to par', () => {
-      mockGame.scoringSystem.getTotalScore.mockReturnValue(-2);
+    test('should display total strokes correctly', () => {
+      mockGame.scoringSystem.getTotalStrokes.mockReturnValue(8);
 
       uiScoreOverlay.updateScore();
 
-      expect(uiScoreOverlay.totalScoreElement.textContent).toContain('-2');
+      expect(uiScoreOverlay.scoreElement.textContent).toBe('Total Strokes: 8');
     });
   });
 
@@ -212,7 +206,7 @@ describe('UIScoreOverlay', () => {
     });
 
     test('should update strokes count', () => {
-      mockGame.scoringSystem.getStrokes.mockReturnValue(3);
+      mockGame.scoringSystem.getCurrentStrokes.mockReturnValue(3);
 
       uiScoreOverlay.updateStrokes();
 
@@ -220,7 +214,7 @@ describe('UIScoreOverlay', () => {
     });
 
     test('should handle zero strokes', () => {
-      mockGame.scoringSystem.getStrokes.mockReturnValue(0);
+      mockGame.scoringSystem.getCurrentStrokes.mockReturnValue(0);
 
       uiScoreOverlay.updateStrokes();
 

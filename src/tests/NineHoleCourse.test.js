@@ -51,18 +51,8 @@ describe('NineHoleCourse', () => {
       }
     };
 
-    // Mock THREE.Group
-    Object.defineProperty(THREE, 'Group', {
-      value: jest.fn(() => ({
-        name: '',
-        userData: {},
-        add: jest.fn(),
-        remove: jest.fn(),
-        children: []
-      })),
-      writable: true,
-      configurable: true
-    });
+    // Reset the global THREE.Group mock to ensure clean state
+    jest.clearAllMocks();
   });
 
   afterEach(() => {
@@ -103,22 +93,25 @@ describe('NineHoleCourse', () => {
   });
 
   describe('hole management', () => {
-    beforeEach(() => {
-      nineHoleCourse = new NineHoleCourse(mockGame);
-    });
-
     test('should initialize hole entities array', () => {
+      nineHoleCourse = new NineHoleCourse(mockGame);
+
       expect(nineHoleCourse.holeEntities).toBeDefined();
       expect(Array.isArray(nineHoleCourse.holeEntities)).toBe(true);
     });
 
     test('should set up hole group names and metadata', () => {
-      // Check that groups were created - should be called 9 times for 9 holes
-      expect(THREE.Group).toHaveBeenCalledTimes(9);
+      nineHoleCourse = new NineHoleCourse(mockGame);
 
       // Check that holeGroups array was populated
       expect(nineHoleCourse.holeGroups).toBeDefined();
       expect(nineHoleCourse.holeGroups.length).toBe(9);
+
+      // Check that each group has proper metadata
+      nineHoleCourse.holeGroups.forEach((group, index) => {
+        expect(group.name).toBe(`Hole_${index + 1}_Group`);
+        expect(group.userData.holeIndex).toBe(index);
+      });
     });
 
     test('should have correct total holes count', () => {
