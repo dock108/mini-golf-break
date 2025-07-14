@@ -76,8 +76,8 @@ describe('GameLoopManager', () => {
       gameLoopManager = new GameLoopManager(mockGame);
 
       expect(gameLoopManager.game).toBe(mockGame);
-      expect(gameLoopManager.isRunning).toBe(false);
-      expect(gameLoopManager.animationId).toBe(null);
+      expect(gameLoopManager.isLoopRunning).toBe(false);
+      expect(gameLoopManager.animationFrameId).toBe(null);
     });
   });
 
@@ -86,10 +86,10 @@ describe('GameLoopManager', () => {
       gameLoopManager = new GameLoopManager(mockGame);
     });
 
-    test('should log initialization', () => {
-      gameLoopManager.init();
+    test('should return manager instance', () => {
+      const result = gameLoopManager.init();
 
-      expect(mockGame.debugManager.log).toHaveBeenCalledWith('[GameLoopManager] Initialized');
+      expect(result).toBe(gameLoopManager);
     });
   });
 
@@ -102,7 +102,7 @@ describe('GameLoopManager', () => {
     test('should start the game loop', () => {
       gameLoopManager.startLoop();
 
-      expect(gameLoopManager.isRunning).toBe(true);
+      expect(gameLoopManager.isLoopRunning).toBe(true);
       expect(global.requestAnimationFrame).toHaveBeenCalled();
     });
 
@@ -119,7 +119,7 @@ describe('GameLoopManager', () => {
     test('should store animation frame ID', () => {
       gameLoopManager.startLoop();
 
-      expect(gameLoopManager.animationId).toBe(1);
+      expect(gameLoopManager.animationFrameId).toBe(1);
     });
   });
 
@@ -133,9 +133,9 @@ describe('GameLoopManager', () => {
       gameLoopManager.startLoop();
       gameLoopManager.stopLoop();
 
-      expect(gameLoopManager.isRunning).toBe(false);
+      expect(gameLoopManager.isLoopRunning).toBe(false);
       expect(global.cancelAnimationFrame).toHaveBeenCalledWith(1);
-      expect(gameLoopManager.animationId).toBe(null);
+      expect(gameLoopManager.animationFrameId).toBe(null);
     });
 
     test('should handle stop when not running', () => {

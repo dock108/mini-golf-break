@@ -215,38 +215,67 @@ describe('HazardFactory', () => {
     });
   });
 
-  describe('createSandHazard', () => {
-    test('should be exported', () => {
-      expect(HazardFactory.createSandHazard).toBeDefined();
-      expect(typeof HazardFactory.createSandHazard).toBe('function');
-    });
-  });
+  describe('createHazard function', () => {
+    test('should handle sand hazard type', () => {
+      const hazardConfig = {
+        type: 'sand',
+        shape: 'circle',
+        position: { x: 0, y: 0, z: 0 },
+        size: { radius: 2 }
+      };
 
-  describe('createWaterHazard', () => {
-    test('should be exported', () => {
-      expect(HazardFactory.createWaterHazard).toBeDefined();
-      expect(typeof HazardFactory.createWaterHazard).toBe('function');
-    });
-  });
+      const result = HazardFactory.createHazard(
+        mockWorld,
+        mockGroup,
+        hazardConfig,
+        mockCourseBounds.visualGreenY,
+        mockCourseBounds
+      );
 
-  describe('createBunkerHazard', () => {
-    test('should be exported', () => {
-      expect(HazardFactory.createBunkerHazard).toBeDefined();
-      expect(typeof HazardFactory.createBunkerHazard).toBe('function');
-    });
-  });
-
-  describe('createSnowman', () => {
-    test('should be exported', () => {
-      expect(HazardFactory.createSnowman).toBeDefined();
-      expect(typeof HazardFactory.createSnowman).toBe('function');
+      expect(result).toHaveProperty('meshes');
+      expect(result).toHaveProperty('bodies');
+      expect(Array.isArray(result.meshes)).toBe(true);
+      expect(Array.isArray(result.bodies)).toBe(true);
     });
 
-    test('should create snowman mesh', () => {
-      const snowman = HazardFactory.createSnowman({ x: 0, y: 0, z: 0 });
+    test('should handle water hazard type', () => {
+      const hazardConfig = {
+        type: 'water',
+        shape: 'circle',
+        position: { x: 0, y: 0, z: 0 },
+        size: { radius: 2 }
+      };
 
-      expect(THREE.Group).toHaveBeenCalled();
-      expect(snowman).toBeDefined();
+      const result = HazardFactory.createHazard(
+        mockWorld,
+        mockGroup,
+        hazardConfig,
+        mockCourseBounds.visualGreenY,
+        mockCourseBounds
+      );
+
+      expect(result).toHaveProperty('meshes');
+      expect(result).toHaveProperty('bodies');
+    });
+
+    test('should handle unknown hazard type', () => {
+      const hazardConfig = {
+        type: 'unknown',
+        shape: 'circle',
+        position: { x: 0, y: 0, z: 0 },
+        size: { radius: 2 }
+      };
+
+      const result = HazardFactory.createHazard(
+        mockWorld,
+        mockGroup,
+        hazardConfig,
+        mockCourseBounds.visualGreenY,
+        mockCourseBounds
+      );
+
+      expect(result.meshes).toEqual([]);
+      expect(result.bodies).toEqual([]);
     });
   });
 });

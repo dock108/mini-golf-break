@@ -20,6 +20,7 @@ jest.mock('cannon-es', () => ({
     bodies: []
   })),
   NaiveBroadphase: jest.fn(),
+  SAPBroadphase: jest.fn(),
   Material: jest.fn(name => ({ name })),
   ContactMaterial: jest.fn((m1, m2, options) => ({
     materials: [m1, m2],

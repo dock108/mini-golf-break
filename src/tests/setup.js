@@ -35,13 +35,36 @@ global.THREE = {
     position: { x: 0, y: 0, z: 0, copy: jest.fn() }
   })),
   SphereGeometry: jest.fn(),
+  CircleGeometry: jest.fn(),
+  CylinderGeometry: jest.fn(),
+  RingGeometry: jest.fn(),
+  PlaneGeometry: jest.fn(),
+  BoxGeometry: jest.fn(),
   MeshStandardMaterial: jest.fn(() => ({
     color: 0xffffff,
     roughness: 0.3,
     metalness: 0.2
   })),
+  MeshBasicMaterial: jest.fn(() => ({
+    color: 0xffffff
+  })),
+  CanvasTexture: jest.fn(),
   PointLight: jest.fn(() => ({
     position: { x: 0, y: 0, z: 0, copy: jest.fn() }
+  })),
+  AudioListener: jest.fn(() => ({
+    context: { state: 'running' },
+    getInput: jest.fn(),
+    removeFilter: jest.fn(),
+    setFilter: jest.fn()
+  })),
+  Audio: jest.fn(() => ({
+    setBuffer: jest.fn(),
+    setVolume: jest.fn(),
+    play: jest.fn(),
+    stop: jest.fn(),
+    pause: jest.fn(),
+    isPlaying: false
   })),
   Box3: jest.fn(() => ({
     min: { x: 0, y: 0, z: 0 },
@@ -67,7 +90,9 @@ global.CANNON = {
   ContactMaterial: jest.fn(),
   Vec3: jest.fn(() => ({ x: 0, y: 0, z: 0 })),
   Sphere: jest.fn(),
-  Box: jest.fn()
+  Box: jest.fn(),
+  Cylinder: jest.fn(),
+  Plane: jest.fn()
 };
 
 // Mock window.AudioContext

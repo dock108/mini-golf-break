@@ -31,61 +31,10 @@ describe('CourseElementFactory', () => {
     };
 
     // Mock position
-    mockPosition = new THREE.Vector3(0, 0, 0);
+    mockPosition = { x: 0, y: 0, z: 0 };
 
-    // Mock THREE constructors
-    THREE.CircleGeometry.mockImplementation(() => ({}));
-    THREE.CylinderGeometry.mockImplementation(() => ({}));
-    THREE.RingGeometry.mockImplementation(() => ({}));
-    THREE.PlaneGeometry.mockImplementation(() => ({}));
-    THREE.BoxGeometry.mockImplementation(() => ({}));
-    THREE.Mesh.mockImplementation(() => ({
-      position: { set: jest.fn(), copy: jest.fn(), x: 0, y: 0, z: 0 },
-      rotation: { x: 0, y: 0, z: 0, set: jest.fn() },
-      castShadow: false,
-      receiveShadow: false,
-      add: jest.fn(),
-      userData: {}
-    }));
-    THREE.MeshBasicMaterial.mockImplementation(() => ({}));
-    THREE.MeshStandardMaterial.mockImplementation(() => ({}));
-    THREE.PointLight.mockImplementation(() => ({
-      position: { set: jest.fn() }
-    }));
-    THREE.Vector3.mockImplementation((x, y, z) => ({
-      x: x || 0,
-      y: y || 0,
-      z: z || 0,
-      copy: jest.fn(),
-      set: jest.fn(),
-      addVectors: jest.fn().mockReturnThis(),
-      subVectors: jest.fn().mockReturnThis(),
-      multiplyScalar: jest.fn().mockReturnThis(),
-      normalize: jest.fn().mockReturnThis()
-    }));
-    THREE.CanvasTexture.mockImplementation(() => ({}));
-
-    // Mock CANNON constructors
-    CANNON.Vec3.mockImplementation((x, y, z) => ({ x, y, z }));
-    CANNON.Body.mockImplementation(() => ({
-      position: { x: 0, y: 0, z: 0 },
-      quaternion: { setFromAxisAngle: jest.fn() },
-      userData: {},
-      addShape: jest.fn()
-    }));
-    CANNON.Cylinder.mockImplementation(() => ({}));
-    CANNON.Plane.mockImplementation(() => ({}));
-    CANNON.Box.mockImplementation(() => ({}));
-
-    // Mock document.createElement for canvas texture
-    global.document.createElement = jest.fn(() => ({
-      width: 64,
-      height: 64,
-      getContext: jest.fn(() => ({
-        fillStyle: '',
-        fillRect: jest.fn()
-      }))
-    }));
+    // Clear mock call history
+    jest.clearAllMocks();
   });
 
   afterEach(() => {

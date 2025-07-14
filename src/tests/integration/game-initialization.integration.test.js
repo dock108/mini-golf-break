@@ -41,7 +41,7 @@ jest.mock('../../physics/PhysicsWorld', () => ({
 }));
 
 // Mock BasicCourse and NineHoleCourse
-jest.mock('../../objects/courses/BasicCourse', () => ({
+jest.mock('../../objects/BasicCourse', () => ({
   BasicCourse: {
     create: jest.fn(async () => ({
       currentHoleEntity: {
@@ -55,7 +55,7 @@ jest.mock('../../objects/courses/BasicCourse', () => ({
   }
 }));
 
-jest.mock('../../objects/courses/NineHoleCourse', () => ({
+jest.mock('../../objects/NineHoleCourse', () => ({
   NineHoleCourse: {
     create: jest.fn(async () => ({
       currentHoleEntity: {

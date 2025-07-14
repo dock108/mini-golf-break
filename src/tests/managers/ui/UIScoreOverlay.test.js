@@ -44,10 +44,27 @@ describe('UIScoreOverlay', () => {
             style: {},
             id: '',
             appendChild: jest.fn(),
-            textContent: ''
+            textContent: '',
+            classList: {
+              add: jest.fn(),
+              remove: jest.fn(),
+              contains: jest.fn(),
+              toggle: jest.fn()
+            }
           };
         default:
-          return mockElements[tagName] || { style: {}, textContent: '' };
+          return (
+            mockElements[tagName] || {
+              style: {},
+              textContent: '',
+              classList: {
+                add: jest.fn(),
+                remove: jest.fn(),
+                contains: jest.fn(),
+                toggle: jest.fn()
+              }
+            }
+          );
       }
     });
 
@@ -90,7 +107,9 @@ describe('UIScoreOverlay', () => {
 
       expect(uiScoreOverlay.game).toBe(mockGame);
       expect(uiScoreOverlay.parentContainer).toBe(mockParentContainer);
-      expect(uiScoreOverlay.scoreContainer).toBe(null);
+      expect(uiScoreOverlay.scoreElement).toBe(null);
+      expect(uiScoreOverlay.strokesElement).toBe(null);
+      expect(uiScoreOverlay.holeInfoElement).toBe(null);
     });
   });
 
