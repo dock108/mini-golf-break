@@ -108,22 +108,66 @@ describe('App Class (main.js)', () => {
     // Reset DOM
     document.body.innerHTML = '';
 
+    // Function to enhance DOM elements with all required methods
+    const enhanceDOMElement = element => {
+      // Add querySelector method
+      if (!element.querySelector) {
+        element.querySelector = jest.fn(selector => {
+          if (selector === 'div') {
+            const mockChild = document.createElement('div');
+            mockChild.style.color = 'red';
+            mockChild.style.marginTop = '20px';
+            mockChild.textContent = 'Failed to initialize game. Please refresh the page.';
+            return mockChild;
+          }
+          return null;
+        });
+      }
+
+      // Add dispatchEvent method
+      if (!element.dispatchEvent) {
+        element.dispatchEvent = jest.fn();
+      }
+
+      // Ensure addEventListener is a proper Jest mock
+      if (
+        typeof element.addEventListener !== 'function' ||
+        !element.addEventListener._isMockFunction
+      ) {
+        // Store original method
+        const originalAddEventListener = element.addEventListener || (() => {});
+
+        // Create jest mock that tracks calls and stores handlers
+        element.addEventListener = jest.fn((event, handler) => {
+          // Store the handler for later retrieval
+          if (!element._eventHandlers) {
+            element._eventHandlers = {};
+          }
+          if (!element._eventHandlers[event]) {
+            element._eventHandlers[event] = [];
+          }
+          element._eventHandlers[event].push(handler);
+
+          // Call original if it exists
+          if (originalAddEventListener !== element.addEventListener) {
+            originalAddEventListener.call(element, event, handler);
+          }
+        });
+      }
+
+      return element;
+    };
+
     // Create mock DOM elements
     const menuScreen = document.createElement('div');
     menuScreen.id = 'menu-screen';
     menuScreen.style.display = 'block';
-    menuScreen.querySelector = jest.fn(() => {
-      const mockChild = document.createElement('div');
-      mockChild.style.color = 'red';
-      mockChild.style.marginTop = '20px';
-      mockChild.textContent = 'Failed to initialize game. Please refresh the page.';
-      return mockChild;
-    });
+    enhanceDOMElement(menuScreen);
     document.body.appendChild(menuScreen);
 
     const playCourseButton = document.createElement('button');
     playCourseButton.id = 'play-course';
-    playCourseButton.dispatchEvent = jest.fn();
+    enhanceDOMElement(playCourseButton);
     document.body.appendChild(playCourseButton);
 
     // Mock game instance
@@ -181,10 +225,15 @@ describe('App Class (main.js)', () => {
     test('should add click listener to play course button', () => {
       const playCourseButton = document.getElementById('play-course');
 
+      // Set up spy before App creation
+      const addEventListenerSpy = jest.spyOn(playCourseButton, 'addEventListener');
+
       new App();
 
-      // Verify that event listener was added (implementation may handle this differently)
-      expect(playCourseButton.addEventListener).toHaveBeenCalled();
+      // Verify that event listener was added
+      expect(addEventListenerSpy).toHaveBeenCalledWith('click', expect.any(Function));
+
+      addEventListenerSpy.mockRestore();
     });
 
     test('should handle missing play course button gracefully', () => {
@@ -334,26 +383,32 @@ describe('App Class (main.js)', () => {
 
   describe('integration scenarios', () => {
     test('should handle complete startup flow', async () => {
-      const app = new App();
-
-      // Simulate button click directly since dispatchEvent might not be fully supported in test environment
       const playCourseButton = document.getElementById('play-course');
+
+      // Set up spy before App creation to capture the event handler
+      const addEventListenerSpy = jest.spyOn(playCourseButton, 'addEventListener');
+
+      const app = new App();
 
       const startCourseSpy = jest
         .spyOn(app, 'startCourse')
         .mockImplementation(() => Promise.resolve());
 
-      // Find the click handler that was added
-      const clickHandler = playCourseButton.addEventListener.mock.calls.find(
-        call => call[0] === 'click'
-      )?.[1];
+      // Get the click handler from either spy calls or stored handlers
+      const clickHandler =
+        addEventListenerSpy.mock.calls.find(call => call[0] === 'click')?.[1] ||
+        playCourseButton._eventHandlers?.click?.[0];
 
       if (clickHandler) {
         clickHandler();
+        expect(startCourseSpy).toHaveBeenCalled();
+      } else {
+        // If handler not found, at least verify addEventListener was called
+        expect(addEventListenerSpy).toHaveBeenCalledWith('click', expect.any(Function));
       }
 
-      expect(startCourseSpy).toHaveBeenCalled();
       startCourseSpy.mockRestore();
+      addEventListenerSpy.mockRestore();
     });
   });
 });
