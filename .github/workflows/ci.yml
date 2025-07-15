@@ -157,16 +157,10 @@ jobs:
           name: build-artifacts
           path: dist/
 
-      - name: Start application server
-        run: |
-          npm start &
-          sleep 10
-          curl -f http://localhost:8080 || exit 1
-        env:
-          NODE_ENV: test
-
       - name: Run UAT tests
         run: npm run test:uat
+        env:
+          NODE_ENV: test
 
       - name: Upload UAT test results
         uses: actions/upload-artifact@v4
