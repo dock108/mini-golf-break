@@ -89,7 +89,9 @@ export class BaseElement {
         if (mesh.parent) {
           mesh.parent.remove(mesh);
         }
-        if (mesh.geometry) {mesh.geometry.dispose();}
+        if (mesh.geometry) {
+          mesh.geometry.dispose();
+        }
         if (mesh.material) {
           if (Array.isArray(mesh.material)) {
             mesh.material.forEach(mat => mat?.dispose());

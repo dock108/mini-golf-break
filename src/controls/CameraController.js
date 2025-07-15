@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { EventTypes } from '../events/EventTypes';
+import { debug } from '../utils/debug';
 
 /**
  * CameraController class
@@ -165,7 +166,7 @@ export class CameraController {
    * Handle ball movement events
    * @param {GameEvent} event - The ball moved event
    */
-  handleBallMoved(event) {
+  handleBallMoved(_event) {
     // This method is left empty as the camera already follows the ball in updateCameraFollowBall()
   }
 
@@ -173,14 +174,22 @@ export class CameraController {
    * Handle hole started events - Defer initial positioning
    * @param {GameEvent} event - The hole started event
    */
-  handleHoleStarted(event) {
-    console.log(
-      `[CameraController.handleHoleStarted] Event received. isInitialized: ${this.isInitialized}, game initialized?: ${this.game.isInitialized}`
-    );
+  handleHoleStarted(_event) {
+    if (this.game.debugManager) {
+      this.game.debugManager.log(
+        'CameraController.handleHoleStarted',
+        `Event received. isInitialized: ${this.isInitialized}, game initialized?: ${this.game.isInitialized}`
+      );
+    }
     // We no longer position the camera immediately on HOLE_STARTED
     // during initial load. Subsequent hole starts might trigger positioning,
     // but initial setup is handled after course creation.
-    console.log('[CameraController.handleHoleStarted] Initial positioning deferred.');
+    if (this.game.debugManager) {
+      this.game.debugManager.log(
+        'CameraController.handleHoleStarted',
+        'Initial positioning deferred.'
+      );
+    }
   }
 
   /**
@@ -196,17 +205,24 @@ export class CameraController {
    * Handle ball hit event - reset camera adjustment flag when ball is hit
    * @param {GameEvent} event - The ball hit event
    */
-  handleBallHit(event) {
+  handleBallHit(_event) {
     // Reset user adjustment flag when ball is hit, so camera follows the shot
     this._userAdjustedCamera = false;
-    console.log('[CameraController.handleBallHit] Ball hit, resetting camera adjustment flag');
+    if (this.game.debugManager) {
+      this.game.debugManager.log(
+        'CameraController.handleBallHit',
+        'Ball hit, resetting camera adjustment flag'
+      );
+    }
   }
 
   /**
    * Handle window resize event
    */
   handleResize() {
-    if (!this.camera) {return;}
+    if (!this.camera) {
+      return;
+    }
 
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
@@ -321,7 +337,6 @@ export class CameraController {
     }
 
     // --- Calculate viewing parameters (using WORLD coordinates) ---
-    const fovYRad = THREE.MathUtils.degToRad(this.camera.fov);
     const minHeight = 12.0;
     const baseHeight = Math.max(diagonal * 1.0, minHeight);
     const courseDirection = new THREE.Vector3()
@@ -381,7 +396,9 @@ export class CameraController {
   updateCameraFollowBall(deltaTime) {
     // Get the ball reference from the ball manager
     const ball = this.game.ballManager ? this.game.ballManager.ball : null;
-    if (!ball || !ball.mesh) {return;}
+    if (!ball || !ball.mesh) {
+      return;
+    }
 
     const ballPosition = ball.mesh.position.clone(); // Ball position is already WORLD
 
@@ -584,14 +601,18 @@ export class CameraController {
   positionCameraBehindBall() {
     // Get the ball reference from the ball manager
     const ball = this.game.ballManager ? this.game.ballManager.ball : null;
-    if (!ball || !ball.mesh) {return;}
+    if (!ball || !ball.mesh) {
+      return;
+    }
 
     // Get the ball's position
     const ballPosition = ball.mesh.position.clone();
 
     // Get hole position
     const holePosition = this.course ? this.course.getHolePosition() : null;
-    if (!holePosition) {return;}
+    if (!holePosition) {
+      return;
+    }
 
     // Calculate direction from ball to hole
     const direction = new THREE.Vector3().subVectors(holePosition, ballPosition).normalize();
@@ -784,11 +805,15 @@ export class CameraController {
    */
   panCameraOnEdge(direction, amount) {
     // Ignore if in transition or user is manually adjusting camera
-    if (this.isTransitioning || this._isRepositioning) {return;}
+    if (this.isTransitioning || this._isRepositioning) {
+      return;
+    }
 
     // Get ball reference if available
     const ball = this.game.ballManager ? this.game.ballManager.ball : null;
-    if (!ball || !ball.mesh) {return;}
+    if (!ball || !ball.mesh) {
+      return;
+    }
 
     // Get current camera and target positions
     const ballPosition = ball.mesh.position.clone();
@@ -833,5 +858,85 @@ export class CameraController {
       this.camera.position.add(panMove.clone().multiplyScalar(panAmountScaled));
       this.camera.lookAt(ballPosition);
     }
+  }
+
+  /**
+   * Adjust zoom level for mobile optimization
+   */
+  adjustZoom(zoomFactor) {
+    if (!this.controls) {
+      return;
+    }
+
+    const currentDistance = this.camera.position.distanceTo(this.controls.target);
+    const newDistance = currentDistance / zoomFactor;
+
+    // Clamp zoom to reasonable limits
+    const minDistance = 5;
+    const maxDistance = 50;
+    const clampedDistance = Math.max(minDistance, Math.min(maxDistance, newDistance));
+
+    if (clampedDistance !== currentDistance) {
+      const direction = new THREE.Vector3()
+        .subVectors(this.camera.position, this.controls.target)
+        .normalize();
+
+      this.camera.position
+        .copy(this.controls.target)
+        .add(direction.multiplyScalar(clampedDistance));
+
+      this.controls.update();
+      debug.log(`[CameraController] Zoom adjusted: distance=${clampedDistance.toFixed(2)}`);
+    }
+  }
+
+  /**
+   * Optimize camera settings for mobile devices
+   */
+  optimizeForMobile() {
+    if (!this.controls) {
+      return;
+    }
+
+    // Reduce damping for more responsive controls on touch
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.05; // More responsive than default 0.1
+
+    // Optimize zoom settings for touch
+    this.controls.enableZoom = true;
+    this.controls.zoomSpeed = 0.5; // Slower zoom for better control
+
+    // Optimize pan settings
+    this.controls.enablePan = true;
+    this.controls.panSpeed = 0.3; // Slower pan for better control
+
+    // Optimize rotation settings
+    this.controls.enableRotate = true;
+    this.controls.rotateSpeed = 0.3; // Slower rotation for better control
+
+    // Set appropriate limits for mobile
+    this.controls.minDistance = 3;
+    this.controls.maxDistance = 30;
+    this.controls.maxPolarAngle = Math.PI * 0.8; // Prevent camera from going too low
+
+    debug.log('[CameraController] Mobile optimizations applied');
+  }
+
+  /**
+   * Set camera quality based on device performance
+   */
+  setQualityLevel(isHighPerformance) {
+    if (isHighPerformance) {
+      // High-quality settings
+      this.camera.fov = 60;
+      this.camera.far = 5000;
+    } else {
+      // Lower quality settings for better performance
+      this.camera.fov = 65; // Slightly wider FOV reduces need for zooming
+      this.camera.far = 2000; // Reduced draw distance
+    }
+
+    this.camera.updateProjectionMatrix();
+    debug.log(`[CameraController] Quality level set: ${isHighPerformance ? 'High' : 'Low'}`);
   }
 }

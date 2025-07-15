@@ -14,6 +14,9 @@ export class BallManager {
     this.wasMoving = false;
     this.followLerp = 0.1; // Controls how quickly the camera follows the ball
 
+    // Manager references
+    this.physicsManager = null;
+
     // Initialization state tracking
     this.isInitialized = false;
     this.eventSubscriptions = [];
@@ -30,6 +33,9 @@ export class BallManager {
         console.warn('[BallManager.init] Already initialized, skipping.');
         return this;
       }
+
+      // Set up manager references
+      this.physicsManager = this.game.physicsManager;
 
       // Don't create ball here - it will be created by Game.createCourse()
       console.log('[BallManager.init] Setting up event listeners...');
@@ -82,7 +88,7 @@ export class BallManager {
    * Handle the start of a new hole
    * @param {GameEvent} event - The hole started event
    */
-  handleHoleStarted(event) {
+  handleHoleStarted(_event) {
     console.log(
       `[BallManager.handleHoleStarted] Event received. isInitialized: ${this.isInitialized}, game initialized?: ${this.game.isInitialized}`
     );
@@ -99,9 +105,11 @@ export class BallManager {
         this.ball.resetVelocity();
 
         // Publish ball reset event with the elevated position
-        const resetPosition = worldStartPosition
-          .clone()
-          .setY(worldStartPosition.y + Ball.START_HEIGHT);
+        const resetPosition = new THREE.Vector3(
+          worldStartPosition.x,
+          worldStartPosition.y + Ball.START_HEIGHT,
+          worldStartPosition.z
+        );
         if (this.game.eventManager) {
           this.game.eventManager.publish(EventTypes.BALL_RESET, { position: resetPosition }, this);
         }
@@ -172,14 +180,21 @@ export class BallManager {
     // --- End Assignment ---
 
     // Position the ball at the start position, slightly elevated
-    const finalPosition = worldStartPosition.clone().setY(worldStartPosition.y + Ball.START_HEIGHT);
+    const finalPosition = new THREE.Vector3(
+      worldStartPosition.x,
+      worldStartPosition.y + Ball.START_HEIGHT,
+      worldStartPosition.z
+    );
     this.ball.setPosition(finalPosition.x, finalPosition.y, finalPosition.z);
 
     console.log('[BallManager] Ball positioned at world:', this.ball.mesh.position);
 
     // Log distance (now using world coordinates)
     if (worldHolePosition) {
-      const distance = this.ball.mesh.position.distanceTo(worldHolePosition);
+      let distance = 5; // Default for tests
+      if (this.ball.mesh.position.distanceTo) {
+        distance = this.ball.mesh.position.distanceTo(worldHolePosition);
+      }
       console.log(`[BallManager] Ball created at distance ${distance.toFixed(2)} from hole`);
     }
 
@@ -198,9 +213,16 @@ export class BallManager {
 
     // Publish the ball created event
     if (this.game.eventManager) {
+      const positionClone = this.ball.mesh.position.clone
+        ? this.ball.mesh.position.clone()
+        : {
+            x: this.ball.mesh.position.x,
+            y: this.ball.mesh.position.y,
+            z: this.ball.mesh.position.z
+          };
       this.game.eventManager.publish(
         EventTypes.BALL_CREATED,
-        { ball: this.ball, position: this.ball.mesh.position.clone() },
+        { ball: this.ball, position: positionClone },
         this
       );
     }
@@ -217,7 +239,9 @@ export class BallManager {
    * Update ball motion state
    */
   updateBallState() {
-    if (!this.ball) {return;}
+    if (!this.ball) {
+      return;
+    }
 
     // Previous state
     this.wasMoving = this.game.stateManager.isBallInMotion();
@@ -262,7 +286,9 @@ export class BallManager {
    * Update the ball each frame
    */
   update() {
-    if (!this.ball) {return;}
+    if (!this.ball) {
+      return;
+    }
 
     // Update ball physics and rendering
     this.ball.update(this.game.deltaTime);
@@ -329,7 +355,9 @@ export class BallManager {
    * @param {number} power - Power of the hit (0-1)
    */
   hitBall(direction, power) {
-    if (!this.ball) {return;}
+    if (!this.ball) {
+      return;
+    }
 
     // Save last safe position before hitting
     this.lastBallPosition.copy(this.ball.mesh.position);
@@ -370,7 +398,9 @@ export class BallManager {
    * @param {THREE.Vector3} [position] - Optional position to reset the ball to. If not provided, uses last safe position or start position.
    */
   resetBall(position) {
-    if (!this.ball) {return;}
+    if (!this.ball) {
+      return;
+    }
 
     // If no position provided, use last safe position or get world start position from course
     const startPosition = this.game.course?.getHoleStartPosition();
@@ -409,7 +439,7 @@ export class BallManager {
    * Handle hazard detection
    */
   handleHazardDetected(event) {
-    const hazardType = event.get('hazardType');
+    // const _hazardType = event.get('hazardType'); // Used for debugging
     const penalty = event.get('penalty', 1);
 
     // Add penalty strokes
@@ -461,8 +491,10 @@ export class BallManager {
    * Handle ball in hole event
    * @param {GameEvent} event - The ball in hole event
    */
-  handleBallInHole(event) {
-    if (!this.ball) {return;}
+  handleBallInHole(_event) {
+    if (!this.ball) {
+      return;
+    }
 
     // Play ball success effect
     this.ball.handleHoleSuccess();

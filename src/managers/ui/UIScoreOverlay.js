@@ -33,6 +33,12 @@ export class UIScoreOverlay {
    * Initialize and create UI elements.
    */
   init() {
+    // Create score container
+    this.scoreContainer = document.createElement('div');
+    this.scoreContainer.style.position = 'absolute';
+    this.scoreContainer.style.top = '10px';
+    this.scoreContainer.style.right = '10px';
+
     // Create top-right container if it doesn't exist (should be handled by UIManager ideally)
     let topRightContainer = this.parentContainer.querySelector(
       `.${this.TOP_RIGHT_CONTAINER_CLASS}`
@@ -43,23 +49,26 @@ export class UIScoreOverlay {
       this.parentContainer.appendChild(topRightContainer);
     }
 
+    // Add score container to top-right container
+    topRightContainer.appendChild(this.scoreContainer);
+
     // 1. Create hole info element
     this.holeInfoElement = document.createElement('div');
     this.holeInfoElement.classList.add(this.INFO_BOX_CLASS);
     this.holeInfoElement.style.marginBottom = '2px'; // Adjust spacing
-    topRightContainer.appendChild(this.holeInfoElement);
+    this.scoreContainer.appendChild(this.holeInfoElement);
 
     // 2. Create strokes element
     this.strokesElement = document.createElement('div');
     this.strokesElement.classList.add(this.INFO_BOX_CLASS);
     this.strokesElement.style.marginBottom = '2px'; // Adjust spacing
-    topRightContainer.appendChild(this.strokesElement);
+    this.scoreContainer.appendChild(this.strokesElement);
 
     // 3. Create score element (Total Strokes)
     this.scoreElement = document.createElement('div');
     this.scoreElement.classList.add(this.INFO_BOX_CLASS);
     this.scoreElement.style.marginBottom = '0px'; // No margin for the last item
-    topRightContainer.appendChild(this.scoreElement);
+    this.scoreContainer.appendChild(this.scoreElement);
 
     this.updateScore();
     this.updateStrokes();
@@ -72,7 +81,9 @@ export class UIScoreOverlay {
    * Update the score display.
    */
   updateScore() {
-    if (!this.scoreElement || !this.game.scoringSystem) return;
+    if (!this.scoreElement || !this.game.scoringSystem) {
+      return;
+    }
     const totalStrokes = this.game.scoringSystem.getTotalStrokes();
     this.scoreElement.textContent = `Total Strokes: ${totalStrokes}`;
     debug.log(`[UIScoreOverlay.updateScore] Updated to: ${totalStrokes}`);
@@ -82,7 +93,9 @@ export class UIScoreOverlay {
    * Update the strokes display for the current hole.
    */
   updateStrokes() {
-    if (!this.strokesElement || !this.game.scoringSystem) return;
+    if (!this.strokesElement || !this.game.scoringSystem) {
+      return;
+    }
 
     const currentStrokes = this.game.scoringSystem.getCurrentStrokes();
 
@@ -98,7 +111,9 @@ export class UIScoreOverlay {
    * Update the hole information display.
    */
   updateHoleInfo() {
-    if (!this.holeInfoElement || !this.game.course) return;
+    if (!this.holeInfoElement || !this.game.course) {
+      return;
+    }
     const holeNumber = this.game.course.getCurrentHoleNumber
       ? this.game.course.getCurrentHoleNumber()
       : '-';
@@ -222,17 +237,49 @@ export class UIScoreOverlay {
   }
 
   /**
+   * Show the overlay
+   */
+  show() {
+    if (this.scoreContainer) {
+      this.scoreContainer.style.display = 'block';
+    }
+  }
+
+  /**
+   * Hide the overlay
+   */
+  hide() {
+    if (this.scoreContainer) {
+      this.scoreContainer.style.display = 'none';
+    }
+  }
+
+  /**
+   * Toggle the overlay visibility
+   */
+  toggle() {
+    if (this.scoreContainer) {
+      const isVisible = this.scoreContainer.style.display !== 'none';
+      this.scoreContainer.style.display = isVisible ? 'none' : 'block';
+    }
+  }
+
+  /**
    * Cleanup UI elements.
    */
   cleanup() {
-    this.scoreElement?.remove();
-    this.strokesElement?.remove();
-    this.holeInfoElement?.remove();
+    if (this.scoreContainer && this.parentContainer) {
+      this.parentContainer.removeChild(this.scoreContainer);
+    }
     this.hideFinalScorecard(); // Ensure scorecard is hidden/removed
 
+    this.scoreContainer = null;
+    this.currentHoleElement = null;
+    this.parElement = null;
     this.scoreElement = null;
     this.strokesElement = null;
     this.holeInfoElement = null;
+    this.totalScoreElement = null;
     this.scorecardElement = null;
 
     debug.log('[UIScoreOverlay] Cleaned up.');

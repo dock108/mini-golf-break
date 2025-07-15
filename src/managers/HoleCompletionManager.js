@@ -122,7 +122,9 @@ export class HoleCompletionManager {
   showCompletionEffects() {
     // Get current hole mesh
     const currentHole = this.game.course.getCurrentHoleMesh();
-    if (!currentHole) {return;}
+    if (!currentHole) {
+      return;
+    }
 
     // Animate hole disappearing
     const duration = 1000; // 1 second

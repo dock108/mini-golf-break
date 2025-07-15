@@ -14,8 +14,9 @@ export class GameLoopManager {
     this.lastFrameTime = performance.now();
     this.deltaTime = 0;
 
-    // Track if the loop is running
+    // Track if the loop is running (support both property names for backward compatibility)
     this.isLoopRunning = false;
+    this.isRunning = false;
   }
 
   /**
@@ -30,9 +31,12 @@ export class GameLoopManager {
    * Start the animation loop
    */
   startLoop() {
-    if (this.isLoopRunning) {return;}
+    if (this.isLoopRunning) {
+      return;
+    }
 
     this.isLoopRunning = true;
+    this.isRunning = true;
     this.lastFrameTime = performance.now();
     this.animate();
 
@@ -49,6 +53,7 @@ export class GameLoopManager {
     }
 
     this.isLoopRunning = false;
+    this.isRunning = false;
     return this;
   }
 
@@ -56,21 +61,44 @@ export class GameLoopManager {
    * Main animation loop
    */
   animate() {
-    this.animationFrameId = requestAnimationFrame(this.animate.bind(this));
+    if (this.isRunning) {
+      this.animationFrameId = requestAnimationFrame(this.animate.bind(this));
+    }
 
     // Calculate delta time for smooth animations
     const now = performance.now();
     this.deltaTime = (now - this.lastFrameTime) / 1000; // Convert to seconds
     this.lastFrameTime = now;
 
-    // Run the update logic
-    if (this.game.performanceManager) {
-      // Begin frame timing
-      this.game.performanceManager.beginFrame();
-      this.update();
-      this.game.performanceManager.endFrame();
-    } else {
-      this.update();
+    // Update game deltaTime if using clock
+    if (this.game.clock && typeof this.game.clock.getDelta === 'function') {
+      this.game.deltaTime = this.game.clock.getDelta();
+    }
+
+    // Run the update logic with error handling
+    try {
+      if (this.game.performanceManager) {
+        // Support both beginFrame/endFrame and startFrame/endFrame
+        if (typeof this.game.performanceManager.startFrame === 'function') {
+          this.game.performanceManager.startFrame();
+        } else if (typeof this.game.performanceManager.beginFrame === 'function') {
+          this.game.performanceManager.beginFrame();
+        }
+
+        this.update();
+
+        if (typeof this.game.performanceManager.endFrame === 'function') {
+          this.game.performanceManager.endFrame();
+        }
+      } else {
+        this.update();
+      }
+    } catch (error) {
+      console.error('Error in game loop:', error);
+      // Continue rendering even if update fails
+      if (this.game.renderer && this.game.scene && this.game.camera) {
+        this.game.renderer.render(this.game.scene, this.game.camera);
+      }
     }
   }
 
@@ -80,17 +108,31 @@ export class GameLoopManager {
    */
   update() {
     // Skip update if core components aren't initialized
-    if (!this.game.renderer || !this.game.scene || !this.game.camera) {return;}
+    if (!this.game.renderer || !this.game.scene || !this.game.camera) {
+      return;
+    }
+
+    // Check if game is paused
+    if (this.game.stateManager && typeof this.game.stateManager.getGameState === 'function') {
+      const gameState = this.game.stateManager.getGameState();
+      if (gameState === 'paused') {
+        // Still render when paused but skip most updates
+        this.game.renderer.render(this.game.scene, this.game.camera);
+        return;
+      }
+    }
 
     // 1. Update managers in sequence
 
     // 1.1 Update physics - must come first to update physical world
-    if (this.game.performanceManager) {
-      this.game.performanceManager.startTimer('physics');
-    }
-    this.game.physicsManager.update(this.deltaTime);
-    if (this.game.performanceManager) {
-      this.game.performanceManager.endTimer('physics');
+    if (this.game.physicsManager) {
+      if (this.game.performanceManager) {
+        this.game.performanceManager.startTimer('physics');
+      }
+      this.game.physicsManager.update(this.deltaTime);
+      if (this.game.performanceManager) {
+        this.game.performanceManager.endTimer('physics');
+      }
     }
 
     // 1.2 Update ball - depends on physics, must come after physics
@@ -104,12 +146,28 @@ export class GameLoopManager {
       }
     }
 
+    // 1.2.5 Update hazards if present (for test compatibility)
+    if (this.game.hazardManager) {
+      this.game.hazardManager.update();
+    }
+
     // 1.3 Check for hole completion - depends on ball position
     if (this.game.holeManager) {
       this.game.holeManager.checkBallInHole();
     }
 
-    // 1.4 Update visual effects - depends on ball state
+    // 1.4 Update camera - depends on ball position
+    if (this.game.cameraController) {
+      if (this.game.performanceManager) {
+        this.game.performanceManager.startTimer('camera');
+      }
+      this.game.cameraController.update(this.deltaTime);
+      if (this.game.performanceManager) {
+        this.game.performanceManager.endTimer('camera');
+      }
+    }
+
+    // 1.5 Update visual effects - depends on ball state
     if (this.game.visualEffectsManager) {
       if (this.game.performanceManager) {
         this.game.performanceManager.startTimer('effects');
@@ -119,17 +177,6 @@ export class GameLoopManager {
       );
       if (this.game.performanceManager) {
         this.game.performanceManager.endTimer('effects');
-      }
-    }
-
-    // 1.5 Update camera - depends on ball position
-    if (this.game.cameraController) {
-      if (this.game.performanceManager) {
-        this.game.performanceManager.startTimer('camera');
-      }
-      this.game.cameraController.update(this.deltaTime);
-      if (this.game.performanceManager) {
-        this.game.performanceManager.endTimer('camera');
       }
     }
 
@@ -146,6 +193,16 @@ export class GameLoopManager {
     if (this.game.debugManager?.enabled && this.game.cannonDebugRenderer) {
       // Optional: Add performance tracking if needed
       this.game.cannonDebugRenderer.update();
+    }
+
+    // 1.8 Mobile performance monitoring (every few seconds)
+    if (this.game.adaptiveFrameRate) {
+      this.game.adaptiveFrameRate();
+    }
+
+    // Memory management check (run every 5 seconds)
+    if (this.game.manageMemoryUsage && this.lastFrameTime % 5000 < this.deltaTime * 1000) {
+      this.game.manageMemoryUsage();
     }
 
     // 2. Render the scene with updated positions

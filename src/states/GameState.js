@@ -5,6 +5,9 @@ export const GameState = {
   /** Initial state when game starts */
   INITIALIZING: 'initializing',
 
+  /** Game is actively being played */
+  PLAYING: 'playing',
+
   /** Player is aiming their shot */
   AIMING: 'aiming',
 

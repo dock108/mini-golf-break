@@ -19,6 +19,17 @@ export class HazardManager {
       maxZ: 50,
       minY: -10 // Below this height, ball is considered lost
     };
+
+    // Hazard tracking
+    this.hazards = [];
+    this.eventSubscriptions = [];
+
+    // Performance optimization
+    this.checkFrequency = 5; // Check every 5 frames
+    this.frameCount = 0;
+
+    // State tracking
+    this.isInitialized = false;
   }
 
   /**
@@ -28,6 +39,7 @@ export class HazardManager {
     // Initialize last safe position with a default value
     this.lastSafePosition = new THREE.Vector3(0, 0, 0);
     this.setupEventListeners();
+    this.isInitialized = true;
     return this;
   }
 
@@ -35,14 +47,34 @@ export class HazardManager {
    * Set up event listeners
    */
   setupEventListeners() {
+    // Prevent duplicate subscriptions
+    if (this.eventSubscriptions.length > 0) {
+      return;
+    }
+
     // Listen for ball hit events to update the last safe position
-    this.game.eventManager.subscribe(EventTypes.BALL_STOPPED, this.handleBallStopped, this);
+    const sub1 = this.game.eventManager.subscribe(
+      EventTypes.BALL_STOPPED,
+      this.handleBallStopped,
+      this
+    );
+    this.eventSubscriptions.push(sub1);
 
     // Listen for ball created events
-    this.game.eventManager.subscribe(EventTypes.BALL_CREATED, this.handleBallCreated, this);
+    const sub2 = this.game.eventManager.subscribe(
+      EventTypes.BALL_CREATED,
+      this.handleBallCreated,
+      this
+    );
+    this.eventSubscriptions.push(sub2);
 
     // Listen for ball moved events to check hazards
-    this.game.eventManager.subscribe(EventTypes.BALL_MOVED, this.handleBallMoved, this);
+    const sub3 = this.game.eventManager.subscribe(
+      EventTypes.BALL_MOVED,
+      this.handleBallMoved,
+      this
+    );
+    this.eventSubscriptions.push(sub3);
   }
 
   /**
@@ -160,9 +192,63 @@ export class HazardManager {
   }
 
   /**
+   * Clear all hazards from the manager
+   */
+  clearHazards() {
+    this.hazards = [];
+  }
+
+  /**
+   * Update method called by game loop
+   */
+  update() {
+    // Only check hazards if initialized and ball exists
+    if (!this.isInitialized || !this.game.ballManager?.ball) {
+      return;
+    }
+
+    // Increment frame counter
+    this.frameCount++;
+
+    // Only check hazards at specified frequency
+    if (this.frameCount >= this.checkFrequency) {
+      this.checkHazards();
+      this.frameCount = 0;
+    }
+  }
+
+  /**
+   * Publish hazard detected event
+   * @param {Object} hazardData - Hazard information
+   */
+  publishHazardDetected(hazardData) {
+    this.game.eventManager.publish(EventTypes.HAZARD_DETECTED, hazardData, this);
+  }
+
+  /**
+   * Publish out of bounds event
+   * @param {Object} position - Position where ball went out of bounds
+   */
+  publishOutOfBounds(position) {
+    this.game.eventManager.publish(EventTypes.HAZARD_OUT_OF_BOUNDS, { position }, this);
+  }
+
+  /**
    * Clean up resources
    */
   cleanup() {
-    // Nothing to clean up for now
+    // Unsubscribe from events
+    this.eventSubscriptions.forEach(unsubscribe => {
+      if (unsubscribe && typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    });
+    this.eventSubscriptions = [];
+
+    // Clear hazards
+    this.clearHazards();
+
+    // Reset state
+    this.isInitialized = false;
   }
 }

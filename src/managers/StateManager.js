@@ -238,6 +238,44 @@ export class StateManager {
   }
 
   /**
+   * Set reset ball flag
+   * @param {boolean} shouldReset - Whether ball should be reset
+   */
+  setResetBall(shouldReset) {
+    this.state.resetBall = shouldReset;
+  }
+
+  /**
+   * Check if ball should be reset
+   * @returns {boolean} True if ball should be reset
+   */
+  shouldResetBall() {
+    return this.state.resetBall;
+  }
+
+  /**
+   * Clear reset ball flag
+   */
+  clearResetBall() {
+    this.state.resetBall = false;
+  }
+
+  /**
+   * Check if debug mode is enabled
+   * @returns {boolean} True if debug mode is enabled
+   */
+  isDebugMode() {
+    return this.state.debugMode;
+  }
+
+  /**
+   * Toggle debug mode
+   */
+  toggleDebugMode() {
+    this.state.debugMode = !this.state.debugMode;
+  }
+
+  /**
    * Notify listeners that a hole was completed
    * @private
    */

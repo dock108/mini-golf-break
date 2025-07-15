@@ -70,7 +70,9 @@ export class HoleStateManager {
    */
   updateHoleState(holeIndex, updates) {
     const currentState = this.getHoleState(holeIndex);
-    if (!currentState) {return;}
+    if (!currentState) {
+      return;
+    }
 
     const newState = { ...currentState, ...updates };
     this.holeStates.set(holeIndex, newState);

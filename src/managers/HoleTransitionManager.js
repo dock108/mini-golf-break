@@ -347,7 +347,9 @@ export class HoleTransitionManager {
    * @param {number} dt - Delta time in seconds
    */
   update(dt) {
-    if (!this.isTransitioning) {return;}
+    if (!this.isTransitioning) {
+      return;
+    }
 
     const currentTime = performance.now();
     const elapsed = (currentTime - this.transitionStartTime) / 1000;

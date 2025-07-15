@@ -92,7 +92,7 @@ export class CannonDebugRenderer {
         mesh = new THREE.Mesh(this._cylinderGeometry, this._material);
         break;
 
-      case CANNON.Shape.types.TRIMESH:
+      case CANNON.Shape.types.TRIMESH: {
         geometry = new THREE.BufferGeometry();
         const vertices = new Float32Array(shape.vertices);
         const indices = new Uint16Array(shape.indices);
@@ -100,8 +100,9 @@ export class CannonDebugRenderer {
         geometry.setIndex(new THREE.BufferAttribute(indices, 1));
         mesh = new THREE.Mesh(geometry, this._material);
         break;
+      }
 
-      case CANNON.Shape.types.HEIGHTFIELD:
+      case CANNON.Shape.types.HEIGHTFIELD: {
         geometry = new THREE.BufferGeometry();
         const v = shape.data.flatMap((row, i) =>
           row.flatMap((height, j) => [i * shape.elementSize, height, j * shape.elementSize])
@@ -109,6 +110,7 @@ export class CannonDebugRenderer {
         geometry.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
         mesh = new THREE.Mesh(geometry, this._material);
         break;
+      }
 
       default:
         console.warn(`Unhandled shape type: ${shape.type}`);
@@ -120,10 +122,11 @@ export class CannonDebugRenderer {
 
   _scaleMesh(mesh, shape) {
     switch (shape.type) {
-      case CANNON.Shape.types.SPHERE:
+      case CANNON.Shape.types.SPHERE: {
         const radius = shape.radius;
         mesh.scale.set(radius, radius, radius);
         break;
+      }
 
       case CANNON.Shape.types.BOX:
         mesh.scale.copy(shape.halfExtents);

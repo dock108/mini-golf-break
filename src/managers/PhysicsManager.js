@@ -80,7 +80,9 @@ export class PhysicsManager {
    * Set up collision event handling
    */
   setupCollisionEvents() {
-    if (!this.cannonWorld) {return this;}
+    if (!this.cannonWorld) {
+      return this;
+    }
 
     // Store bound handlers
     this.boundCollisionStart = this.handleCollisionStart.bind(this);
@@ -99,7 +101,9 @@ export class PhysicsManager {
    */
   handleCollisionStart(event) {
     // Only handle events if game exists
-    if (!this.game) {return;}
+    if (!this.game) {
+      return;
+    }
 
     // Check what objects are colliding using userData
     const bodyA = event.bodyA;
@@ -162,7 +166,9 @@ export class PhysicsManager {
    * Disable physics debug visualization
    */
   disableDebug() {
-    if (!this.debugEnabled) {return this;}
+    if (!this.debugEnabled) {
+      return this;
+    }
 
     this.debugEnabled = false;
 
@@ -197,7 +203,9 @@ export class PhysicsManager {
    * @param {CANNON.Body} body - The physics body to remove
    */
   removeBody(body) {
-    if (!this.cannonWorld || !body) {return this;}
+    if (!this.cannonWorld || !body) {
+      return this;
+    }
 
     // Check if body is still in the world before removing
     if (this.cannonWorld.bodies.includes(body)) {

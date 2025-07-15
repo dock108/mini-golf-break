@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { EventTypes } from '../events/EventTypes';
+import { GameState } from '../states/GameState';
 
 /**
  * InputController - Handles all user input for the game
@@ -11,7 +12,7 @@ export class InputController {
     this.camera = game.camera;
     this.renderer = game.renderer;
     this.stateManager = game.stateManager;
-    this.adShipManager = game.adShipManager;
+    // Remove adShipManager reference (ads removed)
 
     // Track input state
     this.isInputEnabled = true;
@@ -44,6 +45,18 @@ export class InputController {
 
     // Initialization state tracking
     this.isInitialized = false;
+
+    // Mobile device detection
+    this.isMobileDevice = this.detectMobileDevice();
+    this.supportsHaptics = this.detectHapticSupport();
+    this.isHighPerformanceDevice = this.detectDevicePerformance();
+
+    // Touch state for mobile
+    this.isMultiTouch = false;
+    this.pinchDistance = 0;
+    this.touchStartTime = 0;
+    this.touchVelocity = new THREE.Vector2();
+    this.lastTouchPosition = new THREE.Vector2();
   }
 
   /**
@@ -177,7 +190,7 @@ export class InputController {
   /**
    * Handle ball stopped event
    */
-  handleBallStopped(event) {
+  handleBallStopped(_event) {
     // Re-enable input when ball stops (if hole is not completed)
     if (!this.game.stateManager.isHoleCompleted()) {
       this.enableInput();
@@ -187,7 +200,7 @@ export class InputController {
   /**
    * Handle ball in hole event
    */
-  handleBallInHole(event) {
+  handleBallInHole(_event) {
     // Disable input when ball goes in hole
     this.disableInput();
   }
@@ -195,7 +208,7 @@ export class InputController {
   /**
    * Handle hole started event
    */
-  handleHoleStarted(event) {
+  handleHoleStarted(_event) {
     // Enable input when a new hole starts
     this.enableInput();
   }
@@ -223,10 +236,14 @@ export class InputController {
     }
 
     // Only handle left mouse button
-    if (event.button !== 0) {return;}
+    if (event.button !== 0) {
+      return;
+    }
 
     // Check if mouse is over the canvas
-    if (!this.isEventInsideCanvas(event)) {return;}
+    if (!this.isEventInsideCanvas(event)) {
+      return;
+    }
 
     // First, check if the ball is in motion - if so, we shouldn't allow new shots
     if (this.game.stateManager && this.game.stateManager.isBallInMotion()) {
@@ -314,7 +331,9 @@ export class InputController {
 
   onMouseMove(event) {
     // Skip if input is not active or no drag started
-    if (!this.isInputEnabled || !this.isPointerDown) {return;}
+    if (!this.isInputEnabled || !this.isPointerDown) {
+      return;
+    }
 
     // Set dragging flag
     this.isDragging = true;
@@ -341,10 +360,18 @@ export class InputController {
       const nearBottom = screenY < edgeThreshold;
 
       // Calculate pan direction and strength
-      if (nearLeft) {panX = -panSpeed * (1 - screenX / edgeThreshold);}
-      if (nearRight) {panX = panSpeed * (1 - (1 - screenX) / edgeThreshold);}
-      if (nearTop) {panZ = -panSpeed * (1 - (1 - screenY) / edgeThreshold);}
-      if (nearBottom) {panZ = panSpeed * (1 - screenY / edgeThreshold);}
+      if (nearLeft) {
+        panX = -panSpeed * (1 - screenX / edgeThreshold);
+      }
+      if (nearRight) {
+        panX = panSpeed * (1 - (1 - screenX) / edgeThreshold);
+      }
+      if (nearTop) {
+        panZ = -panSpeed * (1 - (1 - screenY) / edgeThreshold);
+      }
+      if (nearBottom) {
+        panZ = panSpeed * (1 - screenY / edgeThreshold);
+      }
 
       // Apply panning if needed
       if (panX !== 0 || panZ !== 0) {
@@ -396,7 +423,9 @@ export class InputController {
     );
 
     // Only handle left mouse button (or touch equivalent)
-    if (event.button !== 0) {return;}
+    if (event.button !== 0) {
+      return;
+    }
 
     let adClicked = false;
     // --- Ad Click Check (Only perform if NOT dragging for a shot) ---
@@ -406,7 +435,7 @@ export class InputController {
       this.pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
       this.raycaster.setFromCamera(this.pointer, this.camera);
 
-      const adBannerMeshes = this.adShipManager?.ships
+      const adBannerMeshes = [] // this.adShipManager?.ships removed
         ?.map(ship => ship.bannerMesh)
         ?.filter(mesh => mesh);
 
@@ -421,7 +450,7 @@ export class InputController {
             );
             try {
               // Find the ship that owns this banner mesh
-              const adShip = this.adShipManager?.ships?.find(ship => ship.bannerMesh === hitObject);
+              const adShip = null; // this.adShipManager?.ships?.find(ship => ship.bannerMesh === hitObject);
               if (adShip) {
                 // Use the ship's handleAdClick method which handles special URLs like #feedback-form
                 adShip.handleAdClick(event);
@@ -514,9 +543,25 @@ export class InputController {
       return; // Ignore touch if input disabled or ball is moving
     }
 
+    // Handle multi-touch detection
+    this.isMultiTouch = event.touches.length > 1;
+
+    if (event.touches.length === 2) {
+      // Calculate initial pinch distance
+      const touch1 = event.touches[0];
+      const touch2 = event.touches[1];
+      const dx = touch1.clientX - touch2.clientX;
+      const dy = touch1.clientY - touch2.clientY;
+      this.pinchDistance = Math.sqrt(dx * dx + dy * dy);
+    }
+
     // Only handle single touch events for aiming/shooting
     if (event.touches.length === 1) {
       const touch = event.touches[0];
+
+      // Store touch position and time
+      this.lastTouchPosition.set(touch.clientX, touch.clientY);
+      this.touchStartTime = performance.now();
 
       // Simulate a left mouse button down event
       const simulatedMouseEvent = {
@@ -646,7 +691,9 @@ export class InputController {
   }
 
   updateDirectionLine() {
-    if (!this.directionLine || !this.game.ballManager.ball.mesh) {return;}
+    if (!this.directionLine || !this.game.ballManager.ball.mesh) {
+      return;
+    }
 
     // Get ball position
     const ballPosition = this.game.ballManager.ball.mesh.position.clone();
@@ -701,7 +748,9 @@ export class InputController {
   }
 
   updatePowerIndicator(power) {
-    if (!this.powerIndicator) {return;}
+    if (!this.powerIndicator) {
+      return;
+    }
 
     // Calculate power percentage (0-100)
     const powerPercentage = power * 100;
@@ -815,6 +864,95 @@ export class InputController {
   }
 
   /**
+   * Detect if device is mobile
+   */
+  detectMobileDevice() {
+    if (typeof navigator !== 'undefined') {
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent
+      );
+    }
+    return false;
+  }
+
+  /**
+   * Detect if device supports haptic feedback
+   */
+  detectHapticSupport() {
+    if (typeof navigator !== 'undefined') {
+      return 'vibrate' in navigator;
+    }
+    return false;
+  }
+
+  /**
+   * Detect device performance level
+   */
+  detectDevicePerformance() {
+    if (typeof navigator !== 'undefined' && navigator.deviceMemory) {
+      return navigator.deviceMemory >= 4; // 4GB+ is considered high performance
+    }
+    return true; // Default to high performance if can't detect
+  }
+
+  /**
+   * Trigger haptic feedback
+   */
+  triggerHapticFeedback(intensity) {
+    if (this.supportsHaptics && typeof navigator !== 'undefined' && navigator.vibrate) {
+      const durations = {
+        light: 15,
+        medium: 25,
+        heavy: 50
+      };
+      navigator.vibrate(durations[intensity] || 25);
+    }
+  }
+
+  /**
+   * Handle pinch zoom gestures
+   */
+  handlePinchZoom(delta) {
+    if (this.game.cameraController && this.game.cameraController.adjustZoom) {
+      this.game.cameraController.adjustZoom(delta);
+    }
+  }
+
+  /**
+   * Optimize settings for device performance
+   */
+  optimizeForDevice() {
+    if (!this.isHighPerformanceDevice) {
+      // Lower physics update rate for low-performance devices
+      if (this.game.physicsManager && this.game.physicsManager.setUpdateRate) {
+        this.game.physicsManager.setUpdateRate(30);
+      }
+
+      // Lower render quality
+      if (this.game.cameraController && this.game.cameraController.setQualityLevel) {
+        this.game.cameraController.setQualityLevel('low');
+      }
+    }
+  }
+
+  /**
+   * Handle quick tap gestures
+   */
+  handleQuickTap() {
+    console.log('[InputController] Quick tap detected');
+    // Quick tap implementation - could trigger a gentle hit or UI action
+  }
+
+  /**
+   * Handle swipe gestures with velocity boost
+   */
+  handleSwipeGesture() {
+    // Apply velocity boost based on swipe
+    const velocityBoost = 0.1;
+    this.hitPower = Math.min(this.hitPower + velocityBoost, 1.0);
+  }
+
+  /**
    * Clean up resources
    */
   cleanup() {
@@ -887,7 +1025,9 @@ export class InputController {
    */
   onKeyDown(event) {
     if (event.key.toLowerCase() === 'i') {
-      if (!this.stateManager || !this.game.cameraController?.controls) {return;}
+      if (!this.stateManager || !this.game.cameraController?.controls) {
+        return;
+      }
 
       const currentState = this.stateManager.getGameState();
 

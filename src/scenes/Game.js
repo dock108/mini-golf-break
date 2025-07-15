@@ -5,7 +5,9 @@ import { ScoringSystem } from '../game/ScoringSystem';
 // Both course types are available for debug mode
 import { BasicCourse } from '../objects/BasicCourse';
 import { NineHoleCourse } from '../objects/NineHoleCourse';
+import { SpaceDecorations } from '../objects/SpaceDecorations';
 import { EventTypes } from '../events/EventTypes';
+import { GameState } from '../states/GameState';
 import { CannonDebugRenderer } from '../utils/CannonDebugRenderer';
 import { debug } from '../utils/debug';
 
@@ -24,7 +26,6 @@ import { HoleCompletionManager } from '../managers/HoleCompletionManager';
 import { GameLoopManager } from '../managers/GameLoopManager';
 import { EventManager } from '../managers/EventManager';
 import { PerformanceManager } from '../managers/PerformanceManager';
-import { AdShipManager } from '../ads/AdShipManager';
 
 /**
  * Game - Main class that orchestrates the mini-golf game
@@ -51,7 +52,6 @@ export class Game {
     this.holeTransitionManager = new HoleTransitionManager(this);
     this.holeCompletionManager = new HoleCompletionManager(this);
     this.gameLoopManager = new GameLoopManager(this);
-    this.adShipManager = new AdShipManager(this);
 
     this.cannonDebugRenderer = null;
 
@@ -64,7 +64,7 @@ export class Game {
 
     // Game objects (these aren't managers but specific game elements)
     this.course = null;
-    // this.teeMarker = null; // Removed
+    this.spaceDecorations = null;
 
     // Lighting
     this.lights = {
@@ -121,6 +121,9 @@ export class Game {
       this.physicsManager.init();
       this.audioManager.init();
 
+      // Publish physics initialized event
+      this.eventManager.publish(EventTypes.PHYSICS_INITIALIZED, { timestamp: Date.now() }, this);
+
       // Initialize the CannonDebugRenderer after physics manager
       this.cannonDebugRenderer = new CannonDebugRenderer(
         this.scene,
@@ -132,9 +135,9 @@ export class Game {
       this.hazardManager.init();
       this.visualEffectsManager.init();
 
-      // Initialize Ad Ship Manager and add to scene
-      this.adShipManager.init();
-      this.scene.add(this.adShipManager.group);
+      // Add space decorations
+      this.spaceDecorations = new SpaceDecorations(this.scene);
+      this.spaceDecorations.init();
 
       debug.log('[Game.init] Awaiting createCourse...');
       await this.createCourse();
@@ -175,6 +178,12 @@ export class Game {
 
       // Set up event listeners
       this.setupEventListeners();
+
+      // Set game state to PLAYING after successful initialization
+      this.stateManager.setGameState(GameState.PLAYING);
+
+      // Publish game initialized event
+      this.eventManager.publish(EventTypes.GAME_INITIALIZED, { timestamp: Date.now() }, this);
     } catch (error) {
       this.debugManager.error('Game.init', 'Failed to initialize game', error, true);
       console.error('CRITICAL: Failed to initialize game:', error);
@@ -308,56 +317,76 @@ export class Game {
   /**
    * Cleanup the game and all its components
    */
+  /**
+   * Helper method to cleanup a manager safely
+   */
+  cleanupManager(manager) {
+    if (manager && typeof manager.cleanup === 'function') {
+      manager.cleanup();
+    }
+  }
+
+  /**
+   * Helper method to dispose Three.js objects
+   */
+  disposeThreeObject(object) {
+    if (object.geometry) {
+      object.geometry.dispose();
+    }
+    if (object.material) {
+      if (Array.isArray(object.material)) {
+        object.material.forEach(material => material.dispose());
+      } else {
+        object.material.dispose();
+      }
+    }
+  }
+
   cleanup() {
     try {
       // Stop the game loop first
       if (this.gameLoopManager) {
         this.gameLoopManager.stopLoop();
-        this.gameLoopManager.cleanup();
+        this.cleanupManager(this.gameLoopManager);
       }
 
       // Remove event listeners
       if (this.boundHandleResize) {
-        // Check if it was successfully added
         window.removeEventListener('resize', this.boundHandleResize);
-        this.boundHandleResize = null; // Clear reference
+        this.boundHandleResize = null;
       }
 
       // Clean up managers in reverse order of initialization
-      if (this.inputController) {this.inputController.cleanup();}
-      if (this.ballManager) {this.ballManager.cleanup();}
-      if (this.holeCompletionManager) {this.holeCompletionManager.cleanup();}
-      if (this.holeTransitionManager) {this.holeTransitionManager.cleanup();}
-      if (this.holeStateManager) {this.holeStateManager.cleanup();}
-      if (this.hazardManager) {this.hazardManager.cleanup();}
-      if (this.adShipManager) {this.adShipManager.cleanup();}
-      if (this.audioManager) {this.audioManager.cleanup();}
-      if (this.physicsManager) {this.physicsManager.cleanup();}
-      if (this.visualEffectsManager) {this.visualEffectsManager.cleanup();}
-      if (this.cameraController) {this.cameraController.cleanup();}
-      if (this.uiManager) {this.uiManager.cleanup();}
-      if (this.stateManager) {this.stateManager.cleanup();}
-      if (this.performanceManager) {this.performanceManager.cleanup();}
+      const managers = [
+        'inputController',
+        'ballManager',
+        'holeCompletionManager',
+        'holeTransitionManager',
+        'holeStateManager',
+        'hazardManager',
+        'audioManager',
+        'physicsManager',
+        'visualEffectsManager',
+        'cameraController',
+        'uiManager',
+        'stateManager',
+        'performanceManager'
+      ];
+
+      managers.forEach(managerName => {
+        this.cleanupManager(this[managerName]);
+      });
 
       // Core systems last
-      if (this.eventManager) {this.eventManager.cleanup();}
-      if (this.debugManager) {this.debugManager.cleanup();}
+      this.cleanupManager(this.eventManager);
+      this.cleanupManager(this.debugManager);
 
       // Remove objects from scene
       if (this.scene) {
         while (this.scene.children.length > 0) {
           const object = this.scene.children[0];
           this.scene.remove(object);
-
-          // Dispose of geometries and materials
-          if (object.geometry) {object.geometry.dispose();}
-          if (object.material) {
-            if (Array.isArray(object.material)) {
-              object.material.forEach(material => material.dispose());
-            } else {
-              object.material.dispose();
-            }
-          }
+          this.disposeThreeObject(object);
         }
       }
 

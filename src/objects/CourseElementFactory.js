@@ -466,7 +466,9 @@ export class CourseElementFactory {
    * Animate a flag for waving effect
    */
   static animateFlag(flag, time) {
-    if (!flag || !flag.userData || !flag.userData.originalVertices) {return;}
+    if (!flag || !flag.userData || !flag.userData.originalVertices) {
+      return;
+    }
 
     const vertices = flag.geometry.attributes.position.array;
     const originalVertices = flag.userData.originalVertices;

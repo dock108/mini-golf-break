@@ -42,31 +42,7 @@ module.exports = (env, argv) => {
           type: 'asset/resource',
           generator: {
             filename: 'assets/images/[name].[contenthash][ext]'
-          },
-          use: isProduction ? [
-            {
-              loader: 'image-webpack-loader',
-              options: {
-                mozjpeg: {
-                  progressive: true,
-                  quality: 75,
-                },
-                optipng: {
-                  enabled: true,
-                },
-                pngquant: {
-                  quality: [0.65, 0.90],
-                  speed: 4
-                },
-                gifsicle: {
-                  interlaced: false,
-                },
-                webp: {
-                  quality: 75
-                }
-              }
-            }
-          ] : []
+          }
         }
       ]
     },
@@ -127,7 +103,7 @@ module.exports = (env, argv) => {
         directory: path.join(__dirname, 'public'),
       },
       compress: true,
-      port: 9000,
+      port: 8080,
       hot: true,
       historyApiFallback: true,
     }

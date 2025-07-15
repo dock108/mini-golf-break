@@ -6,6 +6,9 @@ export class PhysicsWorld {
     this.world = new CANNON.World();
     this.world.gravity.set(0, -9.81, 0); // Earth gravity
 
+    // Initialize materials array for tracking
+    this.materials = [];
+
     // Set solver iterations to match documentation
     this.world.solver.iterations = 30; // Increased from 20 for better contact resolution
     this.world.solver.tolerance = 0.0001;
@@ -27,6 +30,16 @@ export class PhysicsWorld {
     this.bumperMaterial = new CANNON.Material('bumper'); // New material for obstacles
     this.holeCupMaterial = new CANNON.Material('holeCup'); // Material for the physical hole cup
     this.holeRimMaterial = new CANNON.Material('holeRim'); // New material for the hole edge/funnel
+
+    // Store all materials in the materials array
+    this.materials.push(
+      this.defaultMaterial,
+      this.groundMaterial,
+      this.ballMaterial,
+      this.bumperMaterial,
+      this.holeCupMaterial,
+      this.holeRimMaterial
+    );
 
     // Create contact materials
     this.createContactMaterials();
@@ -106,8 +119,15 @@ export class PhysicsWorld {
     console.log('[PhysicsWorld] Added ballRimContact.');
 
     // Default contact material for everything else
-    this.world.defaultContactMaterial.friction = 0.8; // Increased default friction
-    this.world.defaultContactMaterial.restitution = 0.1; // Restored original value
+    if (this.world.defaultContactMaterial) {
+      this.world.defaultContactMaterial.friction = 0.8; // Increased default friction
+      this.world.defaultContactMaterial.restitution = 0.1; // Restored original value
+    } else {
+      // In testing environment, defaultContactMaterial might be null
+      console.log(
+        '[PhysicsWorld] defaultContactMaterial is null, skipping default material configuration'
+      );
+    }
   }
 
   update() {
@@ -115,7 +135,9 @@ export class PhysicsWorld {
     let dt = time - this.lastCallTime;
 
     // Cap the delta time to prevent large jumps
-    if (dt > 0.1) {dt = 0.1;}
+    if (dt > 0.1) {
+      dt = 0.1;
+    }
 
     this.lastCallTime = time;
 
@@ -163,7 +185,11 @@ export class PhysicsWorld {
         this.world.step(this.fixedTimeStep, dt, this.maxSubSteps);
 
         // Re-add collision callback if it was removed
-        if (tempCallback) {
+        if (
+          tempCallback &&
+          this.world.addEventListener &&
+          typeof this.world.addEventListener === 'function'
+        ) {
           this.world.addEventListener('beginContact', tempCallback);
         }
       } catch (error) {
@@ -189,10 +215,12 @@ export class PhysicsWorld {
    */
   setupCollideListener() {
     // Remove any existing listeners first to avoid duplicates
-    this.world.removeEventListener('collide', this._collideCallback);
+    if (this.world.removeEventListener && typeof this.world.removeEventListener === 'function') {
+      this.world.removeEventListener('collide', this._collideCallback);
+    }
 
     // Create a new collide callback
-    this._collideCallback = event => {
+    this._collideCallback = _event => {
       // Check if we're still in the grace period
       const timeSinceCreation = Date.now() - this.creationTime;
       if (timeSinceCreation < this.collisionGracePeriod) {
@@ -203,8 +231,8 @@ export class PhysicsWorld {
       }
 
       // Get the bodies involved in the collision
-      const bodyA = event.bodyA;
-      const bodyB = event.bodyB;
+      // const _bodyA = event.bodyA;
+      // const _bodyB = event.bodyB;
 
       // REMOVED specific ball/hole check here - handled in Ball.js now
       // let ball = null;
@@ -234,7 +262,9 @@ export class PhysicsWorld {
     };
 
     // Add the callback to the world
-    this.world.addEventListener('collide', this._collideCallback);
+    if (this.world.addEventListener && typeof this.world.addEventListener === 'function') {
+      this.world.addEventListener('collide', this._collideCallback);
+    }
   }
 
   // Store collision callback for re-adding after reset
@@ -264,7 +294,9 @@ export class PhysicsWorld {
     this._collisionCallback = wrappedCallback;
 
     // Add the new wrapped listener
-    this.world.addEventListener('beginContact', this._collisionCallback);
+    if (this.world.addEventListener && typeof this.world.addEventListener === 'function') {
+      this.world.addEventListener('beginContact', this._collisionCallback);
+    }
   }
 
   /**
@@ -283,12 +315,14 @@ export class PhysicsWorld {
 
   addBody(body) {
     if (this.world && body) {
-      // Log body details before adding
+      // Log body details before adding with defensive checks
+      const shapes = body.shapes || [];
+      const userData = body.userData || {};
       console.log(
         '[PhysicsWorld] Adding body: ' +
-          `ID=${body.id}, Type=${body.type}, Mass=${body.mass}, ` +
-          `ShapeType=${body.shapes[0]?.type}, MaterialID=${body.material?.id}, ` +
-          `UserData=${JSON.stringify(body.userData)}`
+          `ID=${body.id || 'unknown'}, Type=${body.type || 'unknown'}, Mass=${body.mass || 0}, ` +
+          `ShapeType=${shapes[0]?.type || 'none'}, MaterialID=${body.material?.id || 'none'}, ` +
+          `UserData=${JSON.stringify(userData)}`
       );
       this.world.addBody(body);
     }
@@ -301,11 +335,19 @@ export class PhysicsWorld {
         body.wakeUp();
       }
 
-      // Reset all physics properties
-      body.velocity.set(0, 0, 0);
-      body.angularVelocity.set(0, 0, 0);
-      body.force.set(0, 0, 0);
-      body.torque.set(0, 0, 0);
+      // Reset all physics properties with defensive checks
+      if (body.velocity && typeof body.velocity.set === 'function') {
+        body.velocity.set(0, 0, 0);
+      }
+      if (body.angularVelocity && typeof body.angularVelocity.set === 'function') {
+        body.angularVelocity.set(0, 0, 0);
+      }
+      if (body.force && typeof body.force.set === 'function') {
+        body.force.set(0, 0, 0);
+      }
+      if (body.torque && typeof body.torque.set === 'function') {
+        body.torque.set(0, 0, 0);
+      }
 
       // Remove all constraints involving this body first
       const constraintsToRemove = this.world.constraints.filter(
@@ -446,5 +488,64 @@ export class PhysicsWorld {
     this.setupCollideListener();
 
     console.log('[PhysicsWorld] Physics world reset complete');
+  }
+
+  /**
+   * Step the physics world (wrapper for world.step)
+   */
+  step(timeStep, deltaTime, maxSubSteps) {
+    if (this.world && typeof this.world.step === 'function') {
+      // Use fixed timestep if not provided, with fallback values
+      const fixedTimeStep = this.fixedTimeStep || 1.0 / 60.0;
+      const maxSteps = maxSubSteps || this.maxSubSteps || 3;
+
+      // Update last call time for tracking
+      const currentTime = performance.now() / 1000;
+      if (this.lastCallTime !== undefined) {
+        this.lastCallTime = currentTime;
+      }
+
+      this.world.step(fixedTimeStep, timeStep, maxSteps);
+    }
+  }
+
+  /**
+   * Get the underlying Cannon.js world instance
+   */
+  getWorld() {
+    return this.world;
+  }
+
+  /**
+   * Get all materials
+   */
+  getMaterials() {
+    return this.materials || [];
+  }
+
+  /**
+   * Get a material by name
+   */
+  getMaterial(name) {
+    if (!this.materials) {
+      return null;
+    }
+    const material = this.materials.find(material => material.name === name);
+    return material || null;
+  }
+
+  /**
+   * Set gravity for the physics world
+   */
+  setGravity(x, y, z) {
+    if (this.world && this.world.gravity && typeof this.world.gravity.set === 'function') {
+      // Handle Vec3 parameter (first argument is a Vec3 object)
+      if (typeof x === 'object' && x !== null && 'x' in x && 'y' in x && 'z' in x) {
+        this.world.gravity.set(x.x, x.y, x.z);
+      } else {
+        // Handle individual x, y, z parameters
+        this.world.gravity.set(x, y, z);
+      }
+    }
   }
 }

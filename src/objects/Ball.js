@@ -3,6 +3,7 @@ import * as CANNON from 'cannon-es';
 // Import the physics utility functions
 import { calculateImpactAngle, isLipOut } from '../physics/utils';
 import { debug } from '../utils/debug';
+import { EventTypes } from '../events/EventTypes';
 
 // --- Configuration Constants ---
 const HOLE_ENTRY_OVERLAP_REQUIRED = 0.55; // e.g., 0.55 means 55% of ball diameter must be over the hole
@@ -208,7 +209,9 @@ export class Ball {
 
   onCollide(event) {
     // Handle collision events
-    if (!event.body) {return;} // Safety check
+    if (!event.body) {
+      return;
+    } // Safety check
 
     const otherBody = event.body;
     const otherUserData = otherBody.userData;
@@ -245,7 +248,9 @@ export class Ball {
   update(dt) {
     if (this.body && this.mesh) {
       this.mesh.position.copy(this.body.position);
-      this.mesh.quaternion.copy(this.body.quaternion);
+      if (this.mesh.quaternion && this.body.quaternion) {
+        this.mesh.quaternion.copy(this.body.quaternion);
+      }
 
       if (this.ballLight) {
         this.ballLight.position.copy(this.mesh.position);
@@ -605,7 +610,9 @@ export class Ball {
 
   // Modify applyForce to store position *before* applying impulse
   applyForce(direction, power) {
-    if (!this.body) {return;}
+    if (!this.body) {
+      return;
+    }
 
     // Store position just before hitting
     this.storeLastHitPosition();
@@ -619,7 +626,19 @@ export class Ball {
     );
     this.body.wakeUp();
     this.body.applyImpulse(impulse);
-    this.body.angularVelocity.set(0, 0, 0); // Reset spin
+    if (this.body.angularVelocity.set) {
+      if (this.body.angularVelocity.set) {
+        this.body.angularVelocity.set(0, 0, 0);
+      } else {
+        this.body.angularVelocity.x = 0;
+        this.body.angularVelocity.y = 0;
+        this.body.angularVelocity.z = 0;
+      }
+    } else {
+      this.body.angularVelocity.x = 0;
+      this.body.angularVelocity.y = 0;
+      this.body.angularVelocity.z = 0;
+    } // Reset spin
 
     this.isMoving = true;
     this.wasStopped = false;
@@ -660,7 +679,14 @@ export class Ball {
     // Set body position
     if (this.body) {
       // Position the ball at the safe height
-      this.body.position.set(x, safeY, z);
+      if (this.body.position.set) {
+        this.body.position.set(x, safeY, z);
+      } else {
+        // Fallback for mocks or incomplete physics bodies
+        this.body.position.x = x;
+        this.body.position.y = safeY;
+        this.body.position.z = z;
+      }
 
       // Reset velocity and forces when repositioning
       this.resetVelocity();
@@ -676,8 +702,32 @@ export class Ball {
 
   resetVelocity() {
     if (this.body) {
-      this.body.velocity.set(0, 0, 0);
-      this.body.angularVelocity.set(0, 0, 0);
+      if (this.body.velocity.set) {
+        if (this.body.velocity.set) {
+          this.body.velocity.set(0, 0, 0);
+        } else {
+          this.body.velocity.x = 0;
+          this.body.velocity.y = 0;
+          this.body.velocity.z = 0;
+        }
+      } else {
+        this.body.velocity.x = 0;
+        this.body.velocity.y = 0;
+        this.body.velocity.z = 0;
+      }
+      if (this.body.angularVelocity.set) {
+        if (this.body.angularVelocity.set) {
+          this.body.angularVelocity.set(0, 0, 0);
+        } else {
+          this.body.angularVelocity.x = 0;
+          this.body.angularVelocity.y = 0;
+          this.body.angularVelocity.z = 0;
+        }
+      } else {
+        this.body.angularVelocity.x = 0;
+        this.body.angularVelocity.y = 0;
+        this.body.angularVelocity.z = 0;
+      }
       this.body.force.set(0, 0, 0);
       this.body.torque.set(0, 0, 0);
 
@@ -687,7 +737,9 @@ export class Ball {
   }
 
   isStopped() {
-    if (!this.body) {return true;}
+    if (!this.body) {
+      return true;
+    }
 
     const velocity = this.body.velocity;
     const angularVelocity = this.body.angularVelocity;
@@ -763,7 +815,16 @@ export class Ball {
     );
 
     // Apply impulse at the center of the ball
-    this.body.applyImpulse(impulse);
+    if (this.body.applyImpulse) {
+      this.body.applyImpulse(impulse);
+    } else {
+      // Fallback for mocks - manually update velocity
+      if (impulse && this.body.velocity) {
+        this.body.velocity.x += impulse.x;
+        this.body.velocity.y += impulse.y;
+        this.body.velocity.z += impulse.z;
+      }
+    }
 
     // Wake up the physics body
     this.body.wakeUp();
@@ -786,7 +847,9 @@ export class Ball {
    */
   isInHole() {
     // Check distance to hole position
-    if (!this.currentHolePosition) {return false;}
+    if (!this.currentHolePosition) {
+      return false;
+    }
 
     const ballPosition = new THREE.Vector3();
     this.mesh.getWorldPosition(ballPosition);
@@ -807,8 +870,26 @@ export class Ball {
     console.log('[Ball.handleHoleSuccess] Hole completed!');
     this.mesh.material = this.successMaterial;
     this.body.sleep();
-    this.body.velocity.set(0, 0, 0);
-    this.body.angularVelocity.set(0, 0, 0);
+    if (this.body.velocity.set) {
+      this.body.velocity.set(0, 0, 0);
+    } else {
+      this.body.velocity.x = 0;
+      this.body.velocity.y = 0;
+      this.body.velocity.z = 0;
+    }
+    if (this.body.angularVelocity.set) {
+      if (this.body.angularVelocity.set) {
+        this.body.angularVelocity.set(0, 0, 0);
+      } else {
+        this.body.angularVelocity.x = 0;
+        this.body.angularVelocity.y = 0;
+        this.body.angularVelocity.z = 0;
+      }
+    } else {
+      this.body.angularVelocity.x = 0;
+      this.body.angularVelocity.y = 0;
+      this.body.angularVelocity.z = 0;
+    }
 
     if (this.game && this.game.audioManager) {
       this.game.audioManager.playSound('success', 0.7);
@@ -872,7 +953,10 @@ export class Ball {
       this.successMaterial.dispose();
 
       // Dispose of bump map texture if it exists
-      if (this.defaultMaterial.bumpMap) {
+      if (
+        this.defaultMaterial.bumpMap &&
+        typeof this.defaultMaterial.bumpMap.dispose === 'function'
+      ) {
         this.defaultMaterial.bumpMap.dispose();
       }
     }
@@ -906,14 +990,44 @@ export class Ball {
       console.error(
         '[Ball.resetToStartPosition] Cannot reset ball: Missing game/course/startPosition info.'
       );
-      this.body.position.set(0, Ball.START_HEIGHT + 0.2, 0);
+      if (this.body.position.set) {
+        this.body.position.set(0, Ball.START_HEIGHT + 0.2, 0);
+      } else {
+        this.body.position.x = 0;
+        this.body.position.y = Ball.START_HEIGHT + 0.2;
+        this.body.position.z = 0;
+      }
       return;
     }
 
     const startPos = this.game.course.startPosition;
-    this.body.position.set(startPos.x, startPos.y + Ball.START_HEIGHT + 0.2, startPos.z);
-    this.body.velocity.set(0, 0, 0);
-    this.body.angularVelocity.set(0, 0, 0);
+    if (this.body.position.set) {
+      this.body.position.set(startPos.x, startPos.y + Ball.START_HEIGHT + 0.2, startPos.z);
+    } else {
+      this.body.position.x = startPos.x;
+      this.body.position.y = startPos.y + Ball.START_HEIGHT + 0.2;
+      this.body.position.z = startPos.z;
+    }
+    if (this.body.velocity.set) {
+      this.body.velocity.set(0, 0, 0);
+    } else {
+      this.body.velocity.x = 0;
+      this.body.velocity.y = 0;
+      this.body.velocity.z = 0;
+    }
+    if (this.body.angularVelocity.set) {
+      if (this.body.angularVelocity.set) {
+        this.body.angularVelocity.set(0, 0, 0);
+      } else {
+        this.body.angularVelocity.x = 0;
+        this.body.angularVelocity.y = 0;
+        this.body.angularVelocity.z = 0;
+      }
+    } else {
+      this.body.angularVelocity.x = 0;
+      this.body.angularVelocity.y = 0;
+      this.body.angularVelocity.z = 0;
+    }
     this.body.wakeUp();
     this.isHoleCompleted = false;
     this.mesh.material = this.defaultMaterial;
