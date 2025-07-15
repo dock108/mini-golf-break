@@ -1,4 +1,13 @@
 module.exports = {
+  // Root level options that apply to all projects
+  testTimeout: 10000,
+  moduleNameMapper: {
+    '\\.(css|less|scss|sass)$': 'identity-obj-proxy'
+  },
+  transform: {
+    '^.+\\.js$': 'babel-jest'
+  },
+  
   // Separate projects for different test types
   projects: [
     {
@@ -14,7 +23,6 @@ module.exports = {
       setupFilesAfterEnv: ['<rootDir>/src/tests/setup.js'],
       setupFiles: ['<rootDir>/src/tests/jest.setup.js'],
       // Coverage settings only for unit tests
-      collectCoverage: false, // Coverage is collected only when --coverage flag is used
       collectCoverageFrom: [
         'src/**/*.js',
         '!src/tests/**',
@@ -29,29 +37,14 @@ module.exports = {
           lines: 60,
           statements: 60
         }
-      },
-      moduleNameMapper: {
-        '\\.(css|less|scss|sass)$': 'identity-obj-proxy'
-      },
-      transform: {
-        '^.+\\.js$': 'babel-jest'
-      },
-      testTimeout: 10000
+      }
     },
     {
       displayName: 'integration',
       testMatch: ['<rootDir>/src/tests/integration/**/*.test.js'],
       testEnvironment: 'jsdom',
       setupFilesAfterEnv: ['<rootDir>/src/tests/integration.setup.js'],
-      setupFiles: ['<rootDir>/src/tests/jest.setup.js'],
-      // No coverage for integration tests - options removed entirely
-      moduleNameMapper: {
-        '\\.(css|less|scss|sass)$': 'identity-obj-proxy'
-      },
-      transform: {
-        '^.+\\.js$': 'babel-jest'
-      },
-      testTimeout: 10000
+      setupFiles: ['<rootDir>/src/tests/jest.setup.js']
     }
   ]
 };

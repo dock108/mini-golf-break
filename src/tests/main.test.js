@@ -10,8 +10,8 @@ jest.mock('../scenes/Game', () => ({
   }))
 }));
 
-// Mock CSS import
-jest.mock('../../public/style.css', () => ({}));
+// Mock CSS imports - moduleNameMapper doesn't work with require()
+jest.mock('../../public/style.css', () => {}, { virtual: true });
 
 // Mock window event listener to capture the 'load' event
 const originalAddEventListener = window.addEventListener;

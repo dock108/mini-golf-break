@@ -11,8 +11,8 @@ jest.mock('../../scenes/Game', () => ({
   }))
 }));
 
-// Mock CSS import
-jest.mock('../../../public/style.css', () => ({}));
+// Mock CSS imports - moduleNameMapper doesn't work with inline require()
+jest.mock('../../../public/style.css', () => {}, { virtual: true });
 
 import { Game } from '../../scenes/Game';
 
