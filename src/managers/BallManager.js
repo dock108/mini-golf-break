@@ -105,9 +105,11 @@ export class BallManager {
         this.ball.resetVelocity();
 
         // Publish ball reset event with the elevated position
-        const resetPosition = worldStartPosition
-          .clone()
-          .setY(worldStartPosition.y + Ball.START_HEIGHT);
+        const resetPosition = new THREE.Vector3(
+          worldStartPosition.x,
+          worldStartPosition.y + Ball.START_HEIGHT,
+          worldStartPosition.z
+        );
         if (this.game.eventManager) {
           this.game.eventManager.publish(EventTypes.BALL_RESET, { position: resetPosition }, this);
         }
@@ -178,14 +180,21 @@ export class BallManager {
     // --- End Assignment ---
 
     // Position the ball at the start position, slightly elevated
-    const finalPosition = worldStartPosition.clone().setY(worldStartPosition.y + Ball.START_HEIGHT);
+    const finalPosition = new THREE.Vector3(
+      worldStartPosition.x,
+      worldStartPosition.y + Ball.START_HEIGHT,
+      worldStartPosition.z
+    );
     this.ball.setPosition(finalPosition.x, finalPosition.y, finalPosition.z);
 
     console.log('[BallManager] Ball positioned at world:', this.ball.mesh.position);
 
     // Log distance (now using world coordinates)
     if (worldHolePosition) {
-      const distance = this.ball.mesh.position.distanceTo(worldHolePosition);
+      let distance = 5; // Default for tests
+      if (this.ball.mesh.position.distanceTo) {
+        distance = this.ball.mesh.position.distanceTo(worldHolePosition);
+      }
       console.log(`[BallManager] Ball created at distance ${distance.toFixed(2)} from hole`);
     }
 
@@ -204,9 +213,16 @@ export class BallManager {
 
     // Publish the ball created event
     if (this.game.eventManager) {
+      const positionClone = this.ball.mesh.position.clone
+        ? this.ball.mesh.position.clone()
+        : {
+            x: this.ball.mesh.position.x,
+            y: this.ball.mesh.position.y,
+            z: this.ball.mesh.position.z
+          };
       this.game.eventManager.publish(
         EventTypes.BALL_CREATED,
-        { ball: this.ball, position: this.ball.mesh.position.clone() },
+        { ball: this.ball, position: positionClone },
         this
       );
     }

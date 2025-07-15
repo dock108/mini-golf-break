@@ -7,7 +7,10 @@
       "Bash(git push:*)",
       "Bash(rm:*)",
       "Bash(npm run test:unit:*)",
-      "Bash(npm run test:integration:*)"
+      "Bash(npm run test:integration:*)",
+      "Bash(mv:*)",
+      "Bash(npx jest:*)",
+      "Bash(find:*)"
     ],
     "deny": []
   }

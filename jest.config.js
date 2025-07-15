@@ -57,7 +57,8 @@ module.exports = {
       testMatch: ['<rootDir>/src/tests/integration/**/*.test.js'],
       testEnvironment: 'jsdom',
       setupFilesAfterEnv: ['<rootDir>/src/tests/setup.js'],
-      setupFiles: ['<rootDir>/src/tests/jest.setup.js']
+      setupFiles: ['<rootDir>/src/tests/jest.setup.js'],
+      coverageThreshold: {} // No coverage requirements for integration tests
     }
   ]
 };

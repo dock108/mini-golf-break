@@ -20,11 +20,48 @@ describe('State Management Integration', () => {
   let game;
 
   beforeEach(() => {
+    // Create renderer with event handling
+    const eventListeners = new Map();
+    const mockDomElement = {
+      addEventListener: jest.fn((event, handler) => {
+        if (!eventListeners.has(event)) {
+          eventListeners.set(event, []);
+        }
+        eventListeners.get(event).push(handler);
+      }),
+      removeEventListener: jest.fn((event, handler) => {
+        if (eventListeners.has(event)) {
+          const handlers = eventListeners.get(event);
+          const index = handlers.indexOf(handler);
+          if (index > -1) {
+            handlers.splice(index, 1);
+          }
+        }
+      }),
+      dispatchEvent: jest.fn(event => {
+        const handlers = eventListeners.get(event.type) || [];
+        handlers.forEach(handler => {
+          try {
+            handler(event);
+          } catch (error) {
+            console.error(`Error in event handler for ${event.type}:`, error);
+          }
+        });
+        return true;
+      }),
+      style: {}
+    };
+
     // Create game mock first
     game = {
       scene: new THREE.Scene(),
       camera: new THREE.PerspectiveCamera(),
-      renderer: new THREE.WebGLRenderer(),
+      renderer: {
+        setSize: jest.fn(),
+        render: jest.fn(),
+        dispose: jest.fn(),
+        domElement: mockDomElement
+      },
       physicsManager: {
         world: { world: { bodies: [] } },
         update: jest.fn()
@@ -44,15 +81,18 @@ describe('State Management Integration', () => {
     // Add eventManager to game object
     game.eventManager = eventManager;
 
-    // Initialize managers
+    // Initialize state manager first
     stateManager = new StateManager(game);
     game.stateManager = stateManager;
 
+    // Initialize ball manager
     ballManager = new BallManager(game);
     ballManager.init(game.physicsManager);
 
+    // Initialize input controller
     inputController = new InputController(game);
 
+    // Initialize UI manager - it will subscribe to events in init()
     uiManager = new UIManager(game);
     uiManager.init();
     uiManager.attachRenderer(game.renderer);
@@ -82,10 +122,10 @@ describe('State Management Integration', () => {
 
   test('should disable input during certain states', () => {
     // Initialize input controller
-    inputController.init(game.renderer.domElement, ballManager, game.camera);
+    inputController.init();
 
-    // Set state to transitioning (input should be disabled)
-    stateManager.setGameState(GameState.TRANSITIONING);
+    // Set state to paused (input should be disabled)
+    stateManager.setGameState(GameState.PAUSED);
 
     // Simulate mouse input
     const mouseEvent = new MouseEvent('mousedown', {
@@ -94,25 +134,48 @@ describe('State Management Integration', () => {
     });
     game.renderer.domElement.dispatchEvent(mouseEvent);
 
-    // Input should be ignored during transition
-    expect(inputController.enabled).toBe(true); // Controller is enabled
-    expect(stateManager.getGameState()).toBe(GameState.TRANSITIONING);
+    // Input should be ignored during pause
+    expect(inputController.isInputEnabled).toBe(true); // Controller is enabled but state prevents input
+    expect(stateManager.getGameState()).toBe(GameState.PAUSED);
   });
 
   test('should update UI based on state changes', () => {
-    // Mock UI methods
-    const showMessage = jest.spyOn(uiManager, 'showMessage');
-    const hideMessage = jest.spyOn(uiManager, 'hideMessage');
+    // Verify UIManager has subscribed to state changes during init
+    expect(uiManager.init).toHaveBeenCalled();
 
-    // Transition through states
+    // Track all state change events
+    const stateChanges = [];
+    eventManager.subscribe('STATE_CHANGED', data => {
+      stateChanges.push(data);
+    });
+
+    // Clear any previous calls from init
+    uiManager.showMessage.mockClear();
+    uiManager.hideMessage.mockClear();
+
+    // Test AIMING state
     stateManager.setGameState(GameState.AIMING);
-    expect(showMessage).toHaveBeenCalledWith('Aim and click to shoot');
+    expect(uiManager.showMessage).toHaveBeenCalledWith('Aim and click to shoot');
+    expect(uiManager.showMessage).toHaveBeenCalledTimes(1);
 
-    stateManager.setGameState(GameState.BALL_MOVING);
-    expect(hideMessage).toHaveBeenCalled();
+    // Test PLAYING state
+    stateManager.setGameState(GameState.PLAYING);
+    expect(uiManager.hideMessage).toHaveBeenCalled();
+    expect(uiManager.hideMessage).toHaveBeenCalledTimes(1);
 
-    stateManager.setGameState(GameState.HOLE_COMPLETE);
-    expect(showMessage).toHaveBeenCalledWith('Hole Complete!');
+    // Test HOLE_COMPLETED state
+    stateManager.setGameState(GameState.HOLE_COMPLETED);
+
+    // Verify state was actually changed
+    expect(stateManager.getGameState()).toBe(GameState.HOLE_COMPLETED);
+    expect(stateChanges).toContainEqual({
+      previousState: GameState.PLAYING,
+      newState: GameState.HOLE_COMPLETED
+    });
+
+    // Check UI updates
+    expect(uiManager.showMessage).toHaveBeenCalledTimes(2);
+    expect(uiManager.showMessage).toHaveBeenLastCalledWith('Hole Complete!');
   });
 
   test('should handle ball motion state correctly', async () => {
@@ -127,14 +190,14 @@ describe('State Management Integration', () => {
 
     // Start ball motion
     stateManager.setBallInMotion(true);
-    stateManager.setGameState(GameState.BALL_MOVING);
+    stateManager.setGameState(GameState.PLAYING);
 
     // Simulate ball hit event
     eventManager.publish('BALL_HIT', { power: 0.5, direction: { x: 1, y: 0, z: 0 } });
 
     // Verify state
     expect(stateManager.isBallInMotion()).toBe(true);
-    expect(stateManager.getGameState()).toBe(GameState.BALL_MOVING);
+    expect(stateManager.getGameState()).toBe(GameState.PLAYING);
 
     // Stop ball motion
     stateManager.setBallInMotion(false);
@@ -152,7 +215,7 @@ describe('State Management Integration', () => {
 
     // Complete hole
     stateManager.setHoleCompleted(true);
-    stateManager.setGameState(GameState.HOLE_COMPLETE);
+    stateManager.setGameState(GameState.HOLE_COMPLETED);
 
     // Publish hole completed event
     eventManager.publish('HOLE_COMPLETED', {
@@ -166,7 +229,7 @@ describe('State Management Integration', () => {
     expect(events).toContainEqual(
       expect.objectContaining({
         type: 'STATE_CHANGED',
-        data: expect.objectContaining({ newState: GameState.HOLE_COMPLETE })
+        data: expect.objectContaining({ newState: GameState.HOLE_COMPLETED })
       })
     );
   });
@@ -198,10 +261,10 @@ describe('State Management Integration', () => {
     // Rapid state changes
     const states = [
       GameState.AIMING,
-      GameState.BALL_MOVING,
+      GameState.PLAYING,
       GameState.AIMING,
-      GameState.BALL_MOVING,
-      GameState.HOLE_COMPLETE
+      GameState.PLAYING,
+      GameState.HOLE_COMPLETED
     ];
 
     states.forEach(state => {
@@ -209,10 +272,10 @@ describe('State Management Integration', () => {
     });
 
     // Final state should be correct
-    expect(stateManager.getGameState()).toBe(GameState.HOLE_COMPLETE);
+    expect(stateManager.getGameState()).toBe(GameState.HOLE_COMPLETED);
 
     // State history should be consistent
-    expect(stateManager.state.currentGameState).toBe(GameState.HOLE_COMPLETE);
+    expect(stateManager.state.currentGameState).toBe(GameState.HOLE_COMPLETED);
   });
 
   test('should handle concurrent state updates', () => {
@@ -226,7 +289,7 @@ describe('State Management Integration', () => {
 
     // Trigger multiple state changes rapidly
     stateManager.setBallInMotion(true);
-    stateManager.setGameState(GameState.BALL_MOVING);
+    stateManager.setGameState(GameState.PLAYING);
     stateManager.setHoleCompleted(false);
     stateManager.setBallInMotion(false);
     stateManager.setGameState(GameState.AIMING);
@@ -240,14 +303,14 @@ describe('State Management Integration', () => {
     expect(stateManager.isHoleCompleted()).toBe(false);
   });
 
-  test('should handle error states gracefully', () => {
-    // Set error state
-    stateManager.setGameState(GameState.ERROR);
+  test('should handle paused state gracefully', () => {
+    // Set paused state
+    stateManager.setGameState(GameState.PAUSED);
 
-    // Verify error state blocks certain operations
-    expect(stateManager.getGameState()).toBe(GameState.ERROR);
+    // Verify paused state
+    expect(stateManager.getGameState()).toBe(GameState.PAUSED);
 
-    // Should still allow state recovery
+    // Should allow resuming
     stateManager.setGameState(GameState.PLAYING);
     expect(stateManager.getGameState()).toBe(GameState.PLAYING);
   });
