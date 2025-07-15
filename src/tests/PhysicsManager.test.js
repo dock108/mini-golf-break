@@ -43,6 +43,15 @@ jest.mock('cannon-es', () => ({
   GSSolver: jest.fn()
 }));
 
+// Mock debug utility
+jest.mock('../utils/debug', () => ({
+  debug: {
+    log: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn()
+  }
+}));
+
 // Mock PhysicsWorld
 jest.mock('../physics/PhysicsWorld', () => ({
   PhysicsWorld: jest.fn(() => {
@@ -235,5 +244,235 @@ describe('PhysicsManager', () => {
     expect(() => {
       physicsManager.removeBody(mockBody);
     }).not.toThrow();
+  });
+
+  describe('Branch coverage scenarios', () => {
+    test('should handle physics debugger enabled scenario', async () => {
+      mockGame.debugManager.physicsDebuggerEnabled = true;
+      const { debug } = require('../utils/debug');
+
+      await physicsManager.init();
+
+      expect(debug.log).toHaveBeenCalledWith(
+        '[PhysicsManager] Physics debugger enabled by DebugManager.'
+      );
+    });
+
+    test('should handle missing ball body during init', async () => {
+      mockGame.ballManager = null; // No ball manager
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      await physicsManager.init();
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[PhysicsManager] Could not get ball body during init. Listeners not set up.'
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    test('should handle ball manager without ball', async () => {
+      mockGame.ballManager = { ball: null }; // Ball manager exists but no ball
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      await physicsManager.init();
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[PhysicsManager] Could not get ball body during init. Listeners not set up.'
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    test('should handle ball without body', async () => {
+      mockGame.ballManager = { ball: {} }; // Ball exists but no body
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      await physicsManager.init();
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[PhysicsManager] Could not get ball body during init. Listeners not set up.'
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    test('should set up contact listeners when ball body exists', async () => {
+      mockGame.ballManager = { ball: { body: { userData: { type: 'ball' } } } };
+      const setupContactListenersSpy = jest
+        .spyOn(physicsManager, 'setupContactListeners')
+        .mockImplementation();
+
+      await physicsManager.init();
+
+      expect(setupContactListenersSpy).toHaveBeenCalled();
+
+      setupContactListenersSpy.mockRestore();
+    });
+
+    test('should handle setupCollisionEvents with no cannon world', () => {
+      physicsManager.cannonWorld = null;
+
+      const result = physicsManager.setupCollisionEvents();
+
+      expect(result).toBe(physicsManager); // Should return early
+    });
+
+    test('should handle collision start with no game reference', () => {
+      physicsManager.game = null;
+      const mockEvent = {
+        bodyA: { userData: { type: 'ball' } },
+        bodyB: { userData: { type: 'ground' } }
+      };
+
+      expect(() => {
+        physicsManager.handleCollisionStart(mockEvent);
+      }).not.toThrow();
+    });
+
+    test('should handle collision start without handleCollision method', () => {
+      delete mockGame.handleCollision; // Remove handleCollision method
+      const mockEvent = {
+        bodyA: { userData: { type: 'ball' } },
+        bodyB: { userData: { type: 'ground' } }
+      };
+
+      expect(() => {
+        physicsManager.handleCollisionStart(mockEvent);
+      }).not.toThrow();
+    });
+
+    test('should delegate collision handling when handleCollision exists', () => {
+      mockGame.handleCollision = jest.fn();
+      const mockEvent = {
+        bodyA: { userData: { type: 'ball' } },
+        bodyB: { userData: { type: 'ground' } }
+      };
+
+      physicsManager.handleCollisionStart(mockEvent);
+
+      expect(mockGame.handleCollision).toHaveBeenCalledWith(mockEvent.bodyA, mockEvent.bodyB);
+    });
+
+    test('should skip update when isResetting is true', () => {
+      physicsManager.init();
+      physicsManager.isResetting = true;
+      const updateSpy = jest.spyOn(physicsManager.world, 'update');
+
+      const result = physicsManager.update(0.016);
+
+      expect(result).toBe(physicsManager);
+      expect(updateSpy).not.toHaveBeenCalled();
+    });
+
+    test('should handle missing cannon world during update', () => {
+      physicsManager.cannonWorld = null;
+
+      const result = physicsManager.update(0.016);
+
+      expect(result).toBe(physicsManager);
+      expect(mockGame.debugManager.warn).toHaveBeenCalledWith(
+        '[PhysicsManager] Physics world or bodies not ready'
+      );
+    });
+
+    test('should handle missing bodies during update', () => {
+      physicsManager.init();
+      physicsManager.cannonWorld.bodies = undefined; // No bodies property
+
+      const result = physicsManager.update(0.016);
+
+      expect(result).toBe(physicsManager);
+      expect(mockGame.debugManager.warn).toHaveBeenCalledWith(
+        '[PhysicsManager] Physics world or bodies not ready'
+      );
+    });
+
+    test('should handle missing game during safety check', () => {
+      physicsManager.game = null;
+      physicsManager.cannonWorld = null;
+
+      const result = physicsManager.update(0.016);
+
+      expect(result).toBe(physicsManager);
+      // Should not throw error when no game
+    });
+
+    test('should skip world update when reset check fails', () => {
+      physicsManager.init();
+      physicsManager.isResetting = false;
+      const updateSpy = jest.spyOn(physicsManager.world, 'update');
+
+      // Simulate reset flag being set during update
+      physicsManager.isResetting = true;
+
+      physicsManager.update(0.016);
+
+      expect(updateSpy).not.toHaveBeenCalled();
+    });
+
+    test('should handle error during world update with debugManager', () => {
+      physicsManager.init();
+      physicsManager.world.update = jest.fn(() => {
+        throw new Error('Update failed');
+      });
+
+      expect(() => {
+        physicsManager.update(0.016);
+      }).not.toThrow();
+
+      expect(mockGame.debugManager.error).toHaveBeenCalledWith(
+        '[PhysicsManager]',
+        'Error during physics update:',
+        expect.any(Error)
+      );
+    });
+
+    test('should handle error during world update without debugManager', () => {
+      physicsManager.init();
+      physicsManager.world.update = jest.fn(() => {
+        throw new Error('Update failed');
+      });
+      physicsManager.game = null; // No game means no debugManager
+
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      expect(() => {
+        physicsManager.update(0.016);
+      }).not.toThrow();
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[PhysicsManager] Error during physics update:',
+        expect.any(Error)
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    test('should log debug information when world exists', () => {
+      physicsManager.init();
+      const { debug } = require('../utils/debug');
+
+      const result = physicsManager.getWorld();
+
+      expect(result).toBe(physicsManager.world);
+      expect(debug.log).toHaveBeenCalledWith('DEBUG PhysicsManager.getWorld: World exists: true');
+      expect(debug.log).toHaveBeenCalledWith(
+        'DEBUG PhysicsManager.getWorld: World has cannonWorld: true'
+      );
+      expect(debug.log).toHaveBeenCalledWith(
+        'DEBUG PhysicsManager.getWorld: World has ballMaterial: true'
+      );
+    });
+
+    test('should log debug information when world does not exist', () => {
+      physicsManager.world = null;
+      const { debug } = require('../utils/debug');
+
+      const result = physicsManager.getWorld();
+
+      expect(result).toBeNull();
+      expect(debug.log).toHaveBeenCalledWith('DEBUG PhysicsManager.getWorld: World exists: false');
+    });
   });
 });
