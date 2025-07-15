@@ -3,7 +3,7 @@
  * @see https://playwright.dev/docs/test-configuration
  */
 module.exports = {
-  testDir: './tests/uat',
+  testDir: '.',
   timeout: 30000,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
