@@ -45,7 +45,7 @@ jest.mock('../objects/Ball', () => {
 
 // Mock Three.js Vector3
 jest.mock('three', () => {
-  const mockVector3 = jest.fn(function (x = 0, y = 0, z = 0) {
+  function MockVector3(x = 0, y = 0, z = 0) {
     this.x = x;
     this.y = y;
     this.z = z;
@@ -69,9 +69,9 @@ jest.mock('three', () => {
     this.normalize = jest.fn(() => ({ x: 0, y: 0, z: 1 }));
     this.multiplyScalar = jest.fn(() => ({ x: 0, y: 0, z: 0 }));
     this.distanceTo = jest.fn(() => 5);
-  });
+  }
 
-  return { Vector3: mockVector3 };
+  return { Vector3: MockVector3 };
 });
 
 describe('BallManager Branch Coverage Tests', () => {
@@ -760,7 +760,16 @@ describe('BallManager Branch Coverage Tests', () => {
 
       // Ensure ball was created successfully
       if (ball) {
-        const specificPosition = new THREE.Vector3(5, 2, 3);
+        // Create position object directly instead of using Vector3 constructor
+        const specificPosition = {
+          x: 5,
+          y: 2,
+          z: 3,
+          clone: jest.fn(() => ({ x: 5, y: 2, z: 3 }))
+        };
+
+        // Clear previous setPosition calls from ball creation
+        ballManager.ball.setPosition.mockClear();
 
         ballManager.resetBall(specificPosition);
 
@@ -777,7 +786,15 @@ describe('BallManager Branch Coverage Tests', () => {
 
       // Ensure ball was created successfully
       if (ball) {
-        ballManager.lastSafePosition = new THREE.Vector3(2, 1, 4);
+        ballManager.lastSafePosition = {
+          x: 2,
+          y: 1,
+          z: 4,
+          clone: jest.fn(() => ({ x: 2, y: 1, z: 4 }))
+        };
+
+        // Clear previous setPosition calls from ball creation
+        ballManager.ball.setPosition.mockClear();
 
         ballManager.resetBall(); // No position parameter
 
@@ -797,8 +814,16 @@ describe('BallManager Branch Coverage Tests', () => {
         ballManager.lastSafePosition = null;
 
         // Mock course start position
-        const startPos = new THREE.Vector3(1, 0, 2);
+        const startPos = {
+          x: 1,
+          y: 0,
+          z: 2,
+          clone: jest.fn(() => ({ x: 1, y: 0, z: 2 }))
+        };
         mockGame.course.getHoleStartPosition.mockReturnValue(startPos);
+
+        // Clear previous setPosition calls from ball creation
+        ballManager.ball.setPosition.mockClear();
 
         ballManager.resetBall(); // No position parameter, no lastSafePosition
 
