@@ -77,7 +77,8 @@ jobs:
     - name: Run full test suite
       run: |
         echo "Running comprehensive tests for release..."
-        npm test -- --coverage --passWithNoTests
+        npm run test:coverage:unit -- --passWithNoTests
+        npm run test:integration -- --passWithNoTests
         
         echo "All tests passed for release validation"
 

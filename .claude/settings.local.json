@@ -10,7 +10,9 @@
       "Bash(npm run test:integration:*)",
       "Bash(mv:*)",
       "Bash(npx jest:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }
