@@ -89,6 +89,7 @@ jest.mock('../physics/PhysicsWorld', () => ({
       setupCollideListener: jest.fn(),
       createContactMaterials: jest.fn(),
       setCollisionCallback: jest.fn(),
+      cleanup: jest.fn(),
       update: jest.fn(function () {
         // Simulate the update method calling world.step
         this.world.step(this.fixedTimeStep, 0.016, this.maxSubSteps);
@@ -422,9 +423,10 @@ describe('PhysicsManager', () => {
       }).not.toThrow();
 
       expect(mockGame.debugManager.error).toHaveBeenCalledWith(
-        '[PhysicsManager]',
-        'Error during physics update:',
-        expect.any(Error)
+        'PhysicsManager.update',
+        'Error updating physics world',
+        expect.any(Error),
+        true
       );
     });
 
@@ -442,7 +444,7 @@ describe('PhysicsManager', () => {
       }).not.toThrow();
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        '[PhysicsManager] Error during physics update:',
+        'ERROR: PhysicsManager.update: Error updating physics world',
         expect.any(Error)
       );
 
