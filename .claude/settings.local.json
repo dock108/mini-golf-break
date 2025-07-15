@@ -12,7 +12,8 @@
       "Bash(npx jest:*)",
       "Bash(find:*)",
       "Bash(grep:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npm run test:coverage:unit:*)"
     ],
     "deny": []
   }
