@@ -103,7 +103,7 @@ module.exports = (env, argv) => {
         directory: path.join(__dirname, 'public'),
       },
       compress: true,
-      port: 9000,
+      port: 8080,
       hot: true,
       historyApiFallback: true,
     }
