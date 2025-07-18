@@ -26,6 +26,9 @@ import { HoleCompletionManager } from '../managers/HoleCompletionManager';
 import { GameLoopManager } from '../managers/GameLoopManager';
 import { EventManager } from '../managers/EventManager';
 import { PerformanceManager } from '../managers/PerformanceManager';
+import { MaterialManager } from '../managers/MaterialManager';
+import { EnvironmentManager } from '../managers/EnvironmentManager';
+import { PostProcessingManager } from '../managers/PostProcessingManager';
 
 /**
  * Game - Main class that orchestrates the mini-golf game
@@ -52,6 +55,9 @@ export class Game {
     this.holeTransitionManager = new HoleTransitionManager(this);
     this.holeCompletionManager = new HoleCompletionManager(this);
     this.gameLoopManager = new GameLoopManager(this);
+    this.materialManager = new MaterialManager();
+    this.environmentManager = new EnvironmentManager(this.scene, null); // renderer will be set later
+    this.postProcessingManager = null; // Will be initialized after renderer
 
     this.cannonDebugRenderer = null;
 
@@ -92,6 +98,11 @@ export class Game {
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       this.renderer.setClearColor(0x000000); // Black background for space
 
+      // Configure renderer for proper color management
+      this.renderer.outputEncoding = THREE.sRGBEncoding;
+      this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      this.renderer.toneMappingExposure = 1.0;
+
       // Initialize managers in appropriate order with proper dependency management
 
       // First tier - Core systems that don't depend on others
@@ -106,11 +117,19 @@ export class Game {
       this.uiManager.init();
       this.uiManager.attachRenderer(this.renderer);
 
-      // Set the scene background to black for space environment
-      this.scene.background = new THREE.Color(0x000000);
+      // Initialize visual enhancement managers now that renderer is ready
+      this.environmentManager.renderer = this.renderer;
+      await this.environmentManager.init();
 
-      // Create starfield for space environment
-      this.createStarfield();
+      // Initialize post-processing manager
+      this.postProcessingManager = new PostProcessingManager(
+        this.renderer,
+        this.scene,
+        this.camera
+      );
+
+      // Remove manual starfield creation - handled by EnvironmentManager now
+      // The environment manager will handle the scene background and starfield
 
       // Initialize camera controller after renderer is created
       this.cameraController.setRenderer(this.renderer);
@@ -200,41 +219,15 @@ export class Game {
   }
 
   /**
-   * Create starfield background
-   */
-  createStarfield() {
-    // Create star points for background starfield
-    const starGeometry = new THREE.BufferGeometry();
-    const starMaterial = new THREE.PointsMaterial({
-      color: 0xffffff,
-      size: 0.1,
-      transparent: true
-    });
-
-    const starVertices = [];
-    for (let i = 0; i < 10000; i++) {
-      const x = (Math.random() - 0.5) * 2000;
-      const y = (Math.random() - 0.5) * 2000;
-      const z = (Math.random() - 0.5) * 2000;
-      starVertices.push(x, y, z);
-    }
-
-    starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-    const stars = new THREE.Points(starGeometry, starMaterial);
-
-    // Add userData to identify this as a starfield object
-    stars.userData.type = 'starfield';
-
-    this.scene.add(stars);
-  }
-
-  /**
    * Set up scene lights
    */
   setupLights() {
     // Add ambient light
     this.lights.ambient = new THREE.AmbientLight(0x404040, 1);
     this.scene.add(this.lights.ambient);
+
+    // Store reference for EnvironmentManager
+    this.scene.userData.ambientLight = this.lights.ambient;
 
     // Add directional light for shadows
     this.lights.directionalLight = new THREE.DirectionalLight(0xffffff, 1);
@@ -311,6 +304,11 @@ export class Game {
       this.renderer.setSize(window.innerWidth, window.innerHeight);
 
       // The camera aspect ratio update is handled by the CameraController
+
+      // Update post-processing manager
+      if (this.postProcessingManager) {
+        this.postProcessingManager.handleResize();
+      }
     }
   }
 
@@ -367,6 +365,9 @@ export class Game {
         'audioManager',
         'physicsManager',
         'visualEffectsManager',
+        'postProcessingManager',
+        'environmentManager',
+        'materialManager',
         'cameraController',
         'uiManager',
         'stateManager',

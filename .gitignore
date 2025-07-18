@@ -101,3 +101,6 @@ docs/.docusaurus/
 *.swp
 *.swo
 *~
+
+# Ignore files (for local documentation/notes)
+*.ignore.*
