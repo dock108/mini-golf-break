@@ -199,7 +199,7 @@ export class TestHelper {
         const speed = velocity.lengthSquared();
         
         // Log velocity for debugging
-        if (window.debug) {
+        if (window.debug === true) {
           console.log('Ball velocity:', speed);
         }
         
