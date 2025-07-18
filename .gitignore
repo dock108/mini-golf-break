@@ -32,14 +32,52 @@ logs/
 *.tmp
 .tmp/
 .cache/ 
-coverage/
+.claude/
 .cursor/
 
 # Test results
 reports/
 test-results/
 playwright-report/
+playwright-results/
 *.test.js.snap
+*.test.js-snapshots/
+__snapshots__/
+
+# Coverage reports
+coverage/
+coverage-*/
+.nyc_output/
+*.lcov
+
+# Jest
+jest-results.json
+jest-coverage/
+
+# Test screenshots and videos
+tests/uat/screenshots/
+tests/uat/tests/uat/screenshots/
+tests/e2e/screenshots/
+tests/e2e/videos/
+test-screenshots/
+test-videos/
+debug-*.png
+test-*.png
+*.mp4
+*.webm
+
+# Test logs
+test-logs/
+*.test.log
+npm-start-fixed.log
+/tmp/npm-*.log
+
+# Temporary test files
+.tmp/
+tmp/
+temp/
+*.tmp
+*.temp
 
 # Documentation build
 docs/build/

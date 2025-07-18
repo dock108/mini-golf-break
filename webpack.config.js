@@ -51,6 +51,7 @@ module.exports = (env, argv) => {
       new HtmlWebpackPlugin({
         template: './public/index.html',
         filename: 'index.html',
+        inject: 'body', // Ensure scripts are injected into body
         minify: isProduction ? {
           removeComments: true,
           collapseWhitespace: true,
@@ -100,12 +101,20 @@ module.exports = (env, argv) => {
 
     devServer: {
       static: {
-        directory: path.join(__dirname, 'public'),
+        // Using 'dist' directory to serve the built files including the injected bundle.js
+        // This aligns with the output.path configuration above (line 18)
+        // webpack automatically creates this directory via output.path if it doesn't exist
+        // writeToDisk: true below ensures files are written to disk in development
+        directory: path.join(__dirname, 'dist'),
+        publicPath: '/',
       },
       compress: true,
       port: 8080,
       hot: true,
       historyApiFallback: true,
+      devMiddleware: {
+        writeToDisk: true, // Write files to disk in development
+      }
     }
   };
 

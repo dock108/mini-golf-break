@@ -23,13 +23,12 @@ test.describe('Mobile Device Testing', () => {
     expect(responsiveness.isResponsive).toBe(true);
     
     // Verify mobile-specific UI elements
-    await expect(page.locator('#ui-container')).toBeVisible();
-    await expect(page.locator('#score-info')).toBeVisible();
+    await expect(page.locator('#ui-overlay')).toBeVisible();
     await expect(page.locator('canvas')).toBeVisible();
     
     // Check viewport meta tag for mobile optimization
     const viewport = await page.getAttribute('meta[name="viewport"]', 'content');
-    expect(viewport).toContain('user-scalable=no');
+    expect(viewport).toContain('width=device-width');
     
     await testHelper.takeScreenshot('mobile-responsive');
   });

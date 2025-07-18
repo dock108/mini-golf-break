@@ -85,5 +85,7 @@ class App {
 
 // Start the application when the window loads
 window.addEventListener('load', () => {
-  new App();
+  window.App = new App();
+  // Also expose game for easier testing access
+  window.game = window.App.game;
 });
