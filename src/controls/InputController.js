@@ -578,8 +578,28 @@ export class InputController {
   }
 
   onTouchMove(event) {
-    // Only handle single touch movements if a drag is active
-    if (this.isPointerDown && event.touches.length === 1) {
+    // Handle two-finger pinch zoom
+    if (event.touches.length === 2) {
+      const touch1 = event.touches[0];
+      const touch2 = event.touches[1];
+
+      // Calculate current distance between touches
+      const dx = touch1.clientX - touch2.clientX;
+      const dy = touch1.clientY - touch2.clientY;
+      const currentDistance = Math.sqrt(dx * dx + dy * dy);
+
+      // If we have a previous distance, calculate zoom
+      if (this.pinchDistance) {
+        const zoomDelta = this.pinchDistance / currentDistance;
+        this.handlePinchZoom(zoomDelta);
+      }
+
+      // Store current distance for next frame
+      this.pinchDistance = currentDistance;
+      event.preventDefault();
+    }
+    // Handle single touch movements if a drag is active
+    else if (this.isPointerDown && event.touches.length === 1) {
       const touch = event.touches[0];
 
       // Simulate a mouse move event
@@ -597,6 +617,11 @@ export class InputController {
   }
 
   onTouchEnd(event) {
+    // Reset pinch distance when touches end
+    if (event.touches.length < 2) {
+      this.pinchDistance = 0;
+    }
+
     // Check if we were actually dragging (pointer was down)
     // touchend is fired even if the touch didn't start on the canvas
     if (this.isPointerDown) {
@@ -1033,9 +1058,8 @@ export class InputController {
 
       if (currentState === GameState.AD_INSPECTING) {
         console.log('[InputController] Exiting AD_INSPECTING state.');
-        // Restore controls setting from before aiming started (usually false)
-        // Or simply set to false if aiming should always disable controls.
-        this.game.cameraController.controls.enabled = false;
+        // Enable orbit controls for free camera movement during AIMING state
+        this.game.cameraController.controls.enabled = true;
         // Determine appropriate state to return to (AIMING if ball stopped, otherwise maybe let it be)
         // For now, assume we can always go back to AIMING when toggling off.
         this.stateManager.setGameState(GameState.AIMING);
