@@ -29,7 +29,7 @@ function getShapeBounds(shapePoints) {
  * EXPECTS: All positions in config (startPosition, holePosition, hazards, bumpers) = WORLD coordinates relative to (0,0,0)
  */
 export class HoleEntity extends BaseElement {
-  constructor(world, config, scene) {
+  constructor(world, config, scene, game = null) {
     // Scene can be a THREE.Group when used with NineHoleCourse
     const sceneIsGroup = scene instanceof THREE.Group;
     const actualScene = sceneIsGroup ? scene.parent || scene : scene;
@@ -46,6 +46,9 @@ export class HoleEntity extends BaseElement {
 
     // BaseElement constructor creates this.group at baseConfig.position (0,0,0)
     super(world, baseConfig, actualScene);
+
+    // Store game reference for MaterialManager access
+    this.game = game;
 
     // Store the target group if one was provided (e.g., Hole_1_Group)
     // If targetGroup exists, add this.group (at 0,0,0) to it.
@@ -106,7 +109,7 @@ export class HoleEntity extends BaseElement {
     );
   }
 
-  init() {
+  async init() {
     if (!this.world || !this.scene || !this.group) {
       console.error('[HoleEntity] Missing world, scene, or group reference during init');
       return Promise.reject('Missing references');
@@ -114,14 +117,14 @@ export class HoleEntity extends BaseElement {
 
     try {
       // Create elements using WORLD coordinates from config
-      this.createGreenSurfaceAndPhysics();
-      this.createWalls();
-      this.createHoleRim();
+      await this.createGreenSurfaceAndPhysics();
+      await this.createWalls();
+      await this.createHoleRim();
       this.createHoleVisual();
       this.createHoleTrigger();
-      this.createStartPosition();
+      await this.createStartPosition();
       this.createHazards();
-      this.createBumpers();
+      await this.createBumpers();
       console.log(`[HoleEntity] Initialization complete for hole index ${this.config.index}.`);
       return Promise.resolve();
     } catch (error) {
@@ -134,12 +137,20 @@ export class HoleEntity extends BaseElement {
     }
   }
 
-  createGreenSurfaceAndPhysics() {
-    const greenMaterial = new THREE.MeshStandardMaterial({
-      color: 0x2ecc71,
-      roughness: 0.8,
-      metalness: 0.1
-    });
+  async createGreenSurfaceAndPhysics() {
+    // Use MaterialManager for enhanced grass material with textures
+    const greenMaterial =
+      this.game && this.game.materialManager
+        ? await this.game.materialManager.createCourseMaterial({
+            type: 'grass',
+            color: 0x2ecc71,
+            repeat: { x: 4, y: 4 }
+          })
+        : new THREE.MeshStandardMaterial({
+            color: 0x2ecc71,
+            roughness: 0.8,
+            metalness: 0.1
+          });
     const greenDepth = 0.01; // Thickness for extrusion
 
     // Create shape from boundary points (using Vector2's y as world z)
@@ -290,15 +301,21 @@ export class HoleEntity extends BaseElement {
     physicsPlaneGeom.dispose();
   }
 
-  createHoleRim() {
+  async createHoleRim() {
     // Use WORLD hole position
     const visualHoleRadius = 0.4;
     const rimGeometry = new THREE.RingGeometry(visualHoleRadius, visualHoleRadius + 0.04, 32);
-    const rimMaterial = new THREE.MeshStandardMaterial({
-      color: 0xcccccc,
-      roughness: 0.3,
-      metalness: 0.9
-    });
+    const rimMaterial =
+      this.game && this.game.materialManager
+        ? await this.game.materialManager.createCourseMaterial({
+            type: 'metal',
+            color: 0xcccccc
+          })
+        : new THREE.MeshStandardMaterial({
+            color: 0xcccccc,
+            roughness: 0.3,
+            metalness: 0.9
+          });
     const rim = new THREE.Mesh(rimGeometry, rimMaterial);
     rim.rotation.x = -Math.PI / 2;
     const rimY = this.visualGreenY + 0.002; // Local Y offset from green surface
@@ -342,13 +359,19 @@ export class HoleEntity extends BaseElement {
     this.meshes.push(holeInteriorMesh);
   }
 
-  createWalls() {
+  async createWalls() {
     // Wall definitions use LOCAL offsets from the edges (relative to 0,0,0 group center)
-    const wallMaterial = new THREE.MeshStandardMaterial({
-      color: 0xa0522d,
-      roughness: 0.7,
-      metalness: 0.3
-    });
+    const wallMaterial =
+      this.game && this.game.materialManager
+        ? await this.game.materialManager.createWallMaterial({
+            type: 'tech',
+            color: 0xa0522d
+          })
+        : new THREE.MeshStandardMaterial({
+            color: 0xa0522d,
+            roughness: 0.7,
+            metalness: 0.3
+          });
 
     // Iterate through the boundary shape segments
     for (let i = 0; i < this.boundaryShape.length - 1; i++) {
@@ -429,14 +452,20 @@ export class HoleEntity extends BaseElement {
     this.bodies.push(holeTriggerBody);
   }
 
-  createStartPosition() {
+  async createStartPosition() {
     // Use WORLD start position for the visual mesh
     const teeGeometry = new THREE.CylinderGeometry(0.6, 0.6, 0.05, 24);
-    const teeMaterial = new THREE.MeshStandardMaterial({
-      color: 0x0077cc,
-      roughness: 0.5,
-      metalness: 0.2
-    });
+    const teeMaterial =
+      this.game && this.game.materialManager
+        ? await this.game.materialManager.createCourseMaterial({
+            type: 'metal',
+            color: 0x0077cc
+          })
+        : new THREE.MeshStandardMaterial({
+            color: 0x0077cc,
+            roughness: 0.5,
+            metalness: 0.2
+          });
     const teeMesh = new THREE.Mesh(teeGeometry, teeMaterial);
     // Position mesh at WORLD start position, adjusted for local Y offset
     teeMesh.position.copy(this.worldStartPosition);
@@ -488,14 +517,15 @@ export class HoleEntity extends BaseElement {
     });
   }
 
-  createBumpers() {
+  async createBumpers() {
     // Bumpers defined with WORLD coordinates relative to origin (0,0,0)
     const bumperConfigs = this.config.bumpers || [];
     if (bumperConfigs.length === 0) {
       return;
     }
 
-    bumperConfigs.forEach((bumperConfig, index) => {
+    for (let index = 0; index < bumperConfigs.length; index++) {
+      const bumperConfig = bumperConfigs[index];
       try {
         // Ensure bumper position is WORLD Vector3
         const worldBumperPos =
@@ -518,11 +548,19 @@ export class HoleEntity extends BaseElement {
               );
 
         // Create visual mesh
-        const bumperMaterial = new THREE.MeshStandardMaterial({
-          color: bumperConfig.color || 0xff8c00,
-          roughness: 0.7,
-          metalness: 0.3
-        });
+        const bumperMaterial =
+          this.game && this.game.materialManager
+            ? await this.game.materialManager.createWallMaterial({
+                type: 'tech',
+                color: bumperConfig.color || 0xff8c00,
+                emissive: 0x441100,
+                emissiveIntensity: 0.3
+              })
+            : new THREE.MeshStandardMaterial({
+                color: bumperConfig.color || 0xff8c00,
+                roughness: 0.7,
+                metalness: 0.3
+              });
         const bumperGeom = new THREE.BoxGeometry(
           bumperConfig.size.x,
           bumperConfig.size.y,
@@ -569,7 +607,7 @@ export class HoleEntity extends BaseElement {
       } catch (error) {
         console.error(`[HoleEntity] Failed to create bumper ${index}:`, error, bumperConfig);
       }
-    });
+    }
   }
 
   /**

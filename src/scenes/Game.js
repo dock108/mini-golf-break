@@ -155,8 +155,8 @@ export class Game {
       this.visualEffectsManager.init();
 
       // Add space decorations
-      this.spaceDecorations = new SpaceDecorations(this.scene);
-      this.spaceDecorations.init();
+      this.spaceDecorations = new SpaceDecorations(this.scene, this);
+      await this.spaceDecorations.init();
 
       debug.log('[Game.init] Awaiting createCourse...');
       await this.createCourse();
