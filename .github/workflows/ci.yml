@@ -102,6 +102,30 @@ jobs:
       - name: Run unit tests
         run: npm run test:unit -- --coverage --watchAll=false
 
+      - name: Check coverage thresholds
+        run: |
+          echo "## Coverage Report" >> $GITHUB_STEP_SUMMARY
+          echo "Coverage must be at least 80% for all metrics" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Extract coverage from the test output
+          npx jest --selectProjects=unit --coverage --watchAll=false --coverageReporters=json-summary
+          
+          if [ -f coverage/coverage-summary.json ]; then
+            echo "| Metric | Coverage | Status |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|----------|--------|" >> $GITHUB_STEP_SUMMARY
+            
+            STATEMENTS=$(jq '.total.statements.pct' coverage/coverage-summary.json)
+            BRANCHES=$(jq '.total.branches.pct' coverage/coverage-summary.json)
+            FUNCTIONS=$(jq '.total.functions.pct' coverage/coverage-summary.json)
+            LINES=$(jq '.total.lines.pct' coverage/coverage-summary.json)
+            
+            echo "| Statements | ${STATEMENTS}% | $([ $(echo "$STATEMENTS >= 80" | bc) -eq 1 ] && echo "✅" || echo "❌") |" >> $GITHUB_STEP_SUMMARY
+            echo "| Branches | ${BRANCHES}% | $([ $(echo "$BRANCHES >= 80" | bc) -eq 1 ] && echo "✅" || echo "❌") |" >> $GITHUB_STEP_SUMMARY
+            echo "| Functions | ${FUNCTIONS}% | $([ $(echo "$FUNCTIONS >= 80" | bc) -eq 1 ] && echo "✅" || echo "❌") |" >> $GITHUB_STEP_SUMMARY
+            echo "| Lines | ${LINES}% | $([ $(echo "$LINES >= 80" | bc) -eq 1 ] && echo "✅" || echo "❌") |" >> $GITHUB_STEP_SUMMARY
+          fi
+
       - name: Upload unit test coverage
         uses: actions/upload-artifact@v4
         with:

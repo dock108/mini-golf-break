@@ -73,11 +73,20 @@ echo "==============================================="
 
 echo "🧪 Running unit tests with coverage..."
 npm run test:unit -- --coverage --watchAll=false
-if [ $? -ne 0 ]; then
+TEST_EXIT_CODE=$?
+
+if [ $TEST_EXIT_CODE -ne 0 ]; then
   echo "❌ Unit tests failed!"
-  echo "💡 Fix failing tests before committing"
+  echo ""
+  echo "⚠️  Possible reasons for failure:"
+  echo "  1. Test failures - Fix failing tests before committing"
+  echo "  2. Coverage below 80% threshold - Add more tests to improve coverage"
+  echo ""
+  echo "💡 Run 'npm run test:coverage:unit' to see detailed coverage report"
   exit 1
 fi
+
+echo "✅ Unit tests passed with sufficient coverage"
 
 echo "🧪 Running integration tests..."
 npm run test:integration -- --watchAll=false
