@@ -76,8 +76,8 @@ MODIFIED_TEST_FILES=$(git diff --cached --name-only | grep -E '\.(test|spec)\.js
 MODIFIED_SRC_FILES=$(git diff --cached --name-only | grep -E '^src/.*\.js$' | wc -l)
 
 if [ "$MODIFIED_TEST_FILES" -gt "0" ] || [ "$MODIFIED_SRC_FILES" -gt "5" ]; then
-  echo "🧪 Running unit tests (significant changes detected)..."
-  npm run test:unit -- --watchAll=false --passWithNoTests
+  echo "🧪 Running unit tests with coverage (significant changes detected)..."
+  npm run test:unit -- --coverage --watchAll=false --passWithNoTests
   if [ $? -ne 0 ]; then
     echo "❌ Unit tests failed!"
     echo "💡 Fix failing tests before committing"
@@ -87,8 +87,9 @@ if [ "$MODIFIED_TEST_FILES" -gt "0" ] || [ "$MODIFIED_SRC_FILES" -gt "5" ]; then
   echo "🧪 Running integration tests..."
   npm run test:integration -- --watchAll=false --passWithNoTests
   if [ $? -ne 0 ]; then
-    echo "⚠️  Integration tests failed, but allowing commit with warning"
-    echo "💡 Please fix integration tests in a follow-up commit"
+    echo "❌ Integration tests failed!"
+    echo "💡 Fix failing integration tests before committing"
+    exit 1
   fi
 else
   echo "🧪 Skipping tests (minimal changes detected)"

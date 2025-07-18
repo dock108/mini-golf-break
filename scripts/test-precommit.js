@@ -70,13 +70,13 @@ const tests = [
     description: 'Validates production build'
   },
   {
-    name: 'Unit Tests',
-    ciCommand: 'npm run test:unit -- --watchAll=false --passWithNoTests',
-    description: 'Runs unit test suite'
+    name: 'Unit Tests with Coverage',
+    ciCommand: 'npm run test:unit -- --coverage --watchAll=false',
+    description: 'Runs unit test suite with coverage reporting'
   },
   {
     name: 'Integration Tests',
-    ciCommand: 'npm run test:integration -- --watchAll=false --passWithNoTests',
+    ciCommand: 'npm run test:integration -- --watchAll=false',
     description: 'Runs integration test suite'
   }
 ];
