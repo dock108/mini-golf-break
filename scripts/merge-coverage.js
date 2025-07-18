@@ -102,11 +102,21 @@ function mergeCoverage() {
 // Generate merged report
 function generateReport() {
   console.log('📊 Generating merged coverage report...');
-  
-  const reportCommand = `npx nyc report --reporter=html --reporter=text --reporter=lcov --report-dir=${MERGED_COVERAGE} --temp-dir=${MERGED_COVERAGE}`;
-  
+
+  // Use execFileSync to safely pass arguments without shell interpretation
+  const execFileSync = require('child_process').execFileSync;
+  const args = [
+    'nyc',
+    'report',
+    '--reporter=html',
+    '--reporter=text',
+    '--reporter=lcov',
+    `--report-dir=${MERGED_COVERAGE}`,
+    `--temp-dir=${MERGED_COVERAGE}`
+  ];
+
   try {
-    execSync(reportCommand, { stdio: 'inherit' });
+    execFileSync('npx', args, { stdio: 'inherit' });
     console.log('✅ Merged coverage report generated at:', MERGED_COVERAGE);
     return true;
   } catch (error) {
