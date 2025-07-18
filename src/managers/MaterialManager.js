@@ -416,7 +416,7 @@ export class MaterialManager {
   createGlowMaterial(options = {}) {
     const { color = 0x00ffff, intensity = 1.0 } = options;
 
-    return new THREE.MeshStandardMaterial({
+    const material = new THREE.MeshStandardMaterial({
       color: new THREE.Color(color),
       emissive: new THREE.Color(color),
       emissiveIntensity: intensity,
@@ -424,6 +424,14 @@ export class MaterialManager {
       metalness: 0.5,
       side: THREE.DoubleSide
     });
+
+    // Apply environment map if available
+    if (this.envMap && material) {
+      material.envMap = this.envMap;
+      material.needsUpdate = true;
+    }
+
+    return material;
   }
 
   /**

@@ -59,6 +59,12 @@ jest.mock('three', () => {
       map: options?.map || null,
       dispose: jest.fn()
     })),
+    MeshPhysicalMaterial: jest.fn().mockImplementation(options => ({
+      ...options,
+      dispose: jest.fn(),
+      envMap: options?.envMap || null,
+      needsUpdate: false
+    })),
     Color: jest.fn().mockImplementation(color => ({ r: 1, g: 1, b: 1, color })),
     Vector2: jest.fn().mockImplementation((x, y) => ({ x, y })),
     RepeatWrapping: 1000,
@@ -277,40 +283,28 @@ describe('MaterialManager', () => {
     });
 
     test('should handle missing texture with fallback to default', async () => {
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
 
       // First attempt fails
       materialManager.textureLoader.load = jest.fn((path, onLoad, onProgress, onError) => {
-        if (path.includes('wall-brick.jpg') && onError) {
+        if (onError) {
           onError(new Error('Texture not found'));
-        } else if (path.includes('default') && onLoad) {
-          // Default texture loads successfully
-          const mockTexture = {
-            wrapS: 1000,
-            wrapT: 1000,
-            anisotropy: 1,
-            minFilter: 1006,
-            magFilter: 1006,
-            generateMipmaps: true,
-            flipY: false,
-            repeat: { set: jest.fn(), x: 1, y: 1 },
-            offset: { set: jest.fn(), x: 0, y: 0 },
-            dispose: jest.fn()
-          };
-          onLoad(mockTexture);
-          return mockTexture;
         }
       });
 
-      const texture = await materialManager.loadTexture('wall-brick.jpg');
-
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        '[MaterialManager] Failed to load texture wall-brick.jpg, using default'
+      // Test should reject since wall-brick.jpg doesn't contain 'normal' or 'roughness'
+      await expect(materialManager.loadTexture('wall-brick.jpg')).rejects.toThrow(
+        'Texture not found'
       );
-      expect(texture).toBeDefined();
-      expect(materialManager.textureCache.has('wall-brick.jpg')).toBe(true);
 
-      consoleWarnSpy.mockRestore();
+      // Test with normal texture which should fallback
+      const normalTexture = await materialManager.loadTexture('wall-normal.jpg');
+      expect(normalTexture).toBe(materialManager.textureCache.get('default_normal'));
+
+      // Test with roughness texture which should fallback
+      const roughnessTexture = await materialManager.loadTexture('wall-roughness.jpg');
+      expect(roughnessTexture).toBe(materialManager.textureCache.get('default_roughness'));
+      consoleErrorSpy.mockRestore();
     });
   });
 
@@ -846,13 +840,6 @@ describe('MaterialManager', () => {
 
   describe('createWallMaterial with type glass', () => {
     test('should create glass wall material', async () => {
-      // Mock MeshPhysicalMaterial before creating the material
-      const originalMeshPhysicalMaterial = THREE.MeshPhysicalMaterial;
-      THREE.MeshPhysicalMaterial = jest.fn().mockImplementation(options => ({
-        ...options,
-        dispose: jest.fn()
-      }));
-
       const options = {
         type: 'glass'
       };
@@ -863,12 +850,14 @@ describe('MaterialManager', () => {
         expect.objectContaining({
           color: expect.any(Object),
           metalness: 0.0,
-          roughness: 0.0
+          roughness: 0.0,
+          transmission: 0.9,
+          thickness: 0.5,
+          envMapIntensity: 1.5,
+          clearcoat: 1.0,
+          clearcoatRoughness: 0.0
         })
       );
-
-      // Restore original
-      THREE.MeshPhysicalMaterial = originalMeshPhysicalMaterial;
     });
   });
 });
