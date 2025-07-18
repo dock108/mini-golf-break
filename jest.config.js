@@ -8,7 +8,7 @@ module.exports = {
     '^.+\\.js$': 'babel-jest'
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(three|three-csg-ts)/)'
+    'node_modules/(?!(three|three-csg-ts))'
   ],
   coverageReporters: ['text', 'lcov', 'html'],
   

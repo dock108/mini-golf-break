@@ -4,6 +4,69 @@
 // Import the base setup
 import './setup.js';
 
+// Mock Three.js WebGLRenderer and Audio for integration tests
+jest.mock('three', () => {
+  const actual = jest.requireActual('three');
+  return {
+    ...actual,
+    WebGLRenderer: jest.fn(() => ({
+      setSize: jest.fn(),
+      setPixelRatio: jest.fn(),
+      getPixelRatio: jest.fn(() => 1.5),
+      setClearColor: jest.fn(),
+      render: jest.fn(),
+      dispose: jest.fn(),
+      getContext: jest.fn(() => ({
+        getExtension: jest.fn(() => ({})),
+        getParameter: jest.fn(() => 'WebGL Mock'),
+        drawingBufferWidth: 1024,
+        drawingBufferHeight: 768
+      })),
+      info: { reset: jest.fn() },
+      shadowMap: {
+        enabled: false,
+        type: 'BasicShadowMap',
+        autoUpdate: true
+      },
+      toneMapping: null,
+      toneMappingExposure: 1.0,
+      outputColorSpace: null,
+      outputEncoding: null,
+      physicallyCorrectLights: true,
+      gammaFactor: 2.2,
+      sortObjects: true,
+      domElement: {
+        style: {},
+        parentNode: null
+      }
+    })),
+    Audio: jest.fn(() => ({
+      setVolume: jest.fn(),
+      play: jest.fn(),
+      stop: jest.fn(),
+      pause: jest.fn(),
+      setBuffer: jest.fn(),
+      gain: {
+        gain: {
+          setTargetAtTime: jest.fn(),
+          value: 1
+        }
+      }
+    })),
+    AudioListener: jest.fn(() => ({
+      getMasterVolume: jest.fn(() => 1),
+      setMasterVolume: jest.fn(),
+      context: {
+        state: 'running',
+        resume: jest.fn()
+      }
+    })),
+    AudioLoader: jest.fn(() => ({
+      load: jest.fn()
+    }))
+  };
+});
+
 // Create EventManager mock that actually publishes events
 jest.mock('../managers/EventManager', () => {
   return {
