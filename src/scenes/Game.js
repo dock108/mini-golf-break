@@ -30,6 +30,8 @@ import { MaterialManager } from '../managers/MaterialManager';
 import { EnvironmentManager } from '../managers/EnvironmentManager';
 import { PostProcessingManager } from '../managers/PostProcessingManager';
 import { LightingManager } from '../managers/LightingManager';
+import { CourseDataManager } from '../managers/CourseDataManager';
+import { CourseFactory } from '../objects/CourseFactory';
 
 /**
  * Game - Main class that orchestrates the mini-golf game
@@ -60,6 +62,7 @@ export class Game {
     this.environmentManager = new EnvironmentManager(this.scene, null, this.materialManager); // renderer will be set later
     this.postProcessingManager = null; // Will be initialized after renderer
     this.lightingManager = null; // Will be initialized after renderer
+    this.courseDataManager = new CourseDataManager(this);
 
     this.cannonDebugRenderer = null;
 
@@ -257,12 +260,13 @@ export class Game {
         throw new Error('PhysicsManager must be initialized before creating the course.');
       }
 
-      const useNineHoleCourse = true; // Or based on a setting
-      if (useNineHoleCourse) {
-        this.course = await NineHoleCourse.create(this);
-      } else {
-        this.course = await BasicCourse.create(this);
-      }
+      // Use the new data-driven approach
+      const courseId = this.getSelectedCourseId(); // Get course selection
+      const courseData = await this.courseDataManager.loadCourse(courseId);
+
+      // Create course factory and build course from data
+      const courseFactory = new CourseFactory(this);
+      this.course = await courseFactory.createCourse(courseData);
 
       if (!this.course || !this.course.currentHoleEntity) {
         throw new Error('Course or initial HoleEntity failed to initialize.');
@@ -290,6 +294,71 @@ export class Game {
     } catch (error) {
       this.debugManager.error('Game.createCourse', 'Failed to create course', error, true);
       console.error('CRITICAL: Failed to create course:', error);
+
+      // Fallback to legacy course creation
+      await this.createLegacyCourse();
+    }
+  }
+
+  /**
+   * Get the selected course ID (for now, return a default)
+   * In the future, this would come from user selection or game state
+   */
+  getSelectedCourseId() {
+    // For now, return a default course
+    // In the future, this could come from:
+    // - User selection
+    // - Game progression
+    // - URL parameters
+    // - Local storage
+    return '../objects/courses/basic-course.json';
+  }
+
+  /**
+   * Fallback method for legacy course creation
+   */
+  async createLegacyCourse() {
+    try {
+      debug.log('[Game.createLegacyCourse] Falling back to legacy course creation...');
+
+      const useNineHoleCourse = true; // Or based on a setting
+      if (useNineHoleCourse) {
+        this.course = await NineHoleCourse.create(this);
+      } else {
+        this.course = await BasicCourse.create(this);
+      }
+
+      if (!this.course || !this.course.currentHoleEntity) {
+        throw new Error('Legacy course creation also failed.');
+      }
+
+      // Set course ref in CameraController
+      if (this.cameraController) {
+        this.cameraController.setCourse(this.course);
+      }
+
+      // Create ball using WORLD start position from course config
+      const worldStartPosition = this.course.getHoleStartPosition();
+      if (worldStartPosition) {
+        this.ballManager.createBall(worldStartPosition);
+      } else {
+        throw new Error('Failed to get world start position for ball creation.');
+      }
+
+      // Position camera for the initial hole
+      if (this.cameraController) {
+        this.cameraController.positionCameraForHole();
+      }
+
+      this.eventManager.publish(EventTypes.COURSE_CREATED, { course: this.course }, this);
+    } catch (error) {
+      this.debugManager.error(
+        'Game.createLegacyCourse',
+        'Legacy course creation failed',
+        error,
+        true
+      );
+      throw error;
     }
   }
 

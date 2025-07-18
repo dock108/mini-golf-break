@@ -196,6 +196,23 @@ jest.mock('../../managers/BallManager', () => ({
   })
 }));
 
+jest.mock('../../controls/CameraController', () => ({
+  CameraController: jest.fn(function (game) {
+    const THREE = require('three');
+    this.game = game;
+    this.camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+    this.controls = {
+      target: new THREE.Vector3(0, 0, 0),
+      update: jest.fn()
+    };
+    this.init = jest.fn();
+    this.setRenderer = jest.fn();
+    this.setCourse = jest.fn();
+    this.positionCameraForHole = jest.fn();
+    this.cleanup = jest.fn();
+  })
+}));
+
 describe('Game Initialization Integration', () => {
   let game;
 

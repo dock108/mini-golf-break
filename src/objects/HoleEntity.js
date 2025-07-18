@@ -694,4 +694,20 @@ export class HoleEntity extends BaseElement {
     // Setting group to null might cause issues if reused, let NineHoleCourse manage it.
     // this.group = null;
   }
+
+  /**
+   * Get the world start position for this hole
+   * @returns {THREE.Vector3} The world start position
+   */
+  getWorldStartPosition() {
+    return this.worldStartPosition.clone();
+  }
+
+  /**
+   * Get the world hole position for this hole
+   * @returns {THREE.Vector3} The world hole position
+   */
+  getWorldHolePosition() {
+    return this.worldHolePosition.clone();
+  }
 }

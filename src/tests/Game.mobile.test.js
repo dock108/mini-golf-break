@@ -122,8 +122,8 @@ jest.mock('three', () => ({
       visible: true,
       userData: {},
       add: jest.fn(),
-      geometry: geometry,
-      material: material
+      geometry,
+      material
     };
   }),
   Raycaster: jest.fn(() => ({
