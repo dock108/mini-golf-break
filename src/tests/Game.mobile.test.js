@@ -148,7 +148,33 @@ jest.mock('three', () => ({
     visible: true,
     geometry: { dispose: jest.fn() },
     material: { dispose: jest.fn() }
-  }))
+  })),
+  TextureLoader: jest.fn(() => ({
+    load: jest.fn((url, onLoad, _onProgress, _onError) => {
+      if (onLoad) {
+        onLoad({});
+      }
+      return {};
+    }),
+    setCrossOrigin: jest.fn(),
+    setPath: jest.fn()
+  })),
+  CubeTextureLoader: jest.fn(() => ({
+    load: jest.fn((urls, onLoad, _onProgress, _onError) => {
+      if (onLoad) {
+        onLoad({});
+      }
+      return {};
+    }),
+    setCrossOrigin: jest.fn(),
+    setPath: jest.fn()
+  })),
+  DataTexture: jest.fn(() => ({
+    needsUpdate: true,
+    dispose: jest.fn()
+  })),
+  RGBAFormat: 'RGBAFormat',
+  RGBFormat: 'RGBFormat'
 }));
 
 // Mock performance API
@@ -338,6 +364,19 @@ describe('Game - Mobile Optimizations', () => {
 
     jest.doMock('../game/ScoringSystem', () => ({
       ScoringSystem: jest.fn(() => ({}))
+    }));
+
+    // Mock PostProcessingManager to avoid Three.js ES module issues
+    jest.doMock('../managers/PostProcessingManager', () => ({
+      PostProcessingManager: jest.fn(() => ({
+        init: jest.fn(),
+        cleanup: jest.fn(),
+        update: jest.fn(),
+        addBloom: jest.fn(),
+        removeBloom: jest.fn(),
+        setBloomIntensity: jest.fn(),
+        render: jest.fn()
+      }))
     }));
 
     // Create game instance

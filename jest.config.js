@@ -7,6 +7,10 @@ module.exports = {
   transform: {
     '^.+\\.js$': 'babel-jest'
   },
+  transformIgnorePatterns: [
+    'node_modules/(?!(three|three-csg-ts)/)'
+  ],
+  coverageReporters: ['text', 'lcov', 'html'],
   
   // Separate projects for different test types
   projects: [
@@ -30,7 +34,6 @@ module.exports = {
         '!src/**/*.spec.js'
       ],
       coverageDirectory: 'coverage',
-      coverageReporters: ['text', 'lcov', 'html', 'json'],
       coverageThreshold: {
         global: {
           functions: 60,

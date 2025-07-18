@@ -132,7 +132,7 @@ describe('WallElement', () => {
     console.error = jest.fn();
 
     // Mock BaseElement prototype methods
-    BaseElement.prototype.create = jest.fn(() => true);
+    BaseElement.prototype.create = jest.fn(() => Promise.resolve(true));
   });
 
   afterEach(() => {
@@ -221,36 +221,36 @@ describe('WallElement', () => {
       wallElement = new WallElement(mockWorld, mockConfig, mockScene);
 
       // Mock the methods that create() calls
-      wallElement.createVisuals = jest.fn();
-      wallElement.createPhysics = jest.fn();
+      wallElement.createVisuals = jest.fn(() => Promise.resolve(true));
+      wallElement.createPhysics = jest.fn(() => true);
     });
 
-    test('should call base create method', () => {
-      wallElement.create();
+    test('should call base create method', async () => {
+      await wallElement.create();
 
       expect(BaseElement.prototype.create).toHaveBeenCalled();
     });
 
-    test('should log creation message', () => {
-      wallElement.create();
+    test('should log creation message', async () => {
+      await wallElement.create();
 
       expect(console.log).toHaveBeenCalledWith('[WallElement] Creating wall Test Wall');
     });
 
-    test('should call createVisuals', () => {
-      wallElement.create();
+    test('should call createVisuals', async () => {
+      await wallElement.create();
 
       expect(wallElement.createVisuals).toHaveBeenCalled();
     });
 
-    test('should call createPhysics', () => {
-      wallElement.create();
+    test('should call createPhysics', async () => {
+      await wallElement.create();
 
       expect(wallElement.createPhysics).toHaveBeenCalled();
     });
 
-    test('should return true', () => {
-      const result = wallElement.create();
+    test('should return true', async () => {
+      const result = await wallElement.create();
 
       expect(result).toBe(true);
     });
@@ -373,7 +373,7 @@ describe('WallElement', () => {
   });
 
   describe('integration scenarios', () => {
-    test('should handle complete wall creation lifecycle', () => {
+    test('should handle complete wall creation lifecycle', async () => {
       wallElement = new WallElement(mockWorld, mockConfig, mockScene);
 
       // Mock methods
@@ -381,7 +381,7 @@ describe('WallElement', () => {
       wallElement.createPhysics = jest.fn();
 
       // Create the wall
-      const result = wallElement.create();
+      const result = await wallElement.create();
 
       expect(result).toBe(true);
       expect(BaseElement.prototype.create).toHaveBeenCalled();
