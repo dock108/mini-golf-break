@@ -18,11 +18,18 @@ async function globalTeardown() {
       const files = await fs.readdir(screenshotsDir);
       const debugFiles = files
         .filter(file => file.startsWith('debug-initialization-failure-'))
-        .map(file => ({
-          name: file,
-          path: path.join(screenshotsDir, file),
-          time: parseInt(file.match(/(\d+)\.png$/)?.[1] || '0')
-        }))
+        .map(file => {
+          // More robust timestamp extraction with validation
+          const match = file.match(/^debug-initialization-failure-(\d+)\.png$/);
+          const timestamp = match ? parseInt(match[1], 10) : null;
+          
+          return {
+            name: file,
+            path: path.join(screenshotsDir, file),
+            time: timestamp
+          };
+        })
+        .filter(file => file.time !== null) // Skip files with invalid timestamps
         .sort((a, b) => b.time - a.time);
       
       // Keep only the 10 most recent debug screenshots

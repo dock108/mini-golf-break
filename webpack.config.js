@@ -101,6 +101,10 @@ module.exports = (env, argv) => {
 
     devServer: {
       static: {
+        // Using 'dist' directory to serve the built files including the injected bundle.js
+        // This aligns with the output.path configuration above (line 18)
+        // webpack automatically creates this directory via output.path if it doesn't exist
+        // writeToDisk: true below ensures files are written to disk in development
         directory: path.join(__dirname, 'dist'),
         publicPath: '/',
       },

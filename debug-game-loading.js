@@ -82,9 +82,36 @@ async function debugGameLoading() {
   
   // Keep browser open for manual inspection
   console.log('\nBrowser is open for manual inspection. Press Ctrl+C to close.');
+  console.log('Or the browser will automatically close after 5 minutes.');
   
-  // Wait indefinitely
-  await new Promise(() => {});
+  // Set up graceful shutdown
+  let shutdownRequested = false;
+  const shutdownPromise = new Promise((resolve) => {
+    // Handle Ctrl+C
+    process.on('SIGINT', () => {
+      console.log('\nShutdown requested. Closing browser...');
+      shutdownRequested = true;
+      resolve();
+    });
+    
+    // Handle terminal close
+    process.on('SIGTERM', () => {
+      shutdownRequested = true;
+      resolve();
+    });
+    
+    // Auto-close after 5 minutes
+    setTimeout(() => {
+      if (!shutdownRequested) {
+        console.log('\nAuto-closing after 5 minutes...');
+        resolve();
+      }
+    }, 5 * 60 * 1000);
+  });
+  
+  await shutdownPromise;
+  await browser.close();
+  console.log('Browser closed.');
 }
 
 debugGameLoading().catch(console.error);

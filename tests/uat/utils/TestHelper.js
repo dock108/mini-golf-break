@@ -198,13 +198,28 @@ export class TestHelper {
         const velocity = window.game.ballManager.ball.body.velocity;
         const speed = velocity.lengthSquared();
         
-        // Log velocity for debugging
-        if (window.debug === true) {
-          console.log('Ball velocity:', speed);
-        }
-        
         return speed < 0.01;
       }, { timeout: 20000 });
+      
+      // Debug log ball velocity if debug mode is enabled
+      if (this.debugMode) {
+        const ballState = await this.page.evaluate(() => {
+          if (!window.game || !window.game.ballManager || !window.game.ballManager.ball) {
+            return null;
+          }
+          const velocity = window.game.ballManager.ball.body.velocity;
+          return {
+            velocityX: velocity.x,
+            velocityY: velocity.y,
+            velocityZ: velocity.z,
+            speed: velocity.lengthSquared()
+          };
+        });
+        
+        if (ballState) {
+          console.log('[TestHelper][DEBUG] Ball stopped with final velocity:', ballState);
+        }
+      }
       
       console.log('[TestHelper] Ball has stopped moving');
     } catch (error) {
