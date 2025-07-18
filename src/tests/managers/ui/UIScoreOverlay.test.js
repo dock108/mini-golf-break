@@ -13,13 +13,13 @@ describe('UIScoreOverlay', () => {
   beforeEach(() => {
     // Mock requestAnimationFrame
     global.requestAnimationFrame = jest.fn(cb => cb());
-    
+
     // Mock document.getElementById and appendChild to track elements
     const elementStore = new Map();
     const querySelectorStore = new Map();
-    
+
     document.getElementById = jest.fn(id => elementStore.get(id) || null);
-    
+
     // Enhanced querySelector mock
     document.querySelector = jest.fn(selector => {
       if (selector === '.scorecard-button') {
@@ -40,7 +40,7 @@ describe('UIScoreOverlay', () => {
       }
       return querySelectorStore.get(selector) || null;
     });
-    
+
     // Mock document.body methods
     document.body.appendChild = jest.fn(element => {
       if (element.id) {
@@ -53,7 +53,7 @@ describe('UIScoreOverlay', () => {
         });
       }
     });
-    
+
     document.body.innerHTML = '';
     document.body.querySelector = jest.fn(selector => document.querySelector(selector));
     // Mock DOM elements
@@ -393,14 +393,14 @@ describe('UIScoreOverlay', () => {
     test('should handle missing scoreElement', () => {
       uiScoreOverlay.init();
       uiScoreOverlay.scoreElement = null;
-      
+
       expect(() => uiScoreOverlay.updateScore()).not.toThrow();
     });
 
     test('should handle missing scoringSystem', () => {
       uiScoreOverlay.init();
       uiScoreOverlay.game.scoringSystem = null;
-      
+
       expect(() => uiScoreOverlay.updateScore()).not.toThrow();
     });
   });
@@ -413,28 +413,28 @@ describe('UIScoreOverlay', () => {
     test('should handle missing strokesElement', () => {
       uiScoreOverlay.init();
       uiScoreOverlay.strokesElement = null;
-      
+
       expect(() => uiScoreOverlay.updateStrokes()).not.toThrow();
     });
 
     test('should handle missing scoringSystem', () => {
       uiScoreOverlay.init();
       uiScoreOverlay.game.scoringSystem = null;
-      
+
       expect(() => uiScoreOverlay.updateStrokes()).not.toThrow();
     });
 
     test('should only update DOM when strokes change', () => {
       uiScoreOverlay.init();
-      
+
       // First update
       uiScoreOverlay.updateStrokes();
       const initialText = uiScoreOverlay.strokesElement.textContent;
-      
+
       // Second update with same value
       uiScoreOverlay.updateStrokes();
       expect(uiScoreOverlay.strokesElement.textContent).toBe(initialText);
-      
+
       // Update with different value
       mockGame.scoringSystem.getCurrentStrokes.mockReturnValue(5);
       uiScoreOverlay.updateStrokes();
@@ -450,18 +450,18 @@ describe('UIScoreOverlay', () => {
     test('should handle regex match for hole description', () => {
       uiScoreOverlay.init();
       mockGame.course.getCurrentHoleConfig = jest.fn(() => ({ description: '1. Test Hole' }));
-      
+
       uiScoreOverlay.updateHoleInfo();
-      
+
       expect(uiScoreOverlay.holeInfoElement.textContent).toBe('Hole 1: Test Hole');
     });
 
     test('should handle description without number prefix', () => {
       uiScoreOverlay.init();
       mockGame.course.getCurrentHoleConfig = jest.fn(() => ({ description: 'Test Hole' }));
-      
+
       uiScoreOverlay.updateHoleInfo();
-      
+
       expect(uiScoreOverlay.holeInfoElement.textContent).toBe('Hole 1: Test Hole');
     });
   });
@@ -475,34 +475,36 @@ describe('UIScoreOverlay', () => {
 
     test('should create and show final scorecard', () => {
       uiScoreOverlay.init();
-      
+
       uiScoreOverlay.showFinalScorecard();
-      
+
       // Test that showFinalScorecard creates a scorecard element
       expect(uiScoreOverlay.scorecardElement).toBeTruthy();
-      expect(uiScoreOverlay.scorecardElement.classList.add).toHaveBeenCalledWith('scorecard-overlay');
+      expect(uiScoreOverlay.scorecardElement.classList.add).toHaveBeenCalledWith(
+        'scorecard-overlay'
+      );
     });
 
     test('should show existing scorecard if already created', () => {
       uiScoreOverlay.init();
-      
+
       // Create scorecard first
       uiScoreOverlay.showFinalScorecard();
       const firstScorecard = document.getElementById('scorecard-overlay');
-      
+
       // Try to show again
       uiScoreOverlay.showFinalScorecard();
       const secondScorecard = document.getElementById('scorecard-overlay');
-      
+
       expect(firstScorecard).toBe(secondScorecard);
     });
 
     test('should display total strokes in scorecard', () => {
       uiScoreOverlay.init();
       mockGame.scoringSystem.getTotalStrokes.mockReturnValue(42);
-      
+
       uiScoreOverlay.showFinalScorecard();
-      
+
       // Test that the scoringSystem method was called
       expect(mockGame.scoringSystem.getTotalStrokes).toHaveBeenCalled();
       expect(uiScoreOverlay.scorecardElement).toBeTruthy();
@@ -510,18 +512,18 @@ describe('UIScoreOverlay', () => {
 
     test('should create play again button', () => {
       uiScoreOverlay.init();
-      
+
       let mockButton;
-      document.querySelector = jest.fn((selector) => {
+      document.querySelector = jest.fn(selector => {
         if (selector === '.scorecard-button') {
           mockButton = mockButton || { textContent: 'Play Again', addEventListener: jest.fn() };
           return mockButton;
         }
         return null;
       });
-      
+
       uiScoreOverlay.showFinalScorecard();
-      
+
       const button = document.querySelector('.scorecard-button');
       expect(button).toBeTruthy();
       expect(button.textContent).toBe('Play Again');
@@ -534,10 +536,10 @@ describe('UIScoreOverlay', () => {
         value: { reload: reloadSpy },
         writable: true
       });
-      
+
       // Test that button is created with the proper event listener
       uiScoreOverlay.showFinalScorecard();
-      
+
       // Verify button creation was attempted
       expect(document.createElement).toHaveBeenCalledWith('button');
     });
@@ -545,13 +547,13 @@ describe('UIScoreOverlay', () => {
     test('should track analytics on play again click', () => {
       uiScoreOverlay.init();
       window.gtag = jest.fn();
-      
+
       // Test analytics setup availability
       uiScoreOverlay.showFinalScorecard();
-      
+
       // Verify the scorecard was created
       expect(uiScoreOverlay.scorecardElement).toBeTruthy();
-      
+
       delete window.gtag;
     });
   });
@@ -565,16 +567,16 @@ describe('UIScoreOverlay', () => {
     test('should hide scorecard element', () => {
       uiScoreOverlay.init();
       uiScoreOverlay.showFinalScorecard();
-      
+
       uiScoreOverlay.hideFinalScorecard();
-      
+
       const scorecardElement = document.getElementById('scorecard-overlay');
       expect(scorecardElement.classList.contains('scorecard-visible')).toBe(false);
     });
 
     test('should handle missing scorecard element', () => {
       uiScoreOverlay.init();
-      
+
       expect(() => uiScoreOverlay.hideFinalScorecard()).not.toThrow();
     });
   });
@@ -587,11 +589,14 @@ describe('UIScoreOverlay', () => {
     test('should log placeholder message', () => {
       const debugSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
       uiScoreOverlay.init();
-      
+
       uiScoreOverlay.updateScorecard();
-      
+
       // The debug log will include [DEBUG] prefix
-      expect(debugSpy).toHaveBeenCalledWith('[DEBUG]', '[UIScoreOverlay.updateScorecard] Placeholder called.');
+      expect(debugSpy).toHaveBeenCalledWith(
+        '[DEBUG]',
+        '[UIScoreOverlay.updateScorecard] Placeholder called.'
+      );
       debugSpy.mockRestore();
     });
   });

@@ -482,26 +482,26 @@ describe('PhysicsWorld', () => {
     test('should ignore collisions during grace period', () => {
       const callback = jest.fn();
       physicsWorld.setCollisionCallback(callback);
-      
+
       // Simulate collision immediately after creation
       const event = { type: 'collision' };
       physicsWorld._collisionCallback(event);
-      
+
       expect(callback).not.toHaveBeenCalled();
     });
 
     test('should handle collisions after grace period', () => {
       const callback = jest.fn();
       physicsWorld.setCollisionCallback(callback);
-      
+
       // Advance time past grace period (which is 2000ms as per the code)
       Date.now = jest.fn(() => physicsWorld.creationTime + 2500);
-      
+
       // Get the wrapped callback and call it
       const wrappedCallback = physicsWorld._collisionCallback;
       const event = { type: 'collision' };
       wrappedCallback(event);
-      
+
       expect(callback).toHaveBeenCalledWith(event);
     });
 
@@ -509,12 +509,14 @@ describe('PhysicsWorld', () => {
       const logSpy = jest.spyOn(console, 'log').mockImplementation();
       const callback = jest.fn();
       physicsWorld.setCollisionCallback(callback);
-      
+
       // Simulate collision during grace period
       const event = { type: 'collision' };
       physicsWorld._collisionCallback(event);
-      
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('[PhysicsWorld] Ignoring collision during grace period'));
+
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[PhysicsWorld] Ignoring collision during grace period')
+      );
       logSpy.mockRestore();
     });
   });
@@ -522,10 +524,10 @@ describe('PhysicsWorld', () => {
   describe('collision callback edge cases', () => {
     test('should handle null callback in wrapper', () => {
       physicsWorld.setCollisionCallback(null);
-      
+
       // Set time past grace period
       Date.now = jest.fn(() => physicsWorld.creationTime + 200);
-      
+
       // Should not throw when calling wrapper with null callback
       const event = { type: 'collision' };
       expect(() => {
@@ -536,26 +538,29 @@ describe('PhysicsWorld', () => {
     test('should replace existing collision callback', () => {
       const callback1 = jest.fn();
       const callback2 = jest.fn();
-      
+
       physicsWorld.setCollisionCallback(callback1);
       const firstWrapper = physicsWorld._collisionCallback;
-      
+
       physicsWorld.setCollisionCallback(callback2);
       const secondWrapper = physicsWorld._collisionCallback;
-      
+
       // Should have different wrapper functions
       expect(firstWrapper).not.toBe(secondWrapper);
-      
+
       // Should have removed the first listener
-      expect(physicsWorld.world.removeEventListener).toHaveBeenCalledWith('beginContact', firstWrapper);
-      
+      expect(physicsWorld.world.removeEventListener).toHaveBeenCalledWith(
+        'beginContact',
+        firstWrapper
+      );
+
       // Set time past grace period
       Date.now = jest.fn(() => physicsWorld.creationTime + 2500);
-      
+
       // Trigger collision with new callback
       const event = { type: 'collision' };
       secondWrapper(event);
-      
+
       expect(callback1).not.toHaveBeenCalled();
       expect(callback2).toHaveBeenCalledWith(event);
     });
@@ -564,7 +569,7 @@ describe('PhysicsWorld', () => {
   describe('debug logging branches', () => {
     test('should log contact materials when available', () => {
       const logSpy = jest.spyOn(console, 'log').mockImplementation();
-      
+
       // Add contact materials to mock world
       physicsWorld.world.contactmaterials = [
         {
@@ -574,17 +579,17 @@ describe('PhysicsWorld', () => {
           ]
         }
       ];
-      
+
       // Trigger the logging by accessing an internal method that logs
       // Since the logging happens in constructor, we need to create a new instance
       const PhysicsWorld = require('../../physics/PhysicsWorld').PhysicsWorld;
       new PhysicsWorld();
-      
+
       expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining('[PhysicsWorld] World contact materials'),
         expect.any(Array)
       );
-      
+
       logSpy.mockRestore();
     });
   });
@@ -592,7 +597,7 @@ describe('PhysicsWorld', () => {
   describe('error recovery', () => {
     test('should continue after world bodies error', () => {
       const errorSpy = jest.spyOn(console, 'error').mockImplementation();
-      
+
       // Create getter that throws
       let shouldThrow = true;
       Object.defineProperty(physicsWorld.world, 'bodies', {
@@ -605,51 +610,46 @@ describe('PhysicsWorld', () => {
         },
         configurable: true
       });
-      
+
       // Should not throw
       expect(() => physicsWorld.update(16)).not.toThrow();
-      
-      expect(errorSpy).toHaveBeenCalledWith(
-        'Error in physics update:',
-        expect.any(Error)
-      );
-      
+
+      expect(errorSpy).toHaveBeenCalledWith('Error in physics update:', expect.any(Error));
+
       errorSpy.mockRestore();
     });
 
     test('should handle missing world during debug', () => {
       const logSpy = jest.spyOn(console, 'log').mockImplementation();
-      
+
       // Enable debug
       physicsWorld.debugLogging = true;
-      
+
       // Temporarily make world null
       const originalWorld = physicsWorld.world;
       physicsWorld.world = null;
-      
+
       // Should not throw
       expect(() => physicsWorld.update(16)).not.toThrow();
-      
+
       // Restore world
       physicsWorld.world = originalWorld;
-      
+
       logSpy.mockRestore();
     });
 
     test('should handle debug logging without ball reference', () => {
       const logSpy = jest.spyOn(console, 'log').mockImplementation();
-      
+
       // Enable debug by mocking Math.random to trigger debug logging
       const originalRandom = Math.random;
       Math.random = jest.fn(() => 0.0001); // Less than debugRate
-      
+
       physicsWorld.update(16);
-      
+
       // Should log debug info
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining('DEBUG PhysicsWorld.update')
-      );
-      
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('DEBUG PhysicsWorld.update'));
+
       Math.random = originalRandom;
       logSpy.mockRestore();
     });
@@ -658,24 +658,24 @@ describe('PhysicsWorld', () => {
   describe('body management edge cases', () => {
     test('should handle body with userData', () => {
       const ballBody = { userData: { isBall: true } };
-      
+
       expect(() => physicsWorld.addBody(ballBody)).not.toThrow();
       expect(physicsWorld.world.addBody).toHaveBeenCalledWith(ballBody);
     });
 
     test('should handle body without userData', () => {
       const body = {};
-      
+
       expect(() => physicsWorld.addBody(body)).not.toThrow();
       expect(physicsWorld.world.addBody).toHaveBeenCalledWith(body);
     });
 
     test('should handle removing body', () => {
       const ballBody = { userData: { isBall: true } };
-      
+
       physicsWorld.addBody(ballBody);
       physicsWorld.removeBody(ballBody);
-      
+
       expect(physicsWorld.world.removeBody).toHaveBeenCalledWith(ballBody);
     });
   });

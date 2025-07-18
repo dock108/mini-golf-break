@@ -106,10 +106,10 @@ describe('StarfieldManager', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Mock console.log
     jest.spyOn(console, 'log').mockImplementation(() => {});
-    
+
     // Mock setTimeout
     jest.spyOn(global, 'setTimeout').mockImplementation((callback, delay) => {
       // Store callback for manual execution in tests
@@ -170,15 +170,16 @@ describe('StarfieldManager', () => {
   describe('generateStarCatalog', () => {
     test('should generate stars with correct proportions', () => {
       const catalog = starfieldManager.generateStarCatalog();
-      
+
       // Check proportions are roughly correct
       const totalExpected = starfieldManager.settings.starCount;
-      const actualTotal = catalog.mainSequence.length + 
-                         catalog.giants.length + 
-                         catalog.dwarfs.length + 
-                         catalog.binaries.length + 
-                         catalog.variables.length;
-      
+      const actualTotal =
+        catalog.mainSequence.length +
+        catalog.giants.length +
+        catalog.dwarfs.length +
+        catalog.binaries.length +
+        catalog.variables.length;
+
       expect(actualTotal).toBeGreaterThan(totalExpected * 0.95); // Allow 5% variance
       expect(catalog.mainSequence.length).toBeGreaterThan(totalExpected * 0.75);
       expect(catalog.giants.length).toBeGreaterThan(0);
@@ -187,7 +188,7 @@ describe('StarfieldManager', () => {
 
     test('should create stars with proper properties', () => {
       const catalog = starfieldManager.generateStarCatalog();
-      
+
       const mainStar = catalog.mainSequence[0];
       expect(mainStar).toHaveProperty('position');
       expect(mainStar).toHaveProperty('brightness');
@@ -199,7 +200,7 @@ describe('StarfieldManager', () => {
 
     test('should create binary stars with dual positions', () => {
       const catalog = starfieldManager.generateStarCatalog();
-      
+
       if (catalog.binaries.length > 0) {
         const binaryStar = catalog.binaries[0];
         expect(binaryStar).toHaveProperty('position');
@@ -211,7 +212,7 @@ describe('StarfieldManager', () => {
 
     test('should create variable stars with variation properties', () => {
       const catalog = starfieldManager.generateStarCatalog();
-      
+
       if (catalog.variables.length > 0) {
         const variableStar = catalog.variables[0];
         expect(variableStar).toHaveProperty('baseBrightness');
@@ -228,7 +229,9 @@ describe('StarfieldManager', () => {
 
       expect(starfieldManager.starField).toBeDefined();
       expect(starfieldManager.galaxyBackground).toBeDefined();
-      expect(starfieldManager.shootingStars.length).toBe(starfieldManager.settings.maxShootingStars);
+      expect(starfieldManager.shootingStars.length).toBe(
+        starfieldManager.settings.maxShootingStars
+      );
       expect(mockScene.add).toHaveBeenCalled();
       expect(console.log).toHaveBeenCalledWith(
         expect.stringContaining('[StarfieldManager] Initialized with')
@@ -276,7 +279,9 @@ describe('StarfieldManager', () => {
 
       const material = starfieldManager.starField.material;
       expect(material.uniforms.twinkleSpeed.value).toBe(starfieldManager.settings.starTwinkleSpeed);
-      expect(material.uniforms.twinkleIntensity.value).toBe(starfieldManager.settings.starTwinkleIntensity);
+      expect(material.uniforms.twinkleIntensity.value).toBe(
+        starfieldManager.settings.starTwinkleIntensity
+      );
     });
   });
 
@@ -313,7 +318,9 @@ describe('StarfieldManager', () => {
     test('should create maximum number of shooting stars', () => {
       starfieldManager.setupShootingStarSystem();
 
-      expect(starfieldManager.shootingStars.length).toBe(starfieldManager.settings.maxShootingStars);
+      expect(starfieldManager.shootingStars.length).toBe(
+        starfieldManager.settings.maxShootingStars
+      );
       expect(mockScene.add).toHaveBeenCalledTimes(starfieldManager.settings.maxShootingStars);
     });
 
@@ -342,9 +349,13 @@ describe('StarfieldManager', () => {
 
     test('should not create shooting star when none available', () => {
       // Make all stars visible
-      starfieldManager.shootingStars.forEach(star => { star.visible = true; });
+      starfieldManager.shootingStars.forEach(star => {
+        star.visible = true;
+      });
 
-      const initialVisibleCount = starfieldManager.shootingStars.filter(star => star.visible).length;
+      const initialVisibleCount = starfieldManager.shootingStars.filter(
+        star => star.visible
+      ).length;
       starfieldManager.createShootingStar();
 
       const finalVisibleCount = starfieldManager.shootingStars.filter(star => star.visible).length;
@@ -409,7 +420,7 @@ describe('StarfieldManager', () => {
     test('should update shooting star uniforms', () => {
       // Create a visible shooting star
       starfieldManager.createShootingStar();
-      
+
       starfieldManager.update(0.016);
 
       const visibleStar = starfieldManager.shootingStars.find(star => star.visible);
@@ -421,7 +432,7 @@ describe('StarfieldManager', () => {
     test('should create shooting stars based on frequency', () => {
       starfieldManager.time = 6; // Past the 5 second threshold
       starfieldManager.lastShootingStarTime = 0;
-      
+
       // Mock random to guarantee shooting star creation
       jest.spyOn(Math, 'random').mockReturnValue(0.01); // Less than shootingStarFrequency
 
@@ -440,7 +451,7 @@ describe('StarfieldManager', () => {
         expect(position).toHaveProperty('x');
         expect(position).toHaveProperty('y');
         expect(position).toHaveProperty('z');
-        
+
         // Check that it creates a THREE.Vector3
         expect(THREE.Vector3).toHaveBeenCalled();
       });
@@ -542,7 +553,7 @@ describe('StarfieldManager', () => {
 
       expect(starfieldManager.starField.visible).toBe(false);
       expect(starfieldManager.galaxyBackground.visible).toBe(false);
-      
+
       starfieldManager.shootingStars.forEach(star => {
         expect(star.visible).toBe(false);
       });
@@ -551,7 +562,7 @@ describe('StarfieldManager', () => {
     test('should preserve shooting star visibility when setting to true', () => {
       // First make a shooting star visible
       starfieldManager.shootingStars[0].visible = true;
-      
+
       starfieldManager.setVisible(true);
 
       expect(starfieldManager.starField.visible).toBe(true);
@@ -570,7 +581,7 @@ describe('StarfieldManager', () => {
 
       expect(mockScene.remove).toHaveBeenCalledWith(starfieldManager.starField);
       expect(mockScene.remove).toHaveBeenCalledWith(starfieldManager.galaxyBackground);
-      
+
       // Should remove all shooting stars
       starfieldManager.shootingStars.forEach(star => {
         expect(mockScene.remove).toHaveBeenCalledWith(star);
@@ -588,7 +599,7 @@ describe('StarfieldManager', () => {
       expect(starField.material.dispose).toHaveBeenCalled();
       expect(galaxyBackground.geometry.dispose).toHaveBeenCalled();
       expect(galaxyBackground.material.dispose).toHaveBeenCalled();
-      
+
       shootingStars.forEach(star => {
         expect(star.geometry.dispose).toHaveBeenCalled();
         expect(star.material.dispose).toHaveBeenCalled();
