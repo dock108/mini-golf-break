@@ -619,7 +619,7 @@ export class InputController {
   onTouchEnd(event) {
     // Reset pinch distance when touches end
     if (event.touches.length < 2) {
-      this.pinchDistance = 0;
+      this.pinchDistance = null;
     }
 
     // Check if we were actually dragging (pointer was down)
