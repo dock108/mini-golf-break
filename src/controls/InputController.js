@@ -590,7 +590,7 @@ export class InputController {
 
       // If we have a previous distance, calculate zoom
       if (this.pinchDistance) {
-        const zoomDelta = this.pinchDistance / currentDistance;
+        const zoomDelta = currentDistance / this.pinchDistance;
         this.handlePinchZoom(zoomDelta);
       }
 
