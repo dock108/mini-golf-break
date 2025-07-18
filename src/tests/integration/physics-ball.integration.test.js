@@ -67,6 +67,13 @@ describe('Physics and Ball Integration', () => {
         info: jest.fn(),
         enabled: false
       },
+      materialManager: {
+        createBallMaterial: jest.fn(() => ({
+          dispose: jest.fn(),
+          needsUpdate: false,
+          envMap: null
+        }))
+      },
       course: {
         currentHole: {
           teePosition: { x: 0, y: 0, z: 0 },

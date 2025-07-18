@@ -180,6 +180,16 @@ export class GameLoopManager {
       }
     }
 
+    // 1.5b Update environment effects
+    if (this.game.environmentManager) {
+      this.game.environmentManager.update(this.deltaTime);
+    }
+
+    // 1.5c Update lighting effects
+    if (this.game.lightingManager) {
+      this.game.lightingManager.update(this.deltaTime);
+    }
+
     // 1.6 Update Ad Ships
     if (this.game.adShipManager) {
       // Get ball position (if available)
@@ -209,7 +219,14 @@ export class GameLoopManager {
     if (this.game.performanceManager) {
       this.game.performanceManager.startTimer('render');
     }
-    this.game.renderer.render(this.game.scene, this.game.camera);
+
+    // Use post-processing manager if available, otherwise standard render
+    if (this.game.postProcessingManager) {
+      this.game.postProcessingManager.render(this.deltaTime);
+    } else {
+      this.game.renderer.render(this.game.scene, this.game.camera);
+    }
+
     if (this.game.performanceManager) {
       this.game.performanceManager.endTimer('render');
     }

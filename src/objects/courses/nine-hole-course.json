@@ -1,0 +1,603 @@
+{
+  "id": "nine-hole-course",
+  "name": "Nine Hole Championship Course",
+  "author": "Mini Golf Break Team",
+  "description": "A challenging 9-hole championship course with varied obstacles and space-themed challenges",
+  "version": "1.0.0",
+  "metadata": {
+    "difficulty": "hard",
+    "theme": "deep-space",
+    "tags": ["championship", "challenging", "complete-course"],
+    "estimatedPlayTime": "45-60 minutes",
+    "unlockRequirement": "basic-course",
+    "achievements": [
+      {
+        "id": "nine_hole_ace",
+        "name": "Space Ace",
+        "description": "Get a hole-in-one on any hole"
+      },
+      {
+        "id": "nine_hole_complete",
+        "name": "Space Champion",
+        "description": "Complete the Nine Hole Championship Course"
+      },
+      {
+        "id": "under_par_nine",
+        "name": "Cosmic Master",
+        "description": "Complete the course 5 under par"
+      }
+    ],
+    "environment": {
+      "skybox": "deep-space-nebula",
+      "lighting": {
+        "preset": "championship",
+        "ambientColor": "0x303050",
+        "ambientIntensity": 0.3,
+        "directionalColor": "0xffffff",
+        "directionalIntensity": 1.2,
+        "directionalPosition": [15, 25, 15],
+        "shadowEnabled": true,
+        "shadowMapSize": 4096
+      },
+      "fog": {
+        "enabled": true,
+        "color": "0x000033",
+        "near": 100,
+        "far": 300
+      },
+      "postProcessing": {
+        "bloom": {
+          "enabled": true,
+          "intensity": 0.8,
+          "threshold": 0.6
+        },
+        "toneMappingExposure": 1.2
+      }
+    },
+    "audio": {
+      "backgroundMusic": "epic-space-theme",
+      "volume": 0.7,
+      "soundEffects": {
+        "ballHit": "power-click",
+        "holeComplete": "victory-fanfare",
+        "hazardHit": "energy-zap"
+      }
+    }
+  },
+  "elements": [
+    {
+      "type": "hole",
+      "id": "hole_1",
+      "name": "Launch Pad",
+      "index": 0,
+      "position": [0, 0, 0],
+      "holePosition": [0, 0, -7],
+      "startPosition": [0, 0, 8],
+      "par": 2,
+      "description": "Welcome to space golf!",
+      "difficulty": "easy",
+      "boundaryShape": [
+        [-5, -10],
+        [-5, 10],
+        [5, 10],
+        [5, -10],
+        [-5, -10]
+      ],
+      "materials": {
+        "surface": "launch-pad",
+        "walls": "reinforced-hull",
+        "hole": "launch-tube"
+      },
+      "lighting": {
+        "spotlights": [
+          {
+            "position": [0, 5, 0],
+            "target": [0, 0, 0],
+            "color": "0x00ff00",
+            "intensity": 0.8,
+            "angle": 0.6
+          }
+        ]
+      },
+      "hazards": [],
+      "bumpers": [
+        {
+          "position": [-2, 0.25, 0],
+          "size": [0.5, 0.5, 3],
+          "rotation": [0, 0.52, 0],
+          "restitution": 0.8,
+          "material": "energy-bumper"
+        },
+        {
+          "position": [2, 0.25, 0],
+          "size": [0.5, 0.5, 3],
+          "rotation": [0, -0.52, 0],
+          "restitution": 0.8,
+          "material": "energy-bumper"
+        }
+      ],
+      "decorations": [
+        {
+          "type": "launch-flames",
+          "position": [0, 0, 9],
+          "scale": [2, 2, 2],
+          "animation": "flicker"
+        }
+      ]
+    },
+    {
+      "type": "hole",
+      "id": "hole_2",
+      "name": "Asteroid Field",
+      "index": 1,
+      "position": [30, 0, 0],
+      "holePosition": [30, 0, -12],
+      "startPosition": [30, 0, 12],
+      "par": 4,
+      "description": "Navigate through the asteroid field",
+      "difficulty": "medium",
+      "boundaryShape": [
+        [-8, -15],
+        [-8, 15],
+        [8, 15],
+        [8, -15],
+        [-8, -15]
+      ],
+      "materials": {
+        "surface": "asteroid-rock",
+        "walls": "space-debris",
+        "hole": "gravity-well"
+      },
+      "lighting": {
+        "spotlights": [
+          {
+            "position": [30, 6, 0],
+            "target": [30, 0, 0],
+            "color": "0x666666",
+            "intensity": 0.9,
+            "angle": 1.0
+          }
+        ]
+      },
+      "hazards": [
+        {
+          "type": "asteroid",
+          "id": "asteroid_1",
+          "position": [28, 0, 0],
+          "radius": 1.5,
+          "material": "space-rock",
+          "effect": "ball-bounce",
+          "restitution": 0.9
+        },
+        {
+          "type": "asteroid",
+          "id": "asteroid_2",
+          "position": [32, 0, -6],
+          "radius": 2.0,
+          "material": "space-rock",
+          "effect": "ball-bounce",
+          "restitution": 0.9
+        }
+      ],
+      "decorations": [
+        {
+          "type": "floating-debris",
+          "position": [25, 2, 5],
+          "scale": [0.5, 0.5, 0.5],
+          "animation": "slow-rotate"
+        }
+      ]
+    },
+    {
+      "type": "hole",
+      "id": "hole_3",
+      "name": "Meteor Shower",
+      "index": 2,
+      "position": [0, 0, 50],
+      "holePosition": [0, 0, 35],
+      "startPosition": [0, 0, 65],
+      "par": 3,
+      "description": "Time your shot between meteor strikes",
+      "difficulty": "hard",
+      "boundaryShape": [
+        [-6, -18],
+        [-6, 18],
+        [6, 18],
+        [6, -18],
+        [-6, -18]
+      ],
+      "materials": {
+        "surface": "impact-resistant",
+        "walls": "meteor-shield",
+        "hole": "crater-rim"
+      },
+      "lighting": {
+        "spotlights": [
+          {
+            "position": [0, 8, 50],
+            "target": [0, 0, 50],
+            "color": "0xff4400",
+            "intensity": 1.0,
+            "angle": 0.8
+          }
+        ]
+      },
+      "hazards": [
+        {
+          "type": "meteor-strike",
+          "id": "meteor_zone_1",
+          "position": [-2, 0, 50],
+          "radius": 2.0,
+          "timing": {
+            "interval": 3000,
+            "duration": 500,
+            "offset": 0
+          },
+          "effect": "ball-blast",
+          "material": "meteor-impact"
+        },
+        {
+          "type": "meteor-strike",
+          "id": "meteor_zone_2",
+          "position": [2, 0, 45],
+          "radius": 1.5,
+          "timing": {
+            "interval": 4000,
+            "duration": 600,
+            "offset": 1500
+          },
+          "effect": "ball-blast",
+          "material": "meteor-impact"
+        }
+      ],
+      "decorations": [
+        {
+          "type": "meteor-trail",
+          "position": [0, 10, 50],
+          "scale": [1, 1, 5],
+          "animation": "streak"
+        }
+      ]
+    },
+    {
+      "type": "hole",
+      "id": "hole_4",
+      "name": "Gravity Well",
+      "index": 3,
+      "position": [80, 0, 0],
+      "holePosition": [80, 0, -10],
+      "startPosition": [80, 0, 10],
+      "par": 3,
+      "description": "Use gravity to your advantage",
+      "difficulty": "medium",
+      "boundaryShape": [
+        [-7, -13],
+        [-7, 13],
+        [7, 13],
+        [7, -13],
+        [-7, -13]
+      ],
+      "materials": {
+        "surface": "gravity-field",
+        "walls": "distortion-barrier",
+        "hole": "event-horizon"
+      },
+      "lighting": {
+        "spotlights": [
+          {
+            "position": [80, 5, 0],
+            "target": [80, 0, 0],
+            "color": "0x4400ff",
+            "intensity": 0.7,
+            "angle": 1.2
+          }
+        ]
+      },
+      "hazards": [
+        {
+          "type": "gravity-well",
+          "id": "central_well",
+          "position": [80, 0, 0],
+          "radius": 3.0,
+          "strength": 0.5,
+          "effect": "ball-attract",
+          "material": "space-time-distortion"
+        }
+      ],
+      "decorations": [
+        {
+          "type": "gravity-distortion",
+          "position": [80, 0, 0],
+          "scale": [4, 4, 4],
+          "animation": "ripple"
+        }
+      ]
+    },
+    {
+      "type": "hole",
+      "id": "hole_5",
+      "name": "Space Station Corridor",
+      "index": 4,
+      "position": [0, 0, 100],
+      "holePosition": [0, 0, 85],
+      "startPosition": [0, 0, 115],
+      "par": 4,
+      "description": "Navigate the narrow station corridor",
+      "difficulty": "medium",
+      "boundaryShape": [
+        [-3, -18],
+        [-3, 18],
+        [3, 18],
+        [3, -18],
+        [-3, -18]
+      ],
+      "materials": {
+        "surface": "station-deck",
+        "walls": "reinforced-bulkhead",
+        "hole": "airlock-entrance"
+      },
+      "lighting": {
+        "spotlights": [
+          {
+            "position": [0, 3, 100],
+            "target": [0, 0, 100],
+            "color": "0xffffff",
+            "intensity": 0.6,
+            "angle": 0.4
+          }
+        ]
+      },
+      "hazards": [
+        {
+          "type": "energy-barrier",
+          "id": "barrier_1",
+          "position": [0, 0, 105],
+          "size": [4, 1, 0.2],
+          "timing": {
+            "interval": 2000,
+            "duration": 1000
+          },
+          "effect": "ball-stop",
+          "material": "energy-field"
+        }
+      ],
+      "decorations": [
+        {
+          "type": "corridor-lights",
+          "position": [0, 2, 100],
+          "scale": [6, 0.1, 30],
+          "animation": "pulse"
+        }
+      ]
+    },
+    {
+      "type": "hole",
+      "id": "hole_6",
+      "name": "Nebula Drift",
+      "index": 5,
+      "position": [150, 0, 0],
+      "holePosition": [150, 0, -15],
+      "startPosition": [150, 0, 15],
+      "par": 5,
+      "description": "Float through the colorful nebula",
+      "difficulty": "easy",
+      "boundaryShape": [
+        [-10, -20],
+        [-10, 20],
+        [10, 20],
+        [10, -20],
+        [-10, -20]
+      ],
+      "materials": {
+        "surface": "nebula-cloud",
+        "walls": "gas-barrier",
+        "hole": "stellar-nursery"
+      },
+      "lighting": {
+        "spotlights": [
+          {
+            "position": [150, 8, 0],
+            "target": [150, 0, 0],
+            "color": "0xff88cc",
+            "intensity": 0.5,
+            "angle": 1.5
+          }
+        ]
+      },
+      "hazards": [],
+      "decorations": [
+        {
+          "type": "nebula-particles",
+          "position": [150, 0, 0],
+          "scale": [20, 10, 30],
+          "animation": "swirl"
+        }
+      ]
+    },
+    {
+      "type": "hole",
+      "id": "hole_7",
+      "name": "Binary Stars",
+      "index": 6,
+      "position": [0, 0, 200],
+      "holePosition": [0, 0, 180],
+      "startPosition": [0, 0, 220],
+      "par": 4,
+      "description": "Navigate between the twin stars",
+      "difficulty": "hard",
+      "boundaryShape": [
+        [-12, -25],
+        [-12, 25],
+        [12, 25],
+        [12, -25],
+        [-12, -25]
+      ],
+      "materials": {
+        "surface": "stellar-material",
+        "walls": "fusion-containment",
+        "hole": "corona-gateway"
+      },
+      "lighting": {
+        "spotlights": [
+          {
+            "position": [-5, 10, 200],
+            "target": [-5, 0, 200],
+            "color": "0xffff00",
+            "intensity": 1.5,
+            "angle": 0.8
+          },
+          {
+            "position": [5, 10, 200],
+            "target": [5, 0, 200],
+            "color": "0xff6600",
+            "intensity": 1.5,
+            "angle": 0.8
+          }
+        ]
+      },
+      "hazards": [
+        {
+          "type": "solar-flare",
+          "id": "star_left",
+          "position": [-5, 0, 200],
+          "radius": 3.0,
+          "timing": {
+            "interval": 5000,
+            "duration": 1000
+          },
+          "effect": "ball-repel",
+          "material": "stellar-plasma"
+        },
+        {
+          "type": "solar-flare",
+          "id": "star_right",
+          "position": [5, 0, 200],
+          "radius": 3.0,
+          "timing": {
+            "interval": 5000,
+            "duration": 1000,
+            "offset": 2500
+          },
+          "effect": "ball-repel",
+          "material": "stellar-plasma"
+        }
+      ],
+      "decorations": [
+        {
+          "type": "stellar-corona",
+          "position": [0, 0, 200],
+          "scale": [8, 8, 8],
+          "animation": "stellar-wind"
+        }
+      ]
+    },
+    {
+      "type": "hole",
+      "id": "hole_8",
+      "name": "Wormhole Transit",
+      "index": 7,
+      "position": [300, 0, 0],
+      "holePosition": [300, 0, -20],
+      "startPosition": [300, 0, 20],
+      "par": 3,
+      "description": "Travel through space-time",
+      "difficulty": "hard",
+      "boundaryShape": [
+        [-8, -25],
+        [-8, 25],
+        [8, 25],
+        [8, -25],
+        [-8, -25]
+      ],
+      "materials": {
+        "surface": "space-time-fabric",
+        "walls": "dimensional-barrier",
+        "hole": "wormhole-mouth"
+      },
+      "lighting": {
+        "spotlights": [
+          {
+            "position": [300, 6, 0],
+            "target": [300, 0, 0],
+            "color": "0x8800ff",
+            "intensity": 0.8,
+            "angle": 1.0
+          }
+        ]
+      },
+      "hazards": [
+        {
+          "type": "wormhole",
+          "id": "portal_1",
+          "position": [300, 0, 5],
+          "targetPosition": [300, 0, -15],
+          "radius": 2.0,
+          "effect": "ball-teleport",
+          "material": "space-time-distortion"
+        }
+      ],
+      "decorations": [
+        {
+          "type": "space-time-ripple",
+          "position": [300, 0, 0],
+          "scale": [6, 6, 6],
+          "animation": "dimensional-tear"
+        }
+      ]
+    },
+    {
+      "type": "hole",
+      "id": "hole_9",
+      "name": "Black Hole Championship",
+      "index": 8,
+      "position": [0, 0, 350],
+      "holePosition": [0, 0, 325],
+      "startPosition": [0, 0, 375],
+      "par": 5,
+      "description": "The ultimate challenge - putt near the event horizon",
+      "difficulty": "extreme",
+      "boundaryShape": [
+        [-15, -30],
+        [-15, 30],
+        [15, 30],
+        [15, -30],
+        [-15, -30]
+      ],
+      "materials": {
+        "surface": "accretion-disk",
+        "walls": "hawking-radiation",
+        "hole": "event-horizon"
+      },
+      "lighting": {
+        "spotlights": [
+          {
+            "position": [0, 12, 350],
+            "target": [0, 0, 350],
+            "color": "0x000000",
+            "intensity": 0.1,
+            "angle": 2.0
+          }
+        ]
+      },
+      "hazards": [
+        {
+          "type": "black-hole",
+          "id": "singularity",
+          "position": [0, 0, 340],
+          "radius": 5.0,
+          "strength": 2.0,
+          "effect": "ball-destroy",
+          "material": "event-horizon"
+        }
+      ],
+      "decorations": [
+        {
+          "type": "accretion-disk",
+          "position": [0, 0, 340],
+          "scale": [12, 1, 12],
+          "animation": "orbital-decay"
+        }
+      ]
+    }
+  ]
+}

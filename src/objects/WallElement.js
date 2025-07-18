@@ -7,7 +7,7 @@ import { BaseElement } from './BaseElement';
  * Demonstrates how to create a specialized course element extending BaseElement
  */
 export class WallElement extends BaseElement {
-  constructor(world, config, scene) {
+  constructor(world, config, scene, game = null) {
     // Ensure config has required fields with defaults
     const wallConfig = {
       ...config,
@@ -18,6 +18,9 @@ export class WallElement extends BaseElement {
 
     // Call base constructor
     super(world, wallConfig, scene);
+
+    // Store game reference for MaterialManager access
+    this.game = game;
 
     // Wall-specific properties
     this.width = config.width || 4;
@@ -31,14 +34,14 @@ export class WallElement extends BaseElement {
    * Create the wall
    * @override
    */
-  create() {
+  async create() {
     // Call base implementation first
     super.create();
 
     console.log(`[WallElement] Creating wall ${this.name}`);
 
     // Create visuals
-    this.createVisuals();
+    await this.createVisuals();
 
     // Create physics
     this.createPhysics();
@@ -50,15 +53,21 @@ export class WallElement extends BaseElement {
    * Create visual components for the wall
    * @override
    */
-  createVisuals() {
+  async createVisuals() {
     // Create a box geometry for the wall
     const wallGeometry = new THREE.BoxGeometry(this.width, this.height, this.depth);
-    const wallMaterial = new THREE.MeshStandardMaterial({
-      color: this.color,
-      roughness: 0.7,
-      metalness: 0.2,
-      side: THREE.DoubleSide
-    });
+    const wallMaterial =
+      this.game && this.game.materialManager
+        ? await this.game.materialManager.createWallMaterial({
+            type: 'tech',
+            color: this.color
+          })
+        : new THREE.MeshStandardMaterial({
+            color: this.color,
+            roughness: 0.7,
+            metalness: 0.2,
+            side: THREE.DoubleSide
+          });
 
     const wallMesh = new THREE.Mesh(wallGeometry, wallMaterial);
 

@@ -26,6 +26,12 @@ import { HoleCompletionManager } from '../managers/HoleCompletionManager';
 import { GameLoopManager } from '../managers/GameLoopManager';
 import { EventManager } from '../managers/EventManager';
 import { PerformanceManager } from '../managers/PerformanceManager';
+import { MaterialManager } from '../managers/MaterialManager';
+import { EnvironmentManager } from '../managers/EnvironmentManager';
+import { PostProcessingManager } from '../managers/PostProcessingManager';
+import { LightingManager } from '../managers/LightingManager';
+import { CourseDataManager } from '../managers/CourseDataManager';
+import { CourseFactory } from '../objects/CourseFactory';
 
 /**
  * Game - Main class that orchestrates the mini-golf game
@@ -52,6 +58,11 @@ export class Game {
     this.holeTransitionManager = new HoleTransitionManager(this);
     this.holeCompletionManager = new HoleCompletionManager(this);
     this.gameLoopManager = new GameLoopManager(this);
+    this.materialManager = new MaterialManager();
+    this.environmentManager = new EnvironmentManager(this.scene, null, this.materialManager); // renderer will be set later
+    this.postProcessingManager = null; // Will be initialized after renderer
+    this.lightingManager = null; // Will be initialized after renderer
+    this.courseDataManager = new CourseDataManager(this);
 
     this.cannonDebugRenderer = null;
 
@@ -85,12 +96,37 @@ export class Game {
    */
   async init() {
     try {
-      // Setup renderer first
-      this.renderer = new THREE.WebGLRenderer({ antialias: true });
+      // Setup renderer first with enhanced PBR configuration
+      this.renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        powerPreference: 'high-performance',
+        precision: 'highp',
+        alpha: false
+      });
       this.renderer.setSize(window.innerWidth, window.innerHeight);
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap for performance
+
+      // Enhanced shadow configuration
       this.renderer.shadowMap.enabled = true;
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-      this.renderer.setClearColor(0x000000); // Black background for space
+      this.renderer.shadowMap.autoUpdate = true;
+
+      // PBR Color Management
+      this.renderer.outputEncoding = THREE.sRGBEncoding;
+      this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      this.renderer.toneMappingExposure = 1.0;
+      this.renderer.setClearColor(0x000000, 1.0); // Black background for space
+
+      // Performance and Quality Settings
+      this.renderer.physicallyCorrectLights = true; // Important for PBR
+      this.renderer.gammaFactor = 2.2;
+      this.renderer.sortObjects = true;
+
+      // Enable extensions for better quality
+      const gl = this.renderer.getContext();
+      if (gl.getExtension('EXT_texture_filter_anisotropic')) {
+        // Anisotropic filtering will be configured per texture
+      }
 
       // Initialize managers in appropriate order with proper dependency management
 
@@ -106,11 +142,24 @@ export class Game {
       this.uiManager.init();
       this.uiManager.attachRenderer(this.renderer);
 
-      // Set the scene background to black for space environment
-      this.scene.background = new THREE.Color(0x000000);
+      // Initialize visual enhancement managers now that renderer is ready
+      this.materialManager.setRenderer(this.renderer);
+      this.environmentManager.renderer = this.renderer;
+      await this.environmentManager.init();
 
-      // Create starfield for space environment
-      this.createStarfield();
+      // Initialize post-processing manager
+      this.postProcessingManager = new PostProcessingManager(
+        this.renderer,
+        this.scene,
+        this.camera
+      );
+
+      // Initialize lighting manager
+      this.lightingManager = new LightingManager(this.scene, this.renderer);
+      this.lightingManager.init();
+
+      // Remove manual starfield creation - handled by EnvironmentManager now
+      // The environment manager will handle the scene background and starfield
 
       // Initialize camera controller after renderer is created
       this.cameraController.setRenderer(this.renderer);
@@ -136,8 +185,8 @@ export class Game {
       this.visualEffectsManager.init();
 
       // Add space decorations
-      this.spaceDecorations = new SpaceDecorations(this.scene);
-      this.spaceDecorations.init();
+      this.spaceDecorations = new SpaceDecorations(this.scene, this);
+      await this.spaceDecorations.init();
 
       debug.log('[Game.init] Awaiting createCourse...');
       await this.createCourse();
@@ -146,8 +195,7 @@ export class Game {
       // Initialize the ball manager after the course is created
       this.ballManager.init();
 
-      // Setup lights
-      this.setupLights();
+      // Lighting is now handled by LightingManager
 
       // Create input controller - depends on camera and ball
       this.inputController = new InputController(this);
@@ -200,61 +248,6 @@ export class Game {
   }
 
   /**
-   * Create starfield background
-   */
-  createStarfield() {
-    // Create star points for background starfield
-    const starGeometry = new THREE.BufferGeometry();
-    const starMaterial = new THREE.PointsMaterial({
-      color: 0xffffff,
-      size: 0.1,
-      transparent: true
-    });
-
-    const starVertices = [];
-    for (let i = 0; i < 10000; i++) {
-      const x = (Math.random() - 0.5) * 2000;
-      const y = (Math.random() - 0.5) * 2000;
-      const z = (Math.random() - 0.5) * 2000;
-      starVertices.push(x, y, z);
-    }
-
-    starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-    const stars = new THREE.Points(starGeometry, starMaterial);
-
-    // Add userData to identify this as a starfield object
-    stars.userData.type = 'starfield';
-
-    this.scene.add(stars);
-  }
-
-  /**
-   * Set up scene lights
-   */
-  setupLights() {
-    // Add ambient light
-    this.lights.ambient = new THREE.AmbientLight(0x404040, 1);
-    this.scene.add(this.lights.ambient);
-
-    // Add directional light for shadows
-    this.lights.directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-    this.lights.directionalLight.position.set(10, 20, 15);
-    this.lights.directionalLight.castShadow = true;
-
-    // Configure shadow settings
-    this.lights.directionalLight.shadow.mapSize.width = 2048;
-    this.lights.directionalLight.shadow.mapSize.height = 2048;
-    this.lights.directionalLight.shadow.camera.near = 0.5;
-    this.lights.directionalLight.shadow.camera.far = 50;
-    this.lights.directionalLight.shadow.camera.left = -20;
-    this.lights.directionalLight.shadow.camera.right = 20;
-    this.lights.directionalLight.shadow.camera.top = 20;
-    this.lights.directionalLight.shadow.camera.bottom = -20;
-
-    this.scene.add(this.lights.directionalLight);
-  }
-
-  /**
    * Create the golf course environment
    */
   async createCourse() {
@@ -267,12 +260,13 @@ export class Game {
         throw new Error('PhysicsManager must be initialized before creating the course.');
       }
 
-      const useNineHoleCourse = true; // Or based on a setting
-      if (useNineHoleCourse) {
-        this.course = await NineHoleCourse.create(this);
-      } else {
-        this.course = await BasicCourse.create(this);
-      }
+      // Use the new data-driven approach
+      const courseId = this.getSelectedCourseId(); // Get course selection
+      const courseData = await this.courseDataManager.loadCourse(courseId);
+
+      // Create course factory and build course from data
+      const courseFactory = new CourseFactory(this);
+      this.course = await courseFactory.createCourse(courseData);
 
       if (!this.course || !this.course.currentHoleEntity) {
         throw new Error('Course or initial HoleEntity failed to initialize.');
@@ -300,6 +294,71 @@ export class Game {
     } catch (error) {
       this.debugManager.error('Game.createCourse', 'Failed to create course', error, true);
       console.error('CRITICAL: Failed to create course:', error);
+
+      // Fallback to legacy course creation
+      await this.createLegacyCourse();
+    }
+  }
+
+  /**
+   * Get the selected course ID (for now, return a default)
+   * In the future, this would come from user selection or game state
+   */
+  getSelectedCourseId() {
+    // For now, return a default course
+    // In the future, this could come from:
+    // - User selection
+    // - Game progression
+    // - URL parameters
+    // - Local storage
+    return '../objects/courses/basic-course.json';
+  }
+
+  /**
+   * Fallback method for legacy course creation
+   */
+  async createLegacyCourse() {
+    try {
+      debug.log('[Game.createLegacyCourse] Falling back to legacy course creation...');
+
+      const useNineHoleCourse = true; // Or based on a setting
+      if (useNineHoleCourse) {
+        this.course = await NineHoleCourse.create(this);
+      } else {
+        this.course = await BasicCourse.create(this);
+      }
+
+      if (!this.course || !this.course.currentHoleEntity) {
+        throw new Error('Legacy course creation also failed.');
+      }
+
+      // Set course ref in CameraController
+      if (this.cameraController) {
+        this.cameraController.setCourse(this.course);
+      }
+
+      // Create ball using WORLD start position from course config
+      const worldStartPosition = this.course.getHoleStartPosition();
+      if (worldStartPosition) {
+        this.ballManager.createBall(worldStartPosition);
+      } else {
+        throw new Error('Failed to get world start position for ball creation.');
+      }
+
+      // Position camera for the initial hole
+      if (this.cameraController) {
+        this.cameraController.positionCameraForHole();
+      }
+
+      this.eventManager.publish(EventTypes.COURSE_CREATED, { course: this.course }, this);
+    } catch (error) {
+      this.debugManager.error(
+        'Game.createLegacyCourse',
+        'Legacy course creation failed',
+        error,
+        true
+      );
+      throw error;
     }
   }
 
@@ -311,6 +370,11 @@ export class Game {
       this.renderer.setSize(window.innerWidth, window.innerHeight);
 
       // The camera aspect ratio update is handled by the CameraController
+
+      // Update post-processing manager
+      if (this.postProcessingManager) {
+        this.postProcessingManager.handleResize();
+      }
     }
   }
 
@@ -367,6 +431,10 @@ export class Game {
         'audioManager',
         'physicsManager',
         'visualEffectsManager',
+        'postProcessingManager',
+        'lightingManager',
+        'environmentManager',
+        'materialManager',
         'cameraController',
         'uiManager',
         'stateManager',

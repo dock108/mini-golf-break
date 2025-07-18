@@ -526,10 +526,129 @@ describe('HazardFactory', () => {
       expect(result).toHaveProperty('bodies');
     });
 
-    test('should handle course bounds constraints', () => {
+    test('should handle course bounds constraints with CSG operations', () => {
       // Update course bounds to have valid dimensions
       mockCourseBounds.width = 20;
       mockCourseBounds.length = 40;
+
+      const hazardConfig = {
+        type: 'sand',
+        shape: 'circle',
+        position: { x: 0, y: 0, z: 0 },
+        size: { radius: 2 },
+        depth: 0.3
+      };
+
+      const result = HazardFactory.createHazard(
+        mockWorld,
+        mockGroup,
+        hazardConfig,
+        1.0,
+        mockCourseBounds
+      );
+
+      // Verify basic functionality works
+      expect(consoleLogSpy).toHaveBeenCalled();
+      expect(result.meshes).toBeDefined();
+      expect(result.bodies).toBeDefined();
+      expect(Array.isArray(result.meshes)).toBe(true);
+      expect(Array.isArray(result.bodies)).toBe(true);
+
+      // Should log course bounds constraint detection
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[HazardFactory] Will constrain hazards to course boundaries: 20x40'
+        )
+      );
+    });
+
+    test('should handle course bounds constraints with rectangle shape', () => {
+      mockCourseBounds.width = 20;
+      mockCourseBounds.length = 40;
+
+      const hazardConfig = {
+        type: 'sand',
+        shape: 'rectangle',
+        position: { x: 0, y: 0, z: 0 },
+        size: { width: 4, length: 6 },
+        depth: 0.2
+      };
+
+      const result = HazardFactory.createHazard(
+        mockWorld,
+        mockGroup,
+        hazardConfig,
+        1.0,
+        mockCourseBounds
+      );
+
+      expect(result.meshes).toBeDefined();
+      expect(result.bodies).toBeDefined();
+      expect(Array.isArray(result.meshes)).toBe(true);
+      expect(Array.isArray(result.bodies)).toBe(true);
+
+      // Should log course bounds constraint detection
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[HazardFactory] Will constrain hazards to course boundaries: 20x40'
+        )
+      );
+    });
+
+    test('should handle water hazard with course bounds', () => {
+      mockCourseBounds.width = 20;
+      mockCourseBounds.length = 40;
+
+      const hazardConfig = {
+        type: 'water',
+        shape: 'circle',
+        position: { x: 5, y: 0, z: 8 },
+        size: { radius: 3 },
+        depth: 0.15
+      };
+
+      const result = HazardFactory.createHazard(
+        mockWorld,
+        mockGroup,
+        hazardConfig,
+        1.0,
+        mockCourseBounds
+      );
+
+      expect(result.meshes).toBeDefined();
+      expect(result.bodies).toBeDefined();
+      expect(Array.isArray(result.meshes)).toBe(true);
+      expect(Array.isArray(result.bodies)).toBe(true);
+    });
+
+    test('should handle compound shape with course bounds', () => {
+      mockCourseBounds.width = 20;
+      mockCourseBounds.length = 40;
+
+      const hazardConfig = {
+        type: 'sand',
+        shape: 'compound',
+        position: { x: 0, y: 0, z: 0 },
+        subShapes: [
+          { position: { x: 0, z: 0 }, radius: 2 },
+          { position: { x: 3, z: 0 }, radius: 1.5 }
+        ]
+      };
+
+      const result = HazardFactory.createHazard(
+        mockWorld,
+        mockGroup,
+        hazardConfig,
+        1.0,
+        mockCourseBounds
+      );
+
+      expect(result.meshes).toBeDefined();
+      expect(result.bodies).toBeDefined();
+    });
+
+    test('should handle invalid course bounds', () => {
+      const invalidCourseBounds = { width: 0, length: 0 };
 
       const hazardConfig = {
         type: 'sand',
@@ -543,11 +662,11 @@ describe('HazardFactory', () => {
         mockGroup,
         hazardConfig,
         1.0,
-        mockCourseBounds
+        invalidCourseBounds
       );
 
-      // Console logging is called internally
-      expect(consoleLogSpy).toHaveBeenCalled();
+      expect(result.meshes).toBeDefined();
+      expect(result.bodies).toBeDefined();
     });
 
     test('should handle missing position in config', () => {
@@ -610,6 +729,100 @@ describe('HazardFactory', () => {
       expect(result).toHaveProperty('meshes');
       expect(result).toHaveProperty('bodies');
       // userData setting is handled internally by the implementation
+    });
+
+    test('should handle water hazard with rectangle shape and CSG', () => {
+      mockCourseBounds.width = 15;
+      mockCourseBounds.length = 30;
+
+      const hazardConfig = {
+        type: 'water',
+        shape: 'rectangle',
+        position: { x: 2, y: 0, z: 3 },
+        size: { width: 5, length: 8 },
+        depth: 0.1
+      };
+
+      const result = HazardFactory.createHazard(
+        mockWorld,
+        mockGroup,
+        hazardConfig,
+        1.0,
+        mockCourseBounds
+      );
+
+      expect(result.meshes).toBeDefined();
+      expect(result.bodies).toBeDefined();
+      expect(Array.isArray(result.meshes)).toBe(true);
+      expect(Array.isArray(result.bodies)).toBe(true);
+    });
+
+    test('should handle different depth values', () => {
+      const hazardConfig = {
+        type: 'sand',
+        shape: 'circle',
+        position: { x: 0, y: 0, z: 0 },
+        size: { radius: 1.5 },
+        depth: 0.5 // Custom depth
+      };
+
+      const result = HazardFactory.createHazard(
+        mockWorld,
+        mockGroup,
+        hazardConfig,
+        2.0, // Different visualGreenY
+        mockCourseBounds
+      );
+
+      expect(result.meshes).toBeDefined();
+      expect(result.bodies).toBeDefined();
+    });
+
+    test('should handle hazards without course bounds (infinite bounds)', () => {
+      const hazardConfig = {
+        type: 'sand',
+        shape: 'circle',
+        position: { x: 0, y: 0, z: 0 },
+        size: { radius: 2 }
+      };
+
+      // No course bounds - should use direct geometry without CSG
+      const result = HazardFactory.createHazard(
+        mockWorld,
+        mockGroup,
+        hazardConfig,
+        1.0,
+        null // No course bounds
+      );
+
+      expect(result.meshes).toBeDefined();
+      expect(result.bodies).toBeDefined();
+      // Should not call CSG logging
+      expect(consoleLogSpy).not.toHaveBeenCalledWith(expect.stringContaining('CSG intersection'));
+    });
+
+    test('should handle zero-sized course bounds', () => {
+      const invalidCourseBounds = { width: 0, length: 0 };
+
+      const hazardConfig = {
+        type: 'water',
+        shape: 'rectangle',
+        position: { x: 0, y: 0, z: 0 },
+        size: { width: 3, length: 4 }
+      };
+
+      const result = HazardFactory.createHazard(
+        mockWorld,
+        mockGroup,
+        hazardConfig,
+        1.0,
+        invalidCourseBounds
+      );
+
+      expect(result.meshes).toBeDefined();
+      expect(result.bodies).toBeDefined();
+      // Should not use CSG with invalid bounds
+      expect(consoleLogSpy).not.toHaveBeenCalledWith(expect.stringContaining('CSG intersection'));
     });
   });
 });

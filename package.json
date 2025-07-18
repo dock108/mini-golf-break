@@ -39,6 +39,7 @@
     "quality:full": "npm run lint && npm run format:check && npm run test:coverage && npm run build",
     "quality:security": "npm run quality && npm run security",
     "pre-commit": "lint-staged",
+    "test:precommit": "node scripts/test-precommit.js",
     "prepare": "husky"
   },
   "devDependencies": {

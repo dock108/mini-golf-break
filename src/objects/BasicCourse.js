@@ -168,7 +168,7 @@ export class BasicCourse extends CoursesManager {
       console.log(`[BasicCourse.initializeHole] Found config for hole ${holeIndex + 1}`);
 
       console.log('[BasicCourse.initializeHole] Creating HoleEntity...');
-      this.currentHole = new HoleEntity(this.physicsWorld, holeConfig, this.scene);
+      this.currentHole = new HoleEntity(this.physicsWorld, holeConfig, this.scene, this.game);
 
       // Call init() after construction to set up geometry, physics, etc.
       this.currentHole.init();

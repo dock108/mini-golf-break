@@ -48,21 +48,15 @@ export class Ball {
     this.defaultLinearDamping = 0.85; // Increased from 0.7 for faster stopping
     this.bunkerLinearDamping = 0.98;
 
-    // Create materials for the ball
-    this.defaultMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffffff, // Pure white golf ball
-      roughness: 0.3,
-      metalness: 0.2,
-      emissive: 0x333333, // Slight glow to be visible in space
-      emissiveIntensity: 0.3
+    // Create materials for the ball using MaterialManager
+    this.defaultMaterial = this.game.materialManager.createBallMaterial({
+      type: 'classic',
+      color: 0xffffff
     });
 
-    this.successMaterial = new THREE.MeshStandardMaterial({
-      color: 0x00ff00, // Green for success
-      roughness: 0.2,
-      metalness: 0.3,
-      emissive: 0x00ff00, // Strong green glow
-      emissiveIntensity: 0.8 // Brighter glow for success
+    this.successMaterial = this.game.materialManager.createBallMaterial({
+      type: 'plasma',
+      color: 0x00ff00
     });
 
     // Create the ball

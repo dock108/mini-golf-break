@@ -7,7 +7,7 @@ import { BaseElement } from './BaseElement';
  * Demonstrates how to create a specialized course element extending BaseElement
  */
 export class BunkerElement extends BaseElement {
-  constructor(world, config, scene) {
+  constructor(world, config, scene, game = null) {
     // Ensure config has required fields with defaults
     const bunkerConfig = {
       ...config,
@@ -19,6 +19,9 @@ export class BunkerElement extends BaseElement {
     // Call base constructor
     super(world, bunkerConfig, scene);
 
+    // Store game reference for MaterialManager access
+    this.game = game;
+
     // Bunker-specific properties
     this.radius = config.radius || 2;
     this.depth = config.depth || 0.3;
@@ -29,14 +32,14 @@ export class BunkerElement extends BaseElement {
    * Create the bunker
    * @override
    */
-  create() {
+  async create() {
     // Call base implementation first
     super.create();
 
     console.log(`[BunkerElement] Creating sand bunker ${this.name}`);
 
     // Create visuals
-    this.createVisuals();
+    await this.createVisuals();
 
     // Create physics
     this.createPhysics();
@@ -48,15 +51,22 @@ export class BunkerElement extends BaseElement {
    * Create visual components for the bunker
    * @override
    */
-  createVisuals() {
+  async createVisuals() {
     // Create the depression visually representing the bunker
     // This can be a simple plane with sand texture
-    const sandMaterial = new THREE.MeshStandardMaterial({
-      color: this.sandColor,
-      roughness: 0.9,
-      metalness: 0.1,
-      side: THREE.DoubleSide
-    });
+    const sandMaterial =
+      this.game && this.game.materialManager
+        ? await this.game.materialManager.createCourseMaterial({
+            type: 'grass', // Use grass type but with sand color for natural look
+            color: this.sandColor,
+            repeat: { x: 2, y: 2 }
+          })
+        : new THREE.MeshStandardMaterial({
+            color: this.sandColor,
+            roughness: 0.9,
+            metalness: 0.1,
+            side: THREE.DoubleSide
+          });
 
     // Create a slightly concave surface for the bunker
     const segments = 32;
@@ -90,7 +100,7 @@ export class BunkerElement extends BaseElement {
     this.meshes.push(sandMesh);
 
     // Optionally add some detail like sand pebbles or footprints
-    this.addSandDetails();
+    await this.addSandDetails();
 
     console.log(`[BunkerElement] Created sand bunker visuals with radius ${this.radius}`);
     return true;
@@ -99,15 +109,22 @@ export class BunkerElement extends BaseElement {
   /**
    * Add detailed elements to make the sand look more realistic
    */
-  addSandDetails() {
+  async addSandDetails() {
     // Add small random bumps to simulate sand texture
     const detailCount = Math.floor(this.radius * 15);
     const detailGeometry = new THREE.SphereGeometry(0.03, 8, 8);
-    const detailMaterial = new THREE.MeshStandardMaterial({
-      color: this.sandColor,
-      roughness: 1.0,
-      metalness: 0.0
-    });
+    const detailMaterial =
+      this.game && this.game.materialManager
+        ? await this.game.materialManager.createCourseMaterial({
+            type: 'grass',
+            color: this.sandColor,
+            repeat: { x: 1, y: 1 }
+          })
+        : new THREE.MeshStandardMaterial({
+            color: this.sandColor,
+            roughness: 1.0,
+            metalness: 0.0
+          });
 
     const detailGroup = new THREE.Group();
 

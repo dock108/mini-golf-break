@@ -1,0 +1,228 @@
+{
+  "id": "basic-course",
+  "name": "Basic Course",
+  "author": "Mini Golf Break Team",
+  "description": "A simple three-hole course perfect for beginners",
+  "version": "1.0.0",
+  "metadata": {
+    "difficulty": "easy",
+    "theme": "space-station",
+    "tags": ["beginner", "tutorial", "simple"],
+    "estimatedPlayTime": "10-15 minutes",
+    "unlockRequirement": null,
+    "achievements": [
+      {
+        "id": "first_hole_in_one",
+        "name": "Lucky Shot",
+        "description": "Get your first hole-in-one",
+        "hole": 0
+      },
+      {
+        "id": "basic_course_complete",
+        "name": "Space Rookie",
+        "description": "Complete the Basic Course"
+      }
+    ],
+    "environment": {
+      "skybox": "space-station",
+      "lighting": {
+        "preset": "tutorial",
+        "ambientColor": "0x505050",
+        "ambientIntensity": 0.4,
+        "directionalColor": "0xffffff",
+        "directionalIntensity": 0.8,
+        "directionalPosition": [10, 15, 10],
+        "shadowEnabled": true,
+        "shadowMapSize": 1024
+      },
+      "fog": {
+        "enabled": false
+      },
+      "postProcessing": {
+        "bloom": {
+          "enabled": true,
+          "intensity": 0.3,
+          "threshold": 0.9
+        },
+        "toneMappingExposure": 0.9
+      }
+    },
+    "audio": {
+      "backgroundMusic": "space-calm",
+      "volume": 0.5,
+      "soundEffects": {
+        "ballHit": "soft-click",
+        "holeComplete": "gentle-chime",
+        "hazardHit": "water-splash"
+      }
+    }
+  },
+  "elements": [
+    {
+      "type": "hole",
+      "id": "hole_1",
+      "name": "Straight Shot",
+      "index": 0,
+      "position": [0, 0, 0],
+      "holePosition": [0, 0, -8],
+      "startPosition": [0, 0, 8],
+      "courseWidth": 4,
+      "courseLength": 20,
+      "par": 3,
+      "description": "A simple straight shot to get started",
+      "difficulty": "easy",
+      "materials": {
+        "surface": "basic-metal",
+        "walls": "simple-panel",
+        "hole": "standard-rim"
+      },
+      "lighting": {
+        "spotlights": [
+          {
+            "position": [0, 2, 0],
+            "target": [0, 0, 0],
+            "color": "0xffffff",
+            "intensity": 0.4,
+            "angle": 1.2
+          }
+        ]
+      },
+      "hazards": [],
+      "decorations": []
+    },
+    {
+      "type": "hole",
+      "id": "hole_2", 
+      "name": "Dogleg Right with Snowman Bunker",
+      "index": 1,
+      "position": [20, 0, 0],
+      "holePosition": [24, 0, 8],
+      "startPosition": [20, 0, -8],
+      "courseWidth": 6,
+      "courseLength": 24,
+      "par": 4,
+      "description": "Navigate around the snowman-shaped sand trap",
+      "difficulty": "medium",
+      "materials": {
+        "surface": "textured-metal",
+        "walls": "reinforced-panel",
+        "hole": "glowing-rim"
+      },
+      "lighting": {
+        "spotlights": [
+          {
+            "position": [22, 3, 0],
+            "target": [22, 0, 0],
+            "color": "0xffffcc",
+            "intensity": 0.6,
+            "angle": 1.0
+          }
+        ]
+      },
+      "hazards": [
+        {
+          "type": "sand",
+          "id": "snowman_bunker",
+          "name": "Snowman Bunker",
+          "shape": "compound",
+          "depth": 0.25,
+          "position": [22, 0, 0],
+          "material": "fine-sand",
+          "sandColor": "0xE6C388",
+          "effect": "ball-slow",
+          "subShapes": [
+            {
+              "position": {"x": 0, "z": 1.2},
+              "radius": 1.0
+            },
+            {
+              "position": {"x": 0, "z": -0.8},
+              "radius": 1.5
+            }
+          ]
+        }
+      ],
+      "decorations": [
+        {
+          "type": "warning-sign",
+          "position": [21, 0.5, 2],
+          "text": "SAND TRAP AHEAD"
+        }
+      ]
+    },
+    {
+      "type": "hole",
+      "id": "hole_3",
+      "name": "Dogleg Right with Water Hazard",
+      "index": 2,
+      "position": [40, 0, 0],
+      "holePosition": [44, 0, 8],
+      "startPosition": [40, 0, -8],
+      "courseWidth": 6,
+      "courseLength": 24,
+      "par": 4,
+      "description": "Same layout as hole 2, but with water instead of sand",
+      "difficulty": "medium",
+      "materials": {
+        "surface": "anti-slip-metal",
+        "walls": "water-resistant-panel",
+        "hole": "splash-rim"
+      },
+      "lighting": {
+        "spotlights": [
+          {
+            "position": [42, 3, 0],
+            "target": [42, 0, 0],
+            "color": "0x88ccff",
+            "intensity": 0.7,
+            "angle": 1.0
+          }
+        ]
+      },
+      "hazards": [
+        {
+          "type": "water",
+          "id": "snowman_water",
+          "name": "Snowman Water Hazard",
+          "shape": "compound",
+          "depth": 0.15,
+          "position": [42, 0, 0],
+          "material": "space-water",
+          "waterColor": "0x4488cc",
+          "effect": "ball-reset",
+          "subShapes": [
+            {
+              "position": {"x": 0, "z": 1.2},
+              "radius": 1.0
+            },
+            {
+              "position": {"x": 0, "z": -0.8},
+              "radius": 1.5
+            }
+          ],
+          "effects": {
+            "particles": "water-splash",
+            "sound": "water-impact",
+            "waves": {
+              "enabled": true,
+              "amplitude": 0.05,
+              "frequency": 2.0
+            }
+          }
+        }
+      ],
+      "decorations": [
+        {
+          "type": "warning-sign",
+          "position": [41, 0.5, 2],
+          "text": "WATER HAZARD"
+        },
+        {
+          "type": "floating-debris",
+          "position": [42.5, 0.1, 0.5],
+          "scale": [0.3, 0.3, 0.3]
+        }
+      ]
+    }
+  ]
+}

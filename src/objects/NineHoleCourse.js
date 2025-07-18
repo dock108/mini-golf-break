@@ -567,7 +567,7 @@ export class NineHoleCourse extends CoursesManager {
         `[NineHoleCourse.initializeHole] Creating HoleEntity for hole ${holeIndex + 1}...`
       );
       try {
-        this.currentHoleEntity = new HoleEntity(physicsWorld, holeConfig, scene);
+        this.currentHoleEntity = new HoleEntity(physicsWorld, holeConfig, scene, this.game);
 
         // Initialize the hole (create visual and physics elements)
         await this.currentHoleEntity.init();

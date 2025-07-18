@@ -226,6 +226,14 @@ describe('Ball', () => {
       eventManager: {
         publish: jest.fn(),
         getEventTypes: jest.fn(() => EventTypes)
+      },
+      materialManager: {
+        createBallMaterial: jest.fn(() => ({
+          // Mock Three.js material
+          dispose: jest.fn(),
+          needsUpdate: false,
+          envMap: null
+        }))
       }
     };
 
