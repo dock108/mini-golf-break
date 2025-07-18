@@ -21,8 +21,42 @@ export class MaterialManager {
     // Base texture path
     this.basePath = './assets/textures/';
 
+    // Renderer capabilities
+    this.maxAnisotropy = null;
+
     // Initialize default textures
     this.initializeDefaultTextures();
+  }
+
+  /**
+   * Get maximum anisotropy supported by the renderer
+   * @returns {number} Maximum anisotropy level
+   */
+  getMaxAnisotropy() {
+    if (this.maxAnisotropy === null) {
+      // Try to get renderer from global context or default to 1
+      try {
+        const renderer = window.THREE_RENDERER || null;
+        if (renderer) {
+          this.maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
+        } else {
+          this.maxAnisotropy = 4; // Conservative default
+        }
+      } catch (error) {
+        this.maxAnisotropy = 4; // Fallback
+      }
+    }
+    return this.maxAnisotropy;
+  }
+
+  /**
+   * Set renderer reference for capability detection
+   * @param {THREE.WebGLRenderer} renderer
+   */
+  setRenderer(renderer) {
+    if (renderer && renderer.capabilities) {
+      this.maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
+    }
   }
 
   /**
@@ -87,9 +121,19 @@ export class MaterialManager {
           if (options.repeat) {
             texture.repeat.set(options.repeat.x, options.repeat.y);
           }
-          if (options.anisotropy) {
+
+          // Enhanced texture quality settings
+          if (options.anisotropy !== undefined) {
             texture.anisotropy = options.anisotropy;
+          } else {
+            // Default to max anisotropy for better quality
+            texture.anisotropy = Math.min(16, this.getMaxAnisotropy());
           }
+
+          // Improve texture filtering
+          texture.magFilter = THREE.LinearFilter;
+          texture.minFilter = THREE.LinearMipmapLinearFilter;
+          texture.generateMipmaps = true;
 
           // Set color space for diffuse textures
           if (options.encoding) {

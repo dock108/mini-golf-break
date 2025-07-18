@@ -185,6 +185,11 @@ export class GameLoopManager {
       this.game.environmentManager.update(this.deltaTime);
     }
 
+    // 1.5c Update lighting effects
+    if (this.game.lightingManager) {
+      this.game.lightingManager.update(this.deltaTime);
+    }
+
     // 1.6 Update Ad Ships
     if (this.game.adShipManager) {
       // Get ball position (if available)

@@ -29,6 +29,7 @@ import { PerformanceManager } from '../managers/PerformanceManager';
 import { MaterialManager } from '../managers/MaterialManager';
 import { EnvironmentManager } from '../managers/EnvironmentManager';
 import { PostProcessingManager } from '../managers/PostProcessingManager';
+import { LightingManager } from '../managers/LightingManager';
 
 /**
  * Game - Main class that orchestrates the mini-golf game
@@ -58,6 +59,7 @@ export class Game {
     this.materialManager = new MaterialManager();
     this.environmentManager = new EnvironmentManager(this.scene, null); // renderer will be set later
     this.postProcessingManager = null; // Will be initialized after renderer
+    this.lightingManager = null; // Will be initialized after renderer
 
     this.cannonDebugRenderer = null;
 
@@ -91,17 +93,37 @@ export class Game {
    */
   async init() {
     try {
-      // Setup renderer first
-      this.renderer = new THREE.WebGLRenderer({ antialias: true });
+      // Setup renderer first with enhanced PBR configuration
+      this.renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        powerPreference: 'high-performance',
+        precision: 'highp',
+        alpha: false
+      });
       this.renderer.setSize(window.innerWidth, window.innerHeight);
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap for performance
+
+      // Enhanced shadow configuration
       this.renderer.shadowMap.enabled = true;
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-      this.renderer.setClearColor(0x000000); // Black background for space
+      this.renderer.shadowMap.autoUpdate = true;
 
-      // Configure renderer for proper color management
+      // PBR Color Management
       this.renderer.outputEncoding = THREE.sRGBEncoding;
       this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
       this.renderer.toneMappingExposure = 1.0;
+      this.renderer.setClearColor(0x000000, 1.0); // Black background for space
+
+      // Performance and Quality Settings
+      this.renderer.physicallyCorrectLights = true; // Important for PBR
+      this.renderer.gammaFactor = 2.2;
+      this.renderer.sortObjects = true;
+
+      // Enable extensions for better quality
+      const gl = this.renderer.getContext();
+      if (gl.getExtension('EXT_texture_filter_anisotropic')) {
+        // Anisotropic filtering will be configured per texture
+      }
 
       // Initialize managers in appropriate order with proper dependency management
 
@@ -118,6 +140,7 @@ export class Game {
       this.uiManager.attachRenderer(this.renderer);
 
       // Initialize visual enhancement managers now that renderer is ready
+      this.materialManager.setRenderer(this.renderer);
       this.environmentManager.renderer = this.renderer;
       await this.environmentManager.init();
 
@@ -127,6 +150,10 @@ export class Game {
         this.scene,
         this.camera
       );
+
+      // Initialize lighting manager
+      this.lightingManager = new LightingManager(this.scene, this.renderer);
+      this.lightingManager.init();
 
       // Remove manual starfield creation - handled by EnvironmentManager now
       // The environment manager will handle the scene background and starfield
@@ -165,8 +192,7 @@ export class Game {
       // Initialize the ball manager after the course is created
       this.ballManager.init();
 
-      // Setup lights
-      this.setupLights();
+      // Lighting is now handled by LightingManager
 
       // Create input controller - depends on camera and ball
       this.inputController = new InputController(this);
@@ -216,35 +242,6 @@ export class Game {
     if (this.inputController) {
       this.inputController.enableInput();
     }
-  }
-
-  /**
-   * Set up scene lights
-   */
-  setupLights() {
-    // Add ambient light
-    this.lights.ambient = new THREE.AmbientLight(0x404040, 1);
-    this.scene.add(this.lights.ambient);
-
-    // Store reference for EnvironmentManager
-    this.scene.userData.ambientLight = this.lights.ambient;
-
-    // Add directional light for shadows
-    this.lights.directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-    this.lights.directionalLight.position.set(10, 20, 15);
-    this.lights.directionalLight.castShadow = true;
-
-    // Configure shadow settings
-    this.lights.directionalLight.shadow.mapSize.width = 2048;
-    this.lights.directionalLight.shadow.mapSize.height = 2048;
-    this.lights.directionalLight.shadow.camera.near = 0.5;
-    this.lights.directionalLight.shadow.camera.far = 50;
-    this.lights.directionalLight.shadow.camera.left = -20;
-    this.lights.directionalLight.shadow.camera.right = 20;
-    this.lights.directionalLight.shadow.camera.top = 20;
-    this.lights.directionalLight.shadow.camera.bottom = -20;
-
-    this.scene.add(this.lights.directionalLight);
   }
 
   /**
@@ -366,6 +363,7 @@ export class Game {
         'physicsManager',
         'visualEffectsManager',
         'postProcessingManager',
+        'lightingManager',
         'environmentManager',
         'materialManager',
         'cameraController',
