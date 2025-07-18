@@ -1,13 +1,16 @@
 import * as THREE from 'three';
+import { SkyboxGenerator } from '../utils/SkyboxGenerator.js';
+import { StarfieldManager } from './StarfieldManager.js';
 
 /**
  * EnvironmentManager - Manages skyboxes, environment maps, and atmospheric effects
  * Provides dynamic environment switching and reflection mapping for PBR materials
  */
 export class EnvironmentManager {
-  constructor(scene, renderer) {
+  constructor(scene, renderer, materialManager = null) {
     this.scene = scene;
     this.renderer = renderer;
+    this.materialManager = materialManager;
 
     // Environment map for reflections
     this.envMap = null;
@@ -19,6 +22,12 @@ export class EnvironmentManager {
     // Texture loader for skyboxes
     this.textureLoader = new THREE.TextureLoader();
     this.cubeTextureLoader = new THREE.CubeTextureLoader();
+
+    // Procedural skybox generator
+    this.skyboxGenerator = new SkyboxGenerator();
+
+    // Enhanced starfield manager
+    this.starfieldManager = null;
 
     // Available environments
     this.environments = {
@@ -54,6 +63,40 @@ export class EnvironmentManager {
         ambientColor: 0x1a1515,
         fogColor: 0x0a0505,
         fogDensity: 0.0003
+      },
+      'procedural-deep-space': {
+        name: 'Procedural Deep Space',
+        type: 'procedural',
+        proceduralType: 'deep-space',
+        ambientColor: 0x0a0a1a,
+        fogColor: 0x000510,
+        fogDensity: 0.0001
+      },
+      'procedural-station': {
+        name: 'Procedural Space Station',
+        type: 'procedural',
+        proceduralType: 'station',
+        ambientColor: 0x2a2a3a,
+        fogColor: 0x1a1a2a,
+        fogDensity: 0.0005
+      },
+      'hdr-deep-space': {
+        name: 'HDR Deep Space',
+        type: 'procedural',
+        proceduralType: 'hdr-space',
+        ambientColor: 0x0a0a1a,
+        fogColor: 0x000510,
+        fogDensity: 0.0001,
+        isHDR: true
+      },
+      'hdr-station': {
+        name: 'HDR Space Station',
+        type: 'procedural',
+        proceduralType: 'hdr-station',
+        ambientColor: 0x2a2a3a,
+        fogColor: 0x1a1a2a,
+        fogDensity: 0.0005,
+        isHDR: true
       }
     };
 
@@ -73,10 +116,14 @@ export class EnvironmentManager {
     this.renderer.toneMappingExposure = 1.0;
     this.renderer.outputEncoding = THREE.sRGBEncoding;
 
-    // Load default environment
-    await this.loadEnvironment('deep-space');
+    // Initialize enhanced starfield manager
+    this.starfieldManager = new StarfieldManager(this.scene, null);
+    this.starfieldManager.init();
 
-    // Create star field for procedural skyboxes
+    // Load default environment with HDR support
+    await this.loadEnvironment('hdr-deep-space');
+
+    // Create fallback star field for compatibility
     this.createStarField();
   }
 
@@ -140,6 +187,16 @@ export class EnvironmentManager {
           this.envMap = texture;
           this.updateMaterialsEnvMap();
 
+          // Hide enhanced starfield for asset-based skyboxes
+          if (this.starfieldManager) {
+            this.starfieldManager.setVisible(false);
+          }
+
+          // Show fallback star field
+          if (this.starField) {
+            this.starField.visible = true;
+          }
+
           resolve();
         },
         undefined,
@@ -191,6 +248,16 @@ export class EnvironmentManager {
           this.envMap = texture;
           this.updateMaterialsEnvMap();
 
+          // Hide enhanced starfield for asset-based skyboxes
+          if (this.starfieldManager) {
+            this.starfieldManager.setVisible(false);
+          }
+
+          // Show fallback star field
+          if (this.starField) {
+            this.starField.visible = true;
+          }
+
           resolve();
         },
         undefined,
@@ -210,13 +277,66 @@ export class EnvironmentManager {
    */
   createProceduralSkybox(config) {
     // Remove old skybox
+    if (this.currentSkybox) {
+      this.scene.background = null;
+      if (this.currentSkybox.dispose) {
+        this.currentSkybox.dispose();
+      }
+    }
+
+    // Remove old skybox mesh if exists
     if (this.skyboxMesh) {
       this.scene.remove(this.skyboxMesh);
       this.skyboxMesh.geometry.dispose();
       this.skyboxMesh.material.dispose();
+      this.skyboxMesh = null;
     }
 
-    // Create gradient background
+    // Generate procedural skybox using SkyboxGenerator
+    const proceduralType = config.proceduralType || 'deep-space';
+
+    try {
+      const skyboxTexture = this.skyboxGenerator.getCachedSkybox(proceduralType);
+
+      if (skyboxTexture) {
+        this.currentSkybox = skyboxTexture;
+        this.scene.background = skyboxTexture;
+
+        // Use as environment map for PBR reflections
+        if (config.isHDR) {
+          this.envMap = skyboxTexture;
+          this.updateMaterialsEnvMap();
+        } else {
+          // Create a simple environment map for non-HDR procedural skyboxes
+          this.createSimpleEnvMap();
+        }
+
+        console.log(`[EnvironmentManager] Loaded procedural skybox: ${proceduralType}`);
+      } else {
+        throw new Error('Failed to generate procedural skybox');
+      }
+    } catch (error) {
+      console.error('Error creating procedural skybox:', error);
+      // Fallback to simple gradient skybox
+      this.createFallbackSkybox(config);
+    }
+
+    // Hide fallback star field for procedural skyboxes (they have their own stars)
+    if (this.starField) {
+      this.starField.visible = false;
+    }
+
+    // Show enhanced starfield for procedural environments
+    if (this.starfieldManager) {
+      this.starfieldManager.setVisible(true);
+    }
+  }
+
+  /**
+   * Create a fallback gradient skybox
+   * @param {object} config - Environment configuration
+   */
+  createFallbackSkybox(config) {
     const vertexShader = `
       varying vec3 vWorldPosition;
       void main() {
@@ -258,12 +378,12 @@ export class EnvironmentManager {
     this.skyboxMesh = new THREE.Mesh(skyGeo, skyMat);
     this.scene.add(this.skyboxMesh);
 
-    // Show star field
+    // Show star field for fallback
     if (this.starField) {
       this.starField.visible = true;
     }
 
-    // Create simple environment map for reflections
+    // Create simple environment map
     this.createSimpleEnvMap();
   }
 
@@ -362,6 +482,12 @@ export class EnvironmentManager {
    * Update all materials in the scene with the current environment map
    */
   updateMaterialsEnvMap() {
+    // Update MaterialManager with new environment map
+    if (this.materialManager) {
+      this.materialManager.setEnvironmentMap(this.envMap);
+    }
+
+    // Update existing materials in the scene
     this.scene.traverse(child => {
       if (child.isMesh && child.material) {
         if (child.material.isMeshStandardMaterial || child.material.isMeshPhysicalMaterial) {
@@ -432,7 +558,12 @@ export class EnvironmentManager {
    * @param {number} deltaTime - Time since last frame
    */
   update(deltaTime) {
-    // Rotate star field slowly
+    // Update enhanced starfield with realistic effects
+    if (this.starfieldManager) {
+      this.starfieldManager.update(deltaTime);
+    }
+
+    // Rotate fallback star field slowly
     if (this.starField && this.starField.visible) {
       this.starField.rotation.y += deltaTime * 0.00005;
     }
@@ -476,6 +607,18 @@ export class EnvironmentManager {
 
     if (this.envMap) {
       this.envMap.dispose();
+    }
+
+    if (this.currentSkybox && this.currentSkybox.dispose) {
+      this.currentSkybox.dispose();
+    }
+
+    if (this.skyboxGenerator) {
+      this.skyboxGenerator.dispose();
+    }
+
+    if (this.starfieldManager) {
+      this.starfieldManager.dispose();
     }
   }
 }

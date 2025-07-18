@@ -26,6 +26,9 @@ export class MaterialManager {
 
     // Initialize default textures
     this.initializeDefaultTextures();
+
+    // Environment map for reflections
+    this.envMap = null;
   }
 
   /**
@@ -396,6 +399,12 @@ export class MaterialManager {
       });
     }
 
+    // Apply environment map if available
+    if (this.envMap && material) {
+      material.envMap = this.envMap;
+      material.needsUpdate = true;
+    }
+
     return material;
   }
 
@@ -414,6 +423,27 @@ export class MaterialManager {
       roughness: 0.2,
       metalness: 0.5,
       side: THREE.DoubleSide
+    });
+  }
+
+  /**
+   * Set environment map for PBR reflections
+   * @param {THREE.Texture} envMap - Environment map texture
+   */
+  setEnvironmentMap(envMap) {
+    this.envMap = envMap;
+    this.updateAllMaterialsEnvMap();
+  }
+
+  /**
+   * Update all cached materials with current environment map
+   */
+  updateAllMaterialsEnvMap() {
+    this.materialCache.forEach(material => {
+      if (material && (material.isMeshStandardMaterial || material.isMeshPhysicalMaterial)) {
+        material.envMap = this.envMap;
+        material.needsUpdate = true;
+      }
     });
   }
 

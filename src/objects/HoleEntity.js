@@ -324,6 +324,16 @@ export class HoleEntity extends BaseElement {
     rim.receiveShadow = true;
     this.group.add(rim); // Add to group at (0,0,0)
     this.meshes.push(rim);
+
+    // Add hole rim lighting if LightingManager is available
+    if (this.game && this.game.lightingManager) {
+      const holeLight = this.game.lightingManager.addHoleLight(this.worldHolePosition, 0x00ff88);
+      if (holeLight) {
+        // Store reference for cleanup
+        this.holeLight = holeLight;
+        console.log('[HoleEntity] Added hole rim lighting at position:', this.worldHolePosition);
+      }
+    }
   }
 
   createHoleVisual() {
@@ -654,6 +664,29 @@ export class HoleEntity extends BaseElement {
       }
     }
     this.meshes = [];
+
+    // Clean up hole lighting
+    if (this.holeLight && this.game && this.game.lightingManager) {
+      // Remove the hole light from the scene
+      if (this.holeLight.parent) {
+        this.holeLight.parent.remove(this.holeLight);
+      }
+      // Remove from lighting manager's light arrays
+      const lights = this.game.lightingManager.lights;
+      if (lights.holeLights) {
+        const index = lights.holeLights.indexOf(this.holeLight);
+        if (index > -1) {
+          lights.holeLights.splice(index, 1);
+        }
+      }
+      if (lights.pointLights) {
+        const index = lights.pointLights.indexOf(this.holeLight);
+        if (index > -1) {
+          lights.pointLights.splice(index, 1);
+        }
+      }
+      this.holeLight = null;
+    }
 
     // DO NOT remove this.group or this.parentGroup from the scene here.
     // The NineHoleCourse manages those groups.

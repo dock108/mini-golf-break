@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { DynamicLightingEffects } from '../utils/DynamicLightingEffects.js';
 
 /**
  * LightingManager - Manages multi-source lighting for enhanced space atmosphere
@@ -30,6 +31,9 @@ export class LightingManager {
     // Performance tracking
     this.lightCount = 0;
     this.maxLights = 8; // WebGL limitation
+
+    // Dynamic lighting effects
+    this.dynamicEffects = null;
   }
 
   /**
@@ -43,6 +47,9 @@ export class LightingManager {
     this.createAmbientLighting();
     this.createRimLights();
     this.configureShadows();
+
+    // Initialize dynamic lighting effects
+    this.dynamicEffects = new DynamicLightingEffects(this);
 
     console.log(`[LightingManager] Initialized with ${this.lightCount} lights`);
   }
@@ -242,6 +249,11 @@ export class LightingManager {
       const phase = time * 2.0 + index * 1.5;
       light.intensity = 0.6 + 0.4 * Math.sin(phase);
     });
+
+    // Update dynamic lighting effects
+    if (this.dynamicEffects) {
+      this.dynamicEffects.update(deltaTime);
+    }
   }
 
   /**
@@ -329,6 +341,12 @@ export class LightingManager {
         this.lights[key] = null;
       }
     });
+
+    // Clean up dynamic effects
+    if (this.dynamicEffects) {
+      this.dynamicEffects.dispose();
+      this.dynamicEffects = null;
+    }
 
     this.lightCount = 0;
   }

@@ -57,7 +57,7 @@ export class Game {
     this.holeCompletionManager = new HoleCompletionManager(this);
     this.gameLoopManager = new GameLoopManager(this);
     this.materialManager = new MaterialManager();
-    this.environmentManager = new EnvironmentManager(this.scene, null); // renderer will be set later
+    this.environmentManager = new EnvironmentManager(this.scene, null, this.materialManager); // renderer will be set later
     this.postProcessingManager = null; // Will be initialized after renderer
     this.lightingManager = null; // Will be initialized after renderer
 
