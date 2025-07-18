@@ -14,7 +14,19 @@
       "Bash(grep:*)",
       "Bash(ls:*)",
       "Bash(npm run test:coverage:unit:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npm run test:*)",
+      "Bash(npx:*)",
+      "Bash(gh issue create:*)",
+      "Bash(brew install:*)",
+      "Bash(gh auth:*)",
+      "Bash(mkdir:*)",
+      "Bash(npm start)",
+      "Bash(curl:*)",
+      "Bash(node:*)",
+      "Bash(kill:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run format:check:*)"
     ],
     "deny": []
   }

@@ -51,6 +51,7 @@ module.exports = (env, argv) => {
       new HtmlWebpackPlugin({
         template: './public/index.html',
         filename: 'index.html',
+        inject: 'body', // Ensure scripts are injected into body
         minify: isProduction ? {
           removeComments: true,
           collapseWhitespace: true,
@@ -100,12 +101,16 @@ module.exports = (env, argv) => {
 
     devServer: {
       static: {
-        directory: path.join(__dirname, 'public'),
+        directory: path.join(__dirname, 'dist'),
+        publicPath: '/',
       },
       compress: true,
       port: 8080,
       hot: true,
       historyApiFallback: true,
+      devMiddleware: {
+        writeToDisk: true, // Write files to disk in development
+      }
     }
   };
 
