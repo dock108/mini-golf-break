@@ -1,392 +1,521 @@
-# Developer Guide for Mini Golf Break
+# Mini Golf Break - Development Guide
 
-This guide provides an overview of the Mini Golf Break codebase for developers who want to understand, modify, or extend the project.
+**Last Updated:** July 20, 2025
 
-## Architecture Overview
+This guide provides comprehensive documentation for developers working on Mini Golf Break, a premium space-themed mini-golf game featuring professional-grade graphics, enterprise-level architecture, and comprehensive testing infrastructure.
 
-Mini Golf Break follows a component-based architecture where different systems interact through well-defined interfaces. The main components are:
+## 🏗️ Architecture Overview
 
-1. **Game**: Central controller that manages game state, scene rendering, and coordinates other components
-2. **PhysicsWorld**: Encapsulates the Cannon-es physics engine and manages simulation
-3. **BasicCourse**: Handles course generation with a single hole
-4. **NineHoleCourse**: Manages the layout and progression for a full 9-hole course (extends `CoursesManager`).
-5. **Ball**: Represents the player's ball with visual mesh, physics body, and success effects
-6. **InputController**: Manages user interaction for hitting the ball
-7. **CameraController**: Handles camera positioning and movement
-8. **ScoringSystem**: Manages scoring and display
+Mini Golf Break follows a modular, event-driven architecture with specialized manager classes handling different aspects of the game. The system is designed for maintainability, testability, and performance.
 
-## Key Classes and Responsibilities
+### Core Architecture Principles
 
-### Game Class (`src/scenes/Game.js`)
+1. **Manager Pattern**: Specialized managers handle specific domains (rendering, physics, audio, etc.)
+2. **Event-Driven Communication**: Components communicate through a central EventManager
+3. **Data-Driven Design**: Courses and configurations are loaded from JSON files
+4. **Quality Scaling**: Visual effects and performance features scale based on device capabilities
+5. **Comprehensive Testing**: 80%+ test coverage with robust mocking infrastructure
 
-The Game class is the central coordinator that:
-- Initializes the Three.js scene, camera, and renderer
-- Sets up the environment with appropriate lighting and background
-- Manages game state (ball in motion, hole completion)
-- Updates all game objects during the animation loop
-- Handles events like hole completion and out-of-bounds
-- Tracks the ball's safe position for respawning
-- Displays the animated scorecard when the hole is completed
-- Manages restart functionality
-
-Key methods:
-- `init()`: Sets up the game environment
-- `update()`: Called each frame to update physics and rendering
-- `hitBall(direction, power)`: Applies force to the ball and triggers sound
-- `handleHoleCompleted()`: Logic when the ball enters a hole
-- `displayScorecard()`: Shows animated completion scorecard
-- `resetAndRestartHole()`: Resets the game for another round
-- `checkBallInHole()`: Detects when the ball goes in the hole
-- `createBackground()`: Generates the visual background environment
-
-### PhysicsWorld Class (`src/physics/PhysicsWorld.js`)
-
-This class abstracts the Cannon-es physics engine:
-- Creates and manages the physics world
-- Handles material properties and contact behaviors
-- Provides utility methods for creating physics bodies
-- Manages the physics simulation step
-
-### BasicCourse Class (`src/objects/BasicCourse.js`)
-
-Responsible for generating the course:
-- Creates a single, focused hole (primarily for testing/simple examples).
-- Defines fairway with contrasting border
-- Implements the hole with proper physics
-- Provides hole position information
-
-Key methods:
-- `createFairway()`: Generates the fairway with contrasting border
-- `createHoleAt()`: Creates the hole with proper physics and visuals
-- `getHolePosition()`: Returns the position of the hole
-- `getHoleStartPosition()`: Returns the starting (tee) position
-- `createHole1()`: Sets up the single hole design
-
-### NineHoleCourse Class (`src/objects/NineHoleCourse.js`)
-
-Manages the structure and progression for a full 9-hole course:
-- Extends the `CoursesManager` for core course functionality.
-- Defines configurations for 9 distinct holes (positions, pars, hazards, etc.).
-- Uses `THREE.Group` containers to potentially organize geometry for each hole.
-- Handles loading and unloading of individual hole assets/geometry.
-- Manages transitions between holes.
-
-Key methods (potential/planned):
-- `constructor()`: Sets up the 9 hole configurations and group containers.
-- `initializeHole(holeIndex)`: Loads and sets up the specified hole.
-- `createHoleGeometry(holeIndex)`: (Placeholder) Creates the visual and physical geometry for a hole.
-- `loadNextHole()`: Manages the transition to the next hole in sequence.
-- `clearCurrentHole()`: Removes resources for the current hole.
-
-### Ball Class (`src/objects/Ball.js`)
-
-Represents the player's ball with:
-- Visual representation using Three.js with subtle glow
-- Physics body using Cannon-es
-- Success effects (color change, particles, pulsing)
-- Sound effects system
-
-Key methods:
-- `createMesh()`: Creates the visual ball with dimples
-- `createBody()`: Creates the physics body
-- `applyForce(direction, power)`: Applies force when hit
-- `handleHoleSuccess()`: Triggers success effects when the ball is in hole
-- `playSound(soundName, volume)`: Plays various sound effects
-- `createSuccessParticles()`: Generates the particle effect when in hole
-- `updateSuccessEffects()`: Animates particles and pulsing effect
-
-### InputController Class (`src/controls/InputController.js`)
-
-Handles user interaction:
-- Processes mouse/touch events for aiming and hitting
-- Calculates direction and power from drag distance
-- Manages visual feedback (direction line, power indicator)
-- Toggles orbit controls during drag operations
-
-### CameraController Class (`src/controls/CameraController.js`)
-
-Manages the camera system:
-- Positions camera with a high-angle view at the start of each hole, framing the tee and cup
-- Actively follows the ball by positioning the camera behind the ball's movement direction
-- Shifts the viewport down by approximately 15% to show more of the course at the top of the screen
-- Uses dynamic following behavior:
-  - When the ball is moving fast, positions camera behind the movement direction
-  - When moving slow/stopped, maintains a consistent position relative to the ball
-- Handles smooth transitions with improved responsiveness during hole changes
-- Provides optimal viewing angles for aiming and watching ball movement
-- Respects user camera adjustments until the ball moves again
-
-Key methods:
-- `positionCameraForHole()`: Sets up camera for a new hole
-- `updateCameraFollowBall()`: Updates camera position and target to follow ball
-- `setTransitionMode(enabled)`: Enables smoother transitions between holes
-
-### ScoringSystem Class (`src/game/ScoringSystem.js`)
-
-Handles scoring and display:
-- Tracks strokes for the single hole
-- Updates score display
-- Provides methods for resetting score
-
-## Physics Implementation
-
-The physics system uses Cannon-es with these key configurations:
-
-1. **Collision Groups**:
-   - Group 1: Course terrain
-   - Group 2: Holes and triggers
-   - Group 4: Ball
-
-2. **Material Properties**:
-   - `groundMaterial`: High friction (0.8) for realistic rolling
-   - `ballMaterial`: For the player's ball
-   - `bumperMaterial`: Low friction (0.1) with high restitution (0.8)
-   - `holeRimMaterial`: Similar friction to ground, very low restitution (0.01) to dampen rim bounces.
-   - Other materials like `sandMaterial`, `holeCupMaterial`
-
-3. **Ball Physics**:
-   - Mass: 0.45 kg (lighter for better control)
-   - Linear Damping: 0.6 (air resistance and rolling friction)
-   - Angular Damping: 0.6 (spin resistance)
-   - Sleep Speed Limit: 0.15 (stops calculating physics below this speed)
-   - Sleep Time Limit: 0.2 seconds (time before sleeping when slow)
-   - Additional damping (0.9) applied during very slow movement
-   - Radius: 0.2 units
-
-4. **Hole Physics**:
-   - Hole Radius: ~0.5 units (adjusted for realistic proportions relative to ball)
-   - Hole Rim/Funnel: Uses `holeRimMaterial` for dampened interaction.
-   - Hole Trigger: Detects ball entry.
-
-5. **Physics World Settings**:
-   - Gravity: -9.81 m/s² (Earth gravity)
-   - Solver Iterations: 30 (for stability)
-   - Solver Tolerance: 0.0001 (high precision)
-   - Fixed Timestep: 1/60 second
-   - Max Substeps: 8 (for smooth motion)
-
-## Animated Scorecard Implementation
-
-The animated scorecard is implemented in the `displayScorecard()` method:
-
-1. **Creation**: A DOM-based overlay is created with styled elements
-2. **Animation In**: CSS transitions animate the scorecard scaling and fading in
-3. **Score Counter**: A counter progressively increments with sound effects
-4. **Continue Prompt**: After the animation, a click-anywhere prompt appears
-5. **Event Handling**: Document-wide click listener waits for user action
-6. **Animation Out**: Scorecard fades out with scale animation
-7. **Cleanup**: After animation out, the scorecard is removed and game restarted
-
-## Sound System Implementation
-
-The sound system uses the Web Audio API through Three.js Audio:
-
-1. **Sound Types**:
-   - Hit sound: Plays when the ball is struck
-   - Success sound: Plays when the ball goes in the hole
-   - UI sounds: For interactions and scorecard
-
-2. **Implementation**:
-   - Creates audio context through Three.js AudioListener
-   - Generates sounds programmatically using oscillators
-   - Controls volume levels for different sound types
-   - Implements sound playback with appropriate attack/decay
-
-3. **Usage**:
-   - `ball.playSound('hit', power)`: Plays hit sound with volume based on power
-   - `ball.playSound('success')`: Plays success sound when the ball goes in the hole
-   - Scorecard uses hit sound with low volume for counter animation
-
-## Debug Mode
-
-Press 'd' during gameplay to toggle debug mode, which:
-- Shows axes helpers and grid
-- Displays additional console logs
-- Shows a wireframe view of the scene
-
-## Extending the Project
-
-### Adding Visual Elements to Environment
-
-To enhance the visual environment:
-1. Create new background elements in the `createBackground()` method
-2. Add additional lighting effects in the `setupLights()` method
-3. Consider adding atmosphere effects with particle systems
-4. Implement themed obstacles and decorative elements
-
-### Implementing Multiple Themed Holes
-
-The `NineHoleCourse` class is designed for this purpose. To add or modify holes:
-1. Define the hole configuration (start position, hole position, par, hazards) within the `holeConfigs` array in `NineHoleCourse.js`.
-2. Implement the geometry and physics creation logic, potentially within `NineHoleCourse` or dedicated hole-specific classes/functions.
-3. Ensure the `initializeHole` and `clearCurrentHole` methods correctly load/unload the hole's assets.
-4. Update the navigation system (if needed) to handle the 9-hole sequence.
-
-### Enhancing Audio
-
-To improve audio feedback:
-1. Add more varied sound types in the Ball class's `loadSounds()` method
-2. Create more sophisticated oscillator patterns
-3. Consider loading actual audio files for richer sounds
-4. Add ambient background sounds for atmosphere
-
-### Adding High Score System
-
-To implement high scores:
-1. Create a new `HighScoreSystem` class
-2. Use localStorage to persist scores between sessions
-3. Add a high score display to the scorecard
-4. Implement animations for new high scores
-
-## Performance Considerations
-
-When modifying the game, keep these performance aspects in mind:
-- Minimize physics body complexity where possible
-- Use instancing for repeated objects
-- Dispose of Three.js geometries and materials when removing objects
-- Avoid creating new objects in the update loop
-- Optimize lighting and shadows for performance on lower-end devices
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 mini-golf-break/
 ├── src/
-│   ├── assets/          # Static assets (textures, models, sounds)
-│   ├── config/          # Game configuration files (e.g., course layouts - if separated)
-│   ├── events/          # Event types and EventManager
-│   ├── managers/        # Core game system managers (UI, Physics, Audio, State, etc.)
-│   ├── objects/         # Game objects (Ball, HoleEntity, BaseElement, HazardFactory, BasicCourse, NineHoleCourse, etc.)
-│   │   └── hazards/     # Hazard creation logic (HazardFactory.js)
-│   ├── physics/         # Physics world setup and utilities
-│   ├── scenes/          # Main game scene (Game.js)
+│   ├── ads/              # Ad system (AdShipManager, AdShip, adConfig)
+│   ├── config/           # Configuration files
+│   ├── controls/         # Input and camera controllers
+│   ├── courses/          # Course JSON definitions
+│   ├── effects/          # Visual effects (particles, shaders)
+│   ├── events/           # Event system (EventManager, EventTypes)
+│   ├── game/            # Core game logic (ScoringSystem, etc.)
+│   ├── managers/        # Core system managers
+│   │   ├── DebugManager.js
+│   │   ├── EnvironmentManager.js
+│   │   ├── LightingManager.js
+│   │   ├── MaterialManager.js
+│   │   ├── PerformanceManager.js
+│   │   ├── PostProcessingManager.js
+│   │   ├── StarfieldManager.js
+│   │   └── ui/          # UI-specific managers
+│   ├── objects/         # Game objects
+│   │   ├── Ball.js
+│   │   ├── BaseElement.js
+│   │   ├── BasicCourse.js
+│   │   ├── HoleEntity.js
+│   │   └── hazards/     # Hazard creation
+│   ├── physics/         # Physics system
+│   ├── scenes/          # Main game scene
+│   ├── shaders/         # Custom GLSL shaders
 │   ├── styles/          # CSS styles
-│   └── utils/           # Utility functions (math, helpers)
-├── docs/                # Project documentation
-├── node_modules/        # NPM dependencies
-├── public/              # Static files served by dev server (index.html)
-├── .babelrc             # Babel configuration
-├── .eslintrc.json       # ESLint configuration
-├── .gitignore           # Git ignore rules
-├── package.json         # Project metadata and dependencies
-├── package-lock.json    # Locked dependency versions
-├── PROJECT_CHECKLIST.md # Development task checklist
-├── README.md            # Project overview
-└── webpack.config.js    # Webpack build configuration
+│   ├── tests/           # Comprehensive test suites
+│   └── utils/           # Utility functions
+├── public/              # Static assets
+├── docs/                # Documentation
+├── reports/             # Generated reports
+└── [configuration files]
 ```
 
-## Key Components
+## 🎮 Core Systems
 
-*   **`src/scenes/Game.js`**: The main entry point and orchestrator for the game scene. Initializes managers, loads the course, and manages the game state.
-*   **`src/managers/`**: Contains various manager classes responsible for specific game systems:
-    *   `PhysicsManager`: Manages the Cannon-es physics world, materials, and simulation steps.
-    *   `UIManager`: Handles HUD updates, messages, and other UI elements.
-    *   `InputController`: Processes user input (mouse clicks/drags) for aiming and shooting.
-    *   `CameraController`: Manages the Three.js camera position and behavior (following the ball, initial views).
-    *   `AudioManager`: Loads and plays sound effects.
-    *   `EventManager`: Facilitates communication between different game components using a publish/subscribe pattern.
-    *   `GameLoopManager`: Runs the main game loop, updating physics and rendering the scene.
-    *   `ScoringSystem`: Tracks strokes and calculates scores.
-    *   `HoleStateManager`, `HoleCompletionManager`, `HoleTransitionManager`: Manage the state, completion logic, and transitions between holes.
-    *   `HazardManager`: (Currently handles mostly out-of-bounds) Detects boundary violations.
-    *   `VisualEffectsManager`: (Basic structure) Handles particle effects and other visual flair.
-*   **`src/objects/`**: Contains classes representing game entities:
-    *   `BaseElement.js`: A base class providing common functionality (ID, config, position, basic cleanup) for course elements.
-    *   `HoleEntity.js`: Represents a single hole, including the green, walls, hole cup, trigger zones, and hazards. Extends `BaseElement`.
-    *   `Ball.js`: Represents the golf ball, managing its visual mesh, physics body, and interactions (hole entry, bunker state, collisions).
-    *   `BasicCourse.js`: Defines the layout and configuration for the default course, including hole definitions and hazard placements.
-    *   `hazards/HazardFactory.js`: A factory module responsible for creating hazard visuals and physics triggers based on configuration.
-    *   `NineHoleCourse.js`: Manages the structure and progression for a full 9-hole course.
-*   **`src/physics/`**: Contains physics-related setup and utility functions.
-*   **`src/events/EventTypes.js`**: Defines constants for different game events.
+### Game Class (`src/scenes/Game.js`)
 
-## Development Workflow
-
-1.  **Branching:** Create a new feature branch from `main` or `develop` for your changes.
-2.  **Coding:** Implement features or fixes, adhering to the project's coding style (ESLint configuration provided).
-3.  **Testing:** Run the development server (`npm start`) and test thoroughly in the browser. Check the console for errors or warnings.
-4.  **Committing:** Make small, logical commits with clear messages.
-5.  **Pull Request:** Create a pull request for review when your feature/fix is complete.
-
-## Key Concepts & How-Tos
-
-### Adding a New Hole
-
-1.  **Open:** `src/objects/BasicCourse.js`.
-2.  **Locate:** The `holeConfigs` array (currently defined within the `static async create` method, consider moving to the constructor or a separate config file).
-3.  **Add Object:** Add a new configuration object to the array, incrementing the `index`.
-4.  **Define Properties:** Specify `holePosition`, `startPosition`, `courseWidth`, `courseLength`, `par`, `description`.
-5.  **(Optional) Define Hazards:** Add a `hazards` array (see below).
-6.  **(Optional) Define Boundaries:** For non-rectangular holes, add a `boundaryWalls` array (see below) and ensure `courseWidth`/`courseLength` are large enough to contain the shape.
-7.  **Update Total:** Ensure `this.totalHoles` is updated correctly if modifying the array size dynamically.
-
-### Defining Hazards
-
-Hazards are defined within the `hazards` array in a hole's configuration object (`holeConfigs`). The creation logic is handled by `src/objects/hazards/HazardFactory.js`.
-
-**Configuration:**
+The central coordinator that orchestrates all game systems:
 
 ```javascript
-hazards: [
-  {
-    type: 'sand' | 'water', // Specify hazard type
-    shape: 'circle', // 'circle', 'rectangle', or 'compound'
-    depth: 0.25,     // Depth of the hazard depression / trigger height
-    position: new THREE.Vector3(x, y, z), // World position for simple shapes OR base position for compound
-    size: { radius: R } // For shape: 'circle'
-    // size: { width: W, length: L } // For shape: 'rectangle'
-    // subShapes: [ ... ] // For shape: 'compound'
-  },
-  // Example Compound (Snowman)
-  {
-    type: 'sand',
-    shape: 'compound',
-    depth: 0.25,
-    position: new THREE.Vector3(baseX, baseY, baseZ), // Base position for the whole compound shape
-    subShapes: [
-      // Positions here are RELATIVE to the main 'position' above
-      { position: { x: relX1, z: relZ1 }, radius: R1 },
-      { position: { x: relX2, z: relZ2 }, radius: R2 }
-      // Only circle subShapes currently supported in factory
-    ]
+class Game {
+  constructor() {
+    // Initialize core Three.js components
+    this.scene = new THREE.Scene();
+    this.renderer = new THREE.WebGLRenderer();
+    
+    // Initialize all manager systems
+    this.initializeManagers();
+    
+    // Set up event listeners
+    this.setupEventListeners();
   }
-]
+  
+  initializeManagers() {
+    // Visual systems
+    this.materialManager = new MaterialManager(qualitySettings);
+    this.environmentManager = new EnvironmentManager(this.renderer);
+    this.lightingManager = new LightingManager(this.scene);
+    this.postProcessingManager = new PostProcessingManager(this.renderer, this.scene, this.camera);
+    this.starfieldManager = new StarfieldManager(this.scene);
+    
+    // Game systems
+    this.eventManager = EventManager.getInstance();
+    this.debugManager = new DebugManager(this);
+    this.performanceManager = new PerformanceManager(this);
+    this.courseDataManager = new CourseDataManager();
+    
+    // Physics and gameplay
+    this.physicsWorld = new PhysicsWorld();
+    this.ballManager = new BallManager(this);
+    this.hazardManager = new HazardManager(this);
+    this.holeManager = new HoleManager(this);
+  }
+}
 ```
 
-**Adding New Hazard Types:**
+### Manager Systems
 
-1.  Add a `case` to the `switch` statement in `HazardFactory.createHazard`.
-2.  Implement a `createYourHazardType(world, group, config, visualGreenY)` function.
-3.  This function should create the necessary visual meshes (using `THREE`) and physics trigger bodies (`CANNON.Body` with `isTrigger: true`, using appropriate `userData` like `{ isWaterZone: true }`) based on the `config`.
-4.  Remember to add the created meshes/bodies to the `group` and `world` respectively, and return them.
-5.  Implement any specific interaction logic (like penalties) within the `Ball.js` update method (e.g., `checkAndUpdateWaterHazardState`).
+#### MaterialManager
+Handles all material creation with PBR workflow:
+- Texture loading and caching
+- Quality-based material scaling
+- Environment map integration
+- Material factory methods for different surface types
 
-### Defining Custom Hole Shapes (e.g., L-Shape)
+```javascript
+// Example usage
+const ballMaterial = materialManager.createBallMaterial({
+  color: 0xffffff,
+  metalness: 0.8,
+  roughness: 0.2
+});
+```
 
-For non-rectangular holes, use the `boundaryWalls` configuration instead of relying on the default 4 outer walls.
+#### EnvironmentManager
+Manages HDR skyboxes and environment mapping:
+- HDR texture loading
+- Environment map generation
+- Dynamic skybox switching
+- Procedural skybox generation
 
-1.  **Set Large Dimensions:** In the hole config, set `courseWidth` and `courseLength` large enough to encompass the desired shape.
-2.  **Define `boundaryWalls` Array:** Add a `boundaryWalls` array to the hole config.
-3.  **Specify Segments:** Each element in the array defines one wall segment:
-    ```javascript
-    boundaryWalls: [
-      // Points are [x, z] relative to the hole's center position
-      { start: [startX, startZ], end: [endX, endZ] },
-      // ... more segments to define the perimeter ...
-    ]
-    ```
-4.  **`HoleEntity.createWalls` Logic:** This method will automatically detect the `boundaryWalls` array and use it to generate the walls instead of the default outer rectangle.
+#### StarfieldManager
+Creates realistic astronomical environments:
+- 15,000+ scientifically accurate stars
+- Shader-based rendering for performance
+- Binary star systems and twinkling effects
+- Galaxy background rendering
 
-### Modifying Physics
+#### LightingManager
+Comprehensive lighting system:
+- Multi-source lighting setup
+- Dynamic light effects
+- Quality-based shadow scaling
+- Rim lighting and special effects
 
-*   **Ball Physics:** Properties like mass, radius, damping, and restitution are primarily set in `src/objects/Ball.js` constructor and `createPhysicsBody` method.
-*   **World Settings:** Gravity, solver iterations, and contact materials are configured in `src/physics/PhysicsWorld.js`.
-*   **Hazard Effects:**
-    * Damping changes for bunkers are applied in `Ball.checkAndUpdateBunkerState`.
-    * Water hazard penalties (stroke + reset) are applied in `Ball.checkAndUpdateWaterHazardState` based on overlap percentage.
-*   **Hole Entry:** Speed and overlap thresholds (`HOLE_ENTRY_MAX_SPEED`, `HOLE_ENTRY_OVERLAP_REQUIRED`) are defined as constants at the top of `src/objects/Ball.js`.
+#### PostProcessingManager
+Professional post-processing pipeline:
+- Bloom for glowing elements
+- FXAA/SMAA anti-aliasing
+- ACESFilmic tone mapping
+- Color grading and LUT support
 
-### Debugging
+#### PerformanceManager
+Real-time performance monitoring:
+- FPS and frame time tracking
+- Memory usage monitoring
+- Performance budget enforcement
+- Visual performance overlay (toggle with 'p')
 
-*   **Browser Console:** Check for errors, warnings, and custom log messages.
-*   **Physics Debugger:** Press the 'd' key during gameplay to toggle the Cannon-es debug renderer, which visualizes physics shapes and contacts. 
+### Event-Driven Architecture
+
+All components communicate through the EventManager:
+
+```javascript
+// Publishing events
+eventManager.publish(EventTypes.BALL_HIT, {
+  power: hitPower,
+  direction: hitDirection
+});
+
+// Subscribing to events
+eventManager.subscribe(EventTypes.HOLE_COMPLETED, (event) => {
+  this.handleHoleCompletion(event.data);
+});
+```
+
+Common event types:
+- `GAME_INITIALIZED`
+- `BALL_HIT`
+- `BALL_STOPPED`
+- `HOLE_COMPLETED`
+- `HAZARD_ENTERED`
+- `COURSE_LOADED`
+- `STATE_CHANGED`
+
+### Data-Driven Course System
+
+Courses are defined in JSON format and loaded dynamically:
+
+```javascript
+// Course JSON structure
+{
+  "id": "space-station-alpha",
+  "name": "Space Station Alpha",
+  "environment": "spaceStation",
+  "skybox": "space_station_interior",
+  "holes": [
+    {
+      "index": 1,
+      "par": 3,
+      "name": "Launch Pad",
+      "startPosition": [0, 0, -6],
+      "holePosition": [0, 0, 6],
+      "hazards": [
+        {
+          "type": "sand",
+          "shape": "circle",
+          "position": [2, 0, 0],
+          "size": { "radius": 1.5 }
+        }
+      ]
+    }
+  ]
+}
+```
+
+## 🧪 Testing Infrastructure
+
+### Test Coverage Requirements
+
+All code must maintain:
+- **Statements**: 80%+ coverage ✅
+- **Lines**: 80%+ coverage ✅
+- **Functions**: 80%+ coverage ✅
+- **Branches**: Best effort (not required to hit 80%)
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run specific test file
+npm test -- MaterialManager.test.js
+```
+
+### Writing Tests
+
+Example test structure:
+
+```javascript
+describe('MaterialManager', () => {
+  let materialManager;
+  
+  beforeEach(() => {
+    // Mock THREE.js objects
+    global.THREE = {
+      TextureLoader: jest.fn().mockImplementation(() => ({
+        load: jest.fn((url, onLoad) => {
+          const mockTexture = { 
+            needsUpdate: false,
+            dispose: jest.fn()
+          };
+          onLoad(mockTexture);
+          return mockTexture;
+        })
+      })),
+      MeshStandardMaterial: jest.fn().mockImplementation(options => ({
+        ...options,
+        dispose: jest.fn()
+      }))
+    };
+    
+    materialManager = new MaterialManager();
+  });
+  
+  describe('createBallMaterial', () => {
+    it('should create material with environment map', () => {
+      const material = materialManager.createBallMaterial({
+        color: 0xff0000
+      });
+      
+      expect(material.envMap).toBe(materialManager.envMap);
+      expect(material.needsUpdate).toBe(true);
+    });
+  });
+});
+```
+
+### Mocking Guidelines
+
+The project includes comprehensive mocks for:
+- **THREE.js**: Complete geometry, material, and rendering mocks
+- **CANNON.js**: Physics world and body mocks
+- **DOM APIs**: Document and window mocks
+- **Manager Classes**: Mocked versions for isolated testing
+
+## 🔧 Development Workflow
+
+### Pre-commit Hooks
+
+The project uses pre-commit hooks to ensure code quality:
+
+```bash
+# Pre-commit checks include:
+- ESLint validation
+- Prettier formatting
+- Test execution
+- Build verification
+```
+
+### Development Commands
+
+```bash
+# Start development server
+npm start
+
+# Build for production
+npm run build
+
+# Run linting
+npm run lint
+
+# Fix linting issues
+npm run lint:fix
+
+# Format code
+npm run format
+```
+
+### Adding New Features
+
+1. **Create Feature Branch**
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+2. **Implement with Tests**
+   - Write tests first (TDD approach)
+   - Ensure 80%+ coverage
+   - Follow existing patterns
+
+3. **Update Documentation**
+   - Update relevant .md files
+   - Add JSDoc comments
+   - Update CHANGELOG.md
+
+4. **Pre-commit Validation**
+   - All tests must pass
+   - No linting errors
+   - Proper formatting
+
+5. **Create Pull Request**
+   - Clear description
+   - Reference any issues
+   - Include test results
+
+## 🎨 Visual Systems
+
+### Material System
+
+Creating custom materials:
+
+```javascript
+// PBR Material with textures
+const customMaterial = materialManager.createCustomMaterial({
+  diffuseMap: 'textures/metal_diffuse.jpg',
+  normalMap: 'textures/metal_normal.jpg',
+  roughnessMap: 'textures/metal_roughness.jpg',
+  metalnessMap: 'textures/metal_metalness.jpg',
+  envMapIntensity: 0.8
+});
+
+// Glow material for special effects
+const glowMaterial = materialManager.createGlowMaterial({
+  color: 0x00ffff,
+  intensity: 2.0
+});
+```
+
+### Shader Development
+
+Custom shaders are located in `src/shaders/`:
+
+```glsl
+// starfield.vert
+varying vec3 vColor;
+varying float vIntensity;
+
+void main() {
+  vColor = color;
+  vIntensity = smoothstep(0.0, 1.0, temperature);
+  
+  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+  gl_Position = projectionMatrix * mvPosition;
+  gl_PointSize = size * (300.0 / -mvPosition.z);
+}
+```
+
+### Post-Processing Pipeline
+
+Adding new post-processing effects:
+
+```javascript
+// In PostProcessingManager
+addCustomPass() {
+  const customPass = new ShaderPass(CustomShader);
+  customPass.uniforms.intensity.value = 0.5;
+  this.composer.addPass(customPass);
+}
+```
+
+## ⚡ Performance Optimization
+
+### Quality Settings
+
+The game supports three quality levels:
+
+```javascript
+const qualitySettings = {
+  low: {
+    shadowMapSize: 512,
+    textureSize: 512,
+    postProcessing: false,
+    particleCount: 100
+  },
+  medium: {
+    shadowMapSize: 1024,
+    textureSize: 1024,
+    postProcessing: true,
+    particleCount: 500
+  },
+  high: {
+    shadowMapSize: 2048,
+    textureSize: 2048,
+    postProcessing: true,
+    particleCount: 1000
+  }
+};
+```
+
+### Performance Monitoring
+
+Use the PerformanceManager to track metrics:
+
+```javascript
+// Toggle performance overlay
+// Press 'p' during gameplay
+
+// Programmatic access
+const metrics = performanceManager.getMetrics();
+console.log(`FPS: ${metrics.fps}`);
+console.log(`Frame Time: ${metrics.frameTime}ms`);
+```
+
+### Memory Management
+
+Proper cleanup is essential:
+
+```javascript
+// Dispose of Three.js resources
+material.dispose();
+geometry.dispose();
+texture.dispose();
+
+// Remove physics bodies
+physicsWorld.removeBody(body);
+
+// Clean up event subscriptions
+eventManager.unsubscribe(EventTypes.BALL_HIT, handler);
+```
+
+## 🚀 Deployment
+
+### Building for Production
+
+```bash
+# Create optimized build
+npm run build
+
+# Output is in dist/ directory
+# - Minified JavaScript
+# - Optimized assets
+# - Service worker for caching
+```
+
+### Environment Variables
+
+```bash
+# .env file
+NODE_ENV=production
+API_URL=https://api.minigolfbreak.com
+QUALITY_DEFAULT=medium
+```
+
+## 🐛 Debugging
+
+### Debug Mode
+
+Press 'd' during gameplay to toggle debug mode:
+- Physics body visualization
+- Performance metrics
+- Verbose logging
+- Collision boundaries
+
+### Common Issues
+
+1. **Physics bodies not aligned with visuals**
+   - Check position synchronization in update loops
+   - Verify coordinate system consistency
+
+2. **Memory leaks**
+   - Ensure proper disposal in cleanup methods
+   - Check event subscription cleanup
+
+3. **Performance drops**
+   - Use Performance Monitor to identify bottlenecks
+   - Check for excessive draw calls
+   - Optimize particle systems
+
+## 📚 Additional Resources
+
+- [Three.js Documentation](https://threejs.org/docs/)
+- [Cannon-es Physics](https://pmndrs.github.io/cannon-es/)
+- [Project Task List](TASK_LIST.ignore.md)
+- [Architecture Details](ARCHITECTURE.md) *(coming soon)*
+- [Testing Guide](TESTING.md)
+
+---
+
+**Mini Golf Break** - Premium space-themed mini-golf with enterprise-level quality standards.

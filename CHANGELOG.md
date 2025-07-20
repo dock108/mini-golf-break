@@ -2,7 +2,7 @@
 
 All notable changes to the Mini Golf Break project will be documented in this file.
 
-## [Unreleased] - 2025-04-12
+## [Unreleased] - July 20, 2025
 
 ### Added
 - **iOS Build Capability:** Integrated Capacitor to allow building and running the web application as a native iOS app. Includes configuration for loading the live web URL (`minigolfbreak.com`) and necessary build steps.
@@ -16,7 +16,7 @@ All notable changes to the Mini Golf Break project will be documented in this fi
 ### Changed
 - Updated `.gitignore` to include standard Capacitor and iOS build artifacts (though entries were already present).
 
-## [Unreleased] - 2025-04-10
+## [1.1.0] - July 19, 2025
 
 ### Added
 - **Feedback Form Integration:** Added feedback form functionality accessible through a dedicated ad ship.
@@ -33,7 +33,7 @@ All notable changes to the Mini Golf Break project will be documented in this fi
 ### Fixed
 - **Ad URL Navigation:** Fixed issue where clicking the feedback ad would navigate to "#feedback-form" instead of opening the feedback form.
 
-## [Unreleased] - 2025-04-09
+## [1.0.1] - July 19, 2025
 
 ### Added
 - **AdSense Integration:** Added standard Google AdSense script to `index.html` and a placeholder for a bottom banner ad unit (HTML overlay, separate from 3D AdShips).
@@ -56,7 +56,7 @@ All notable changes to the Mini Golf Break project will be documented in this fi
 ### Internal
 - Reverted multiple L-shape redesign attempts for Hole 9 back to its original configuration due to rendering issues with complex shapes/holes.
 
-## [Unreleased] - 2025-04-06
+## [1.0.0] - July 18, 2025
 
 ### Added
 - Ad Ship System Foundation:
