@@ -190,6 +190,126 @@ export class CourseDataManager {
     if (typeof hole.index !== 'number' || hole.index < 0) {
       throw new Error(`Hole ${index}: index must be non-negative number`);
     }
+
+    // Validate obstacles if present
+    if (hole.obstacles) {
+      if (!Array.isArray(hole.obstacles)) {
+        throw new Error(`Hole ${index}: obstacles must be an array`);
+      }
+      hole.obstacles.forEach((obstacle, obstacleIndex) => {
+        this.validateObstacleData(obstacle, index, obstacleIndex);
+      });
+    }
+  }
+
+  /**
+   * Validate individual obstacle data
+   * @param {Object} obstacle - Obstacle data to validate
+   * @param {number} holeIndex - Hole index for error reporting
+   * @param {number} obstacleIndex - Obstacle index for error reporting
+   */
+  validateObstacleData(obstacle, holeIndex, obstacleIndex) {
+    const requiredFields = ['type', 'id', 'position'];
+    // Check required fields
+    for (const field of requiredFields) {
+      if (!(field in obstacle)) {
+        throw new Error(
+          `Hole ${holeIndex}, Obstacle ${obstacleIndex}: Missing required field: ${field}`
+        );
+      }
+    }
+
+    // Validate obstacle type
+    const validTypes = [
+      'teleporter',
+      'speedboost',
+      'movingplatform',
+      'rotatingbarrier',
+      'gravitywell',
+      'forcefield'
+    ];
+    if (!validTypes.includes(obstacle.type)) {
+      throw new Error(
+        `Hole ${holeIndex}, Obstacle ${obstacleIndex}: Invalid obstacle type: ${obstacle.type}`
+      );
+    }
+
+    // Validate position
+    if (!obstacle.position || typeof obstacle.position !== 'object') {
+      throw new Error(
+        `Hole ${holeIndex}, Obstacle ${obstacleIndex}: position must be an object with x, y, z`
+      );
+    }
+    if (!('x' in obstacle.position) || !('y' in obstacle.position) || !('z' in obstacle.position)) {
+      throw new Error(
+        `Hole ${holeIndex}, Obstacle ${obstacleIndex}: position must have x, y, z properties`
+      );
+    }
+
+    // Validate type-specific configurations
+    if (obstacle.config) {
+      this.validateObstacleConfig(obstacle.type, obstacle.config, holeIndex, obstacleIndex);
+    }
+  }
+
+  /**
+   * Validate obstacle type-specific configuration
+   * @param {string} type - Obstacle type
+   * @param {Object} config - Obstacle configuration
+   * @param {number} holeIndex - Hole index for error reporting
+   * @param {number} obstacleIndex - Obstacle index for error reporting
+   */
+  validateObstacleConfig(type, config, holeIndex, obstacleIndex) {
+    const errorPrefix = `Hole ${holeIndex}, Obstacle ${obstacleIndex}`;
+
+    switch (type) {
+      case 'teleporter':
+        if (!config.exitPosition || typeof config.exitPosition !== 'object') {
+          throw new Error(`${errorPrefix}: teleporter requires exitPosition with x, y, z`);
+        }
+        break;
+
+      case 'speedboost':
+        if (!config.boostDirection || typeof config.boostDirection !== 'object') {
+          throw new Error(`${errorPrefix}: speedboost requires boostDirection with x, y, z`);
+        }
+        if (typeof config.boostMagnitude !== 'number') {
+          throw new Error(`${errorPrefix}: speedboost requires numeric boostMagnitude`);
+        }
+        break;
+
+      case 'movingplatform':
+        if (!Array.isArray(config.waypoints) || config.waypoints.length < 2) {
+          throw new Error(
+            `${errorPrefix}: movingplatform requires waypoints array with at least 2 points`
+          );
+        }
+        break;
+
+      case 'rotatingbarrier':
+        if (typeof config.rotationSpeed !== 'number') {
+          throw new Error(`${errorPrefix}: rotatingbarrier requires numeric rotationSpeed`);
+        }
+        break;
+
+      case 'gravitywell':
+        if (typeof config.force !== 'number') {
+          throw new Error(`${errorPrefix}: gravitywell requires numeric force`);
+        }
+        if (typeof config.radius !== 'number' || config.radius <= 0) {
+          throw new Error(`${errorPrefix}: gravitywell requires positive numeric radius`);
+        }
+        break;
+
+      case 'forcefield':
+        if (!config.forceDirection || typeof config.forceDirection !== 'object') {
+          throw new Error(`${errorPrefix}: forcefield requires forceDirection with x, y, z`);
+        }
+        if (typeof config.forceMagnitude !== 'number') {
+          throw new Error(`${errorPrefix}: forcefield requires numeric forceMagnitude`);
+        }
+        break;
+    }
   }
 
   /**

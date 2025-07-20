@@ -125,6 +125,7 @@ export class HoleEntity extends BaseElement {
       await this.createStartPosition();
       this.createHazards();
       await this.createBumpers();
+      await this.createObstacles();
       console.log(`[HoleEntity] Initialization complete for hole index ${this.config.index}.`);
       return Promise.resolve();
     } catch (error) {
@@ -621,11 +622,81 @@ export class HoleEntity extends BaseElement {
   }
 
   /**
+   * Create obstacles for the hole
+   */
+  async createObstacles() {
+    const obstacleConfigs = this.config.obstacles || [];
+    if (obstacleConfigs.length === 0) {
+      return;
+    }
+
+    // Lazy load ObstacleFactory to avoid circular dependencies
+    const { ObstacleFactory } = await import('./obstacles/ObstacleFactory');
+    // Create obstacle factory if not exists
+    if (!this.obstacleFactory) {
+      this.obstacleFactory = new ObstacleFactory(this.game);
+    }
+
+    console.log(
+      `[HoleEntity] Creating ${obstacleConfigs.length} obstacles for hole ${this.config.index + 1}`
+    );
+
+    for (let index = 0; index < obstacleConfigs.length; index++) {
+      const obstacleConfig = obstacleConfigs[index];
+      try {
+        // Ensure position is WORLD Vector3
+        const worldObstaclePos =
+          obstacleConfig.position instanceof THREE.Vector3
+            ? obstacleConfig.position.clone()
+            : new THREE.Vector3(
+                obstacleConfig.position?.x || 0,
+                obstacleConfig.position?.y || 0,
+                obstacleConfig.position?.z || 0
+              );
+
+        // Create obstacle with world position
+        const obstacle = this.obstacleFactory.createObstacle(obstacleConfig.type, {
+          ...obstacleConfig.config,
+          id: obstacleConfig.id,
+          name: obstacleConfig.name,
+          position: worldObstaclePos,
+          holeIndex: this.config.index
+        });
+
+        if (obstacle) {
+          // Add obstacle to the hole's group
+          this.group.add(obstacle.group);
+
+          // Track the obstacle
+          if (!this.obstacles) {
+            this.obstacles = [];
+          }
+          this.obstacles.push(obstacle);
+
+          console.log(
+            `[HoleEntity] Created ${obstacleConfig.type} obstacle at position (${worldObstaclePos.x}, ${worldObstaclePos.y}, ${worldObstaclePos.z})`
+          );
+        }
+      } catch (error) {
+        console.error(`[HoleEntity] Failed to create obstacle ${index}:`, error, obstacleConfig);
+      }
+    }
+  }
+
+  /**
    * Destroy the HoleEntity's internal components (meshes, bodies)
    * but leaves the main container group (this.group or this.parentGroup) intact.
    */
   destroy() {
     console.log(`[HoleEntity] Destroying components for Hole ${this.config.index + 1}`);
+
+    // Destroy obstacles first
+    if (this.obstacles && this.obstacles.length > 0) {
+      for (const obstacle of this.obstacles) {
+        obstacle.dispose();
+      }
+      this.obstacles = [];
+    }
 
     // Remove physics bodies
     for (let i = this.bodies.length - 1; i >= 0; i--) {
