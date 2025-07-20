@@ -4,16 +4,17 @@ import * as THREE from 'three';
  * SpaceDecorations - Adds cosmic background elements to enhance the space theme
  */
 export class SpaceDecorations {
-  constructor(scene) {
+  constructor(scene, game = null) {
     this.scene = scene;
+    this.game = game;
     this.decorations = [];
   }
 
   /**
    * Initialize all space decorations
    */
-  init() {
-    this.addFloatingPlanets();
+  async init() {
+    await this.addFloatingPlanets();
     this.addDistantNebula();
     this.addSpaceDebris();
     this.addShootingStars();
@@ -22,14 +23,20 @@ export class SpaceDecorations {
   /**
    * Add floating planets in the background
    */
-  addFloatingPlanets() {
+  async addFloatingPlanets() {
     // Earth-like planet
     const earthGeometry = new THREE.SphereGeometry(5, 32, 32);
-    const earthMaterial = new THREE.MeshPhongMaterial({
-      color: 0x2233ff,
-      emissive: 0x112244,
-      emissiveIntensity: 0.1
-    });
+    const earthMaterial =
+      this.game && this.game.materialManager
+        ? this.game.materialManager.createGlowMaterial({
+            color: 0x2233ff,
+            intensity: 0.3
+          })
+        : new THREE.MeshPhongMaterial({
+            color: 0x2233ff,
+            emissive: 0x112244,
+            emissiveIntensity: 0.1
+          });
     const earth = new THREE.Mesh(earthGeometry, earthMaterial);
     earth.position.set(-30, 15, -50);
     earth.userData.type = 'decoration';
@@ -38,11 +45,17 @@ export class SpaceDecorations {
 
     // Mars-like planet
     const marsGeometry = new THREE.SphereGeometry(3, 32, 32);
-    const marsMaterial = new THREE.MeshPhongMaterial({
-      color: 0xff4444,
-      emissive: 0x441111,
-      emissiveIntensity: 0.1
-    });
+    const marsMaterial =
+      this.game && this.game.materialManager
+        ? this.game.materialManager.createGlowMaterial({
+            color: 0xff4444,
+            intensity: 0.2
+          })
+        : new THREE.MeshPhongMaterial({
+            color: 0xff4444,
+            emissive: 0x441111,
+            emissiveIntensity: 0.1
+          });
     const mars = new THREE.Mesh(marsGeometry, marsMaterial);
     mars.position.set(40, 10, -40);
     mars.userData.type = 'decoration';

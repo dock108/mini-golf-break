@@ -1,0 +1,313 @@
+{
+  "id": "obstacle-test-course",
+  "name": "Obstacle Test Course",
+  "author": "Mini Golf Break Team",
+  "description": "A course demonstrating all obstacle types",
+  "version": "1.0.0",
+  "metadata": {
+    "difficulty": "hard",
+    "theme": "space-station",
+    "tags": ["obstacles", "advanced", "challenging"],
+    "estimatedPlayTime": "20-30 minutes",
+    "unlockRequirement": null,
+    "environment": {
+      "skybox": "space-station",
+      "lighting": {
+        "preset": "dramatic",
+        "ambientColor": "0x505050",
+        "ambientIntensity": 0.4
+      }
+    }
+  },
+  "elements": [
+    {
+      "type": "hole",
+      "id": "hole_1",
+      "name": "Teleporter Challenge",
+      "index": 0,
+      "position": [0, 0, 0],
+      "holePosition": [0, 0, -15],
+      "startPosition": [0, 0, 8],
+      "courseWidth": 4,
+      "courseLength": 25,
+      "par": 4,
+      "description": "Master the teleporter to reach the hole",
+      "boundaryShape": [
+        {"x": -2, "y": -12},
+        {"x": -2, "y": 12},
+        {"x": 2, "y": 12},
+        {"x": 2, "y": -12},
+        {"x": -2, "y": -12}
+      ],
+      "obstacles": [
+        {
+          "type": "teleporter",
+          "id": "teleporter_1",
+          "name": "Entry Portal",
+          "position": {"x": 0, "y": 0.2, "z": 0},
+          "config": {
+            "exitPosition": {"x": 0, "y": 0.5, "z": -10},
+            "color": 0x00ffff,
+            "particleColor": 0x00ffff
+          }
+        }
+      ],
+      "hazards": [],
+      "decorations": []
+    },
+    {
+      "type": "hole",
+      "id": "hole_2",
+      "name": "Speed Run",
+      "index": 1,
+      "position": [30, 0, 0],
+      "holePosition": [30, 0, -20],
+      "startPosition": [30, 0, 8],
+      "courseWidth": 4,
+      "courseLength": 30,
+      "par": 3,
+      "description": "Use speed boosts to make par",
+      "boundaryShape": [
+        {"x": 28, "y": -15},
+        {"x": 28, "y": 12},
+        {"x": 32, "y": 12},
+        {"x": 32, "y": -15},
+        {"x": 28, "y": -15}
+      ],
+      "obstacles": [
+        {
+          "type": "speedboost",
+          "id": "speedboost_1",
+          "name": "Launch Pad",
+          "position": {"x": 30, "y": 0.1, "z": 4},
+          "config": {
+            "boostDirection": {"x": 0, "y": 0, "z": -1},
+            "boostMagnitude": 10,
+            "size": {"width": 3, "length": 2, "height": 0.1}
+          }
+        },
+        {
+          "type": "speedboost",
+          "id": "speedboost_2",
+          "name": "Mid Boost",
+          "position": {"x": 30, "y": 0.1, "z": -8},
+          "config": {
+            "boostDirection": {"x": 0, "y": 0, "z": -1},
+            "boostMagnitude": 8,
+            "size": {"width": 3, "length": 2, "height": 0.1}
+          }
+        }
+      ],
+      "hazards": [],
+      "decorations": []
+    },
+    {
+      "type": "hole",
+      "id": "hole_3",
+      "name": "Moving Platform Bridge",
+      "index": 2,
+      "position": [60, 0, 0],
+      "holePosition": [60, 0, -18],
+      "startPosition": [60, 0, 8],
+      "courseWidth": 4,
+      "courseLength": 28,
+      "par": 5,
+      "description": "Time your shot across the moving platforms",
+      "boundaryShape": [
+        {"x": 58, "y": -14},
+        {"x": 58, "y": 12},
+        {"x": 62, "y": 12},
+        {"x": 62, "y": -14},
+        {"x": 58, "y": -14}
+      ],
+      "obstacles": [
+        {
+          "type": "movingplatform",
+          "id": "platform_1",
+          "name": "Bridge Platform 1",
+          "position": {"x": 60, "y": 0.2, "z": -2},
+          "config": {
+            "waypoints": [
+              {"x": 58, "y": 0.2, "z": -2},
+              {"x": 62, "y": 0.2, "z": -2}
+            ],
+            "moveSpeed": 2,
+            "pauseDuration": 1,
+            "size": {"width": 2, "length": 3, "height": 0.3}
+          }
+        },
+        {
+          "type": "movingplatform",
+          "id": "platform_2",
+          "name": "Bridge Platform 2",
+          "position": {"x": 60, "y": 0.2, "z": -8},
+          "config": {
+            "waypoints": [
+              {"x": 62, "y": 0.2, "z": -8},
+              {"x": 58, "y": 0.2, "z": -8}
+            ],
+            "moveSpeed": 2,
+            "pauseDuration": 1,
+            "size": {"width": 2, "length": 3, "height": 0.3}
+          }
+        }
+      ],
+      "hazards": [
+        {
+          "type": "water",
+          "shape": "rectangle",
+          "position": {"x": 60, "y": 0, "z": -5},
+          "size": {"width": 8, "length": 8},
+          "depth": 0.5
+        }
+      ],
+      "decorations": []
+    },
+    {
+      "type": "hole",
+      "id": "hole_4",
+      "name": "Rotating Barrier Timing",
+      "index": 3,
+      "position": [90, 0, 0],
+      "holePosition": [90, 0, -15],
+      "startPosition": [90, 0, 8],
+      "courseWidth": 4,
+      "courseLength": 25,
+      "par": 4,
+      "description": "Navigate through the rotating barriers",
+      "boundaryShape": [
+        {"x": 88, "y": -12},
+        {"x": 88, "y": 12},
+        {"x": 92, "y": 12},
+        {"x": 92, "y": -12},
+        {"x": 88, "y": -12}
+      ],
+      "obstacles": [
+        {
+          "type": "rotatingbarrier",
+          "id": "barrier_1",
+          "name": "Entry Barrier",
+          "position": {"x": 90, "y": 0, "z": 2},
+          "config": {
+            "rotationSpeed": 1.5,
+            "armCount": 3,
+            "armLength": 2.5,
+            "armHeight": 0.8
+          }
+        },
+        {
+          "type": "rotatingbarrier",
+          "id": "barrier_2",
+          "name": "Exit Barrier",
+          "position": {"x": 90, "y": 0, "z": -8},
+          "config": {
+            "rotationSpeed": -1.2,
+            "armCount": 4,
+            "armLength": 2,
+            "armHeight": 0.8
+          }
+        }
+      ],
+      "hazards": [],
+      "decorations": []
+    },
+    {
+      "type": "hole",
+      "id": "hole_5",
+      "name": "Gravity Well Navigation",
+      "index": 4,
+      "position": [120, 0, 0],
+      "holePosition": [120, 0, -18],
+      "startPosition": [120, 0, 8],
+      "courseWidth": 6,
+      "courseLength": 28,
+      "par": 5,
+      "description": "Use gravity wells to curve your shot",
+      "boundaryShape": [
+        {"x": 117, "y": -14},
+        {"x": 117, "y": 12},
+        {"x": 123, "y": 12},
+        {"x": 123, "y": -14},
+        {"x": 117, "y": -14}
+      ],
+      "obstacles": [
+        {
+          "type": "gravitywell",
+          "id": "gravity_1",
+          "name": "Attractor Well",
+          "position": {"x": 118, "y": 0.5, "z": -4},
+          "config": {
+            "force": 8,
+            "radius": 4,
+            "falloff": "quadratic",
+            "color": 0x9900ff
+          }
+        },
+        {
+          "type": "gravitywell",
+          "id": "gravity_2",
+          "name": "Repulsor Well",
+          "position": {"x": 122, "y": 0.5, "z": -10},
+          "config": {
+            "force": -6,
+            "radius": 3,
+            "falloff": "linear",
+            "color": 0x00ff99
+          }
+        }
+      ],
+      "hazards": [],
+      "decorations": []
+    },
+    {
+      "type": "hole",
+      "id": "hole_6",
+      "name": "Force Field Finale",
+      "index": 5,
+      "position": [150, 0, 0],
+      "holePosition": [150, 0, -20],
+      "startPosition": [150, 0, 10],
+      "courseWidth": 5,
+      "courseLength": 32,
+      "par": 6,
+      "description": "Navigate the force fields to reach the hole",
+      "boundaryShape": [
+        {"x": 147.5, "y": -16},
+        {"x": 147.5, "y": 12},
+        {"x": 152.5, "y": 12},
+        {"x": 152.5, "y": -16},
+        {"x": 147.5, "y": -16}
+      ],
+      "obstacles": [
+        {
+          "type": "forcefield",
+          "id": "forcefield_1",
+          "name": "Side Push Field",
+          "position": {"x": 147.5, "y": 1, "z": -5},
+          "config": {
+            "forceDirection": {"x": 1, "y": 0, "z": 0},
+            "forceMagnitude": 5,
+            "fieldType": "constant",
+            "size": {"width": 1, "height": 3, "depth": 6},
+            "color": 0x00ffcc
+          }
+        },
+        {
+          "type": "forcefield",
+          "id": "forcefield_2",
+          "name": "Pulsing Field",
+          "position": {"x": 150, "y": 1, "z": -12},
+          "config": {
+            "forceDirection": {"x": 0, "y": 0, "z": 1},
+            "forceMagnitude": 8,
+            "fieldType": "pulsing",
+            "size": {"width": 4, "height": 3, "depth": 2},
+            "color": 0xff00cc
+          }
+        }
+      ],
+      "hazards": [],
+      "decorations": []
+    }
+  ]
+}

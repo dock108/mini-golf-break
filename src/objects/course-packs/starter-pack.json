@@ -1,0 +1,44 @@
+{
+  "id": "starter-pack",
+  "name": "Starter Pack",
+  "description": "Perfect for beginners - learn the basics of space golf",
+  "version": "1.0.0",
+  "author": "Mini Golf Break Team",
+  "difficulty": "easy",
+  "theme": "space-station",
+  "unlockRequirement": null,
+  "metadata": {
+    "tags": ["beginner", "tutorial", "space"],
+    "estimatedPlayTime": "20-30 minutes",
+    "achievements": [
+      {
+        "id": "starter_complete",
+        "name": "Space Cadet",
+        "description": "Complete the Starter Pack"
+      },
+      {
+        "id": "starter_under_par",
+        "name": "Rising Star",
+        "description": "Complete Starter Pack under par"
+      }
+    ],
+    "rewards": {
+      "xp": 100,
+      "unlocks": ["advanced-pack"]
+    }
+  },
+  "courses": [
+    "../courses/basic-course.json",
+    "../courses/cosmic-challenges.json"
+  ],
+  "courseOrder": ["basic-course", "cosmic-challenges"],
+  "progression": {
+    "mode": "linear",
+    "requirements": {
+      "cosmic-challenges": {
+        "prerequisite": "basic-course",
+        "minScore": null
+      }
+    }
+  }
+}

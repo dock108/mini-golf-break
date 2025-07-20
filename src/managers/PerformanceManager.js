@@ -1,5 +1,3 @@
-import * as THREE from 'three';
-
 /**
  * Configuration options for the PerformanceManager
  */

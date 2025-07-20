@@ -1,28 +1,123 @@
 echo "🔍 Running pre-commit quality checks..."
+echo "ℹ️  Matching CI pipeline validation to prevent surprises"
 
-# Run lint-staged for staged files only (faster)
-echo "📝 Checking and fixing staged files..."
-npx lint-staged
+# Stage 1: Code Quality (Linting + Formatting)
+echo ""
+echo "📝 Stage 1: Code Quality Checks"
+echo "==============================================="
 
-# Security checks
-echo "🔒 Running security checks..."
-AUDIT_RESULT=$(npm audit --audit-level=high --json 2>/dev/null || echo '{"metadata":{"vulnerabilities":{"high":0,"critical":0}}}')
-HIGH_VULNS=$(echo $AUDIT_RESULT | grep -o '"high":[0-9]*' | cut -d':' -f2 | head -1)
-CRITICAL_VULNS=$(echo $AUDIT_RESULT | grep -o '"critical":[0-9]*' | cut -d':' -f2 | head -1)
-
-if [ "${HIGH_VULNS:-0}" -gt "0" ] || [ "${CRITICAL_VULNS:-0}" -gt "0" ]; then
-  echo "❌ High or critical security vulnerabilities found!"
-  npm audit --audit-level=high
-  echo "Please fix security vulnerabilities before committing."
+# Check formatting BEFORE fixing (match CI behavior)
+echo "🔍 Checking code formatting..."
+npm run format:check
+if [ $? -ne 0 ]; then
+  echo "❌ Code formatting issues found!"
+  echo "💡 Auto-fixing formatting issues..."
+  npx lint-staged
+  echo "✅ Formatting fixed. Please review and re-commit."
   exit 1
-else
-  echo "✅ No high/critical security vulnerabilities found"
 fi
 
-# Temporarily skip tests to unblock development
-echo "🧪 Skipping unit tests temporarily..."
+# Run ESLint on all files (match CI behavior)
+echo "🔍 Running ESLint..."
+npm run lint
+if [ $? -ne 0 ]; then
+  echo "❌ ESLint errors found!"
+  echo "💡 Try running: npm run lint:fix"
+  exit 1
+fi
 
-echo "🔧 Running build to ensure no compilation errors..."
-npm run build
+# Stage 2: Security Audits (Match CI levels exactly)
+echo ""
+echo "🔒 Stage 2: Security Audits"
+echo "==============================================="
 
-echo "✅ All quality and security checks passed!"
+echo "🔍 Running moderate-level security audit..."
+npm audit --audit-level moderate
+MODERATE_EXIT_CODE=$?
+
+echo "🔍 Running high-level production security audit..."
+npm audit --audit-level high --production
+HIGH_EXIT_CODE=$?
+
+if [ $MODERATE_EXIT_CODE -ne 0 ] || [ $HIGH_EXIT_CODE -ne 0 ]; then
+  echo "❌ Security vulnerabilities found!"
+  echo "💡 Try running: npm audit fix"
+  exit 1
+else
+  echo "✅ No security vulnerabilities found"
+fi
+
+# Stage 3: Build Validation (Match CI behavior)
+echo ""
+echo "🔧 Stage 3: Build Validation"
+echo "==============================================="
+
+echo "🔍 Building application (development)..."
+NODE_ENV=development npm run build
+if [ $? -ne 0 ]; then
+  echo "❌ Development build failed!"
+  exit 1
+fi
+
+echo "🔍 Building application (production)..."
+NODE_ENV=production npm run build
+if [ $? -ne 0 ]; then
+  echo "❌ Production build failed!"
+  exit 1
+fi
+
+# Stage 4: Test Suite (Always run to match CI exactly)
+echo ""
+echo "🧪 Stage 4: Test Validation"
+echo "==============================================="
+
+echo "🧪 Running unit tests with coverage..."
+npm run test:unit -- --coverage --watchAll=false
+TEST_EXIT_CODE=$?
+
+if [ $TEST_EXIT_CODE -ne 0 ]; then
+  echo "❌ Unit tests failed!"
+  echo ""
+  echo "⚠️  Possible reasons for failure:"
+  echo "  1. Test failures - Fix failing tests before committing"
+  echo "  2. Coverage below 80% threshold - Add more tests to improve coverage"
+  echo ""
+  echo "💡 Run 'npm run test:coverage:unit' to see detailed coverage report"
+  exit 1
+fi
+
+echo "✅ Unit tests passed with sufficient coverage"
+
+echo "🧪 Running integration tests..."
+npm run test:integration -- --watchAll=false
+if [ $? -ne 0 ]; then
+  echo "❌ Integration tests failed!"
+  echo "💡 Fix failing integration tests before committing"
+  exit 1
+fi
+
+# Stage 5: Performance Check
+echo ""
+echo "📊 Stage 5: Performance Validation"
+echo "==============================================="
+
+echo "📏 Checking bundle size..."
+MAIN_BUNDLE_SIZE=$(du -k dist/main.*.js 2>/dev/null | cut -f1 | head -1)
+if [ -n "$MAIN_BUNDLE_SIZE" ] && [ "$MAIN_BUNDLE_SIZE" -gt "1024" ]; then
+  echo "⚠️  Warning: Main bundle size (${MAIN_BUNDLE_SIZE}KB) exceeds 1MB threshold"
+  echo "💡 Consider code splitting or optimization"
+else
+  echo "✅ Bundle size within acceptable limits"
+fi
+
+# Success summary
+echo ""
+echo "🎉 Pre-commit Validation Complete!"
+echo "==============================================="
+echo "✅ Code formatting and linting passed"
+echo "✅ Security audits passed"
+echo "✅ Build validation passed"
+echo "✅ Test validation completed"
+echo "✅ Performance check completed"
+echo ""
+echo "🚀 Ready to commit! Changes match CI pipeline requirements."

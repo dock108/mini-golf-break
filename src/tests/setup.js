@@ -61,56 +61,43 @@ global.THREE = {
   }),
   PerspectiveCamera: jest.fn(),
   Vector3: jest.fn(function (x = 0, y = 0, z = 0) {
-    this.x = x;
-    this.y = y;
-    this.z = z;
+    // Create a simple object that passes equality tests
+    const vector = {
+      x: x,
+      y: y,
+      z: z
+    };
 
-    // Define all methods on the instance
-    this.copy = jest.fn();
-    this.set = jest.fn();
-    this.setY = jest.fn(function (newY) {
+    // Add methods that may be called during testing
+    vector.copy = jest.fn(function (other) {
+      if (other) {
+        this.x = other.x || 0;
+        this.y = other.y || 0;
+        this.z = other.z || 0;
+      }
+      return this;
+    });
+    vector.set = jest.fn(function (newX, newY, newZ) {
+      this.x = newX;
+      this.y = newY;
+      this.z = newZ;
+      return this;
+    });
+    vector.setY = jest.fn(function (newY) {
       this.y = newY;
       return this;
     });
-    this.toArray = jest.fn(() => [this.x, this.y, this.z]);
-    this.distanceTo = jest.fn(() => 5);
-    this.normalize = jest.fn(() => this);
-
-    // Clone method that ensures cloned objects also have all methods
-    this.clone = jest.fn(() => {
-      // For now, create a simple object with all the same methods and properties
-      const cloned = {
-        x: this.x,
-        y: this.y,
-        z: this.z,
-        copy: jest.fn(),
-        set: jest.fn(),
-        setY: jest.fn(function (newY) {
-          cloned.y = newY;
-          return cloned;
-        }),
-        toArray: jest.fn(() => [cloned.x, cloned.y, cloned.z]),
-        distanceTo: jest.fn(() => 5),
-        normalize: jest.fn(() => cloned),
-        clone: jest.fn(() => {
-          // Recursive clone
-          return {
-            x: cloned.x,
-            y: cloned.y,
-            z: cloned.z,
-            setY: jest.fn(function (newY) {
-              this.y = newY;
-              return this;
-            }),
-            clone: jest.fn()
-          };
-        })
-      };
-      return cloned;
+    vector.toArray = jest.fn(function () {
+      return [this.x, this.y, this.z];
     });
+    vector.distanceTo = jest.fn(() => 5);
+    vector.normalize = jest.fn(() => vector);
+    vector.clone = jest.fn(() => new global.THREE.Vector3(vector.x, vector.y, vector.z));
+
+    return vector;
   }),
   Euler: jest.fn(() => ({ x: 0, y: 0, z: 0 })),
-  Mesh: jest.fn(() => {
+  Mesh: jest.fn(function (geometry, material) {
     const mesh = {
       position: {
         x: 0,
@@ -134,6 +121,17 @@ global.THREE = {
         })
       },
       rotation: { x: 0, y: 0, z: 0 },
+      scale: {
+        x: 1,
+        y: 1,
+        z: 1,
+        setScalar: jest.fn(function (s) {
+          this.x = s;
+          this.y = s;
+          this.z = s;
+          return this;
+        })
+      },
       quaternion: {
         x: 0,
         y: 0,
@@ -149,31 +147,113 @@ global.THREE = {
         })
       },
       castShadow: false,
-      receiveShadow: false
+      receiveShadow: false,
+      lookAt: jest.fn(),
+      type: 'Mesh',
+      material: material || { dispose: jest.fn(), color: 0xffffff },
+      geometry: geometry || { dispose: jest.fn() }
     };
     return mesh;
   }),
-  Group: jest.fn(() => ({
-    add: jest.fn(),
-    remove: jest.fn(),
-    position: { x: 0, y: 0, z: 0, copy: jest.fn() },
-    name: '',
-    userData: {},
-    children: []
+  Group: jest.fn(() => {
+    const group = {
+      add: jest.fn(),
+      remove: jest.fn(),
+      position: {
+        x: 0,
+        y: 0,
+        z: 0,
+        copy: jest.fn(function (other) {
+          if (other) {
+            this.x = other.x || 0;
+            this.y = other.y || 0;
+            this.z = other.z || 0;
+          }
+          return this;
+        }),
+        set: jest.fn(function (x, y, z) {
+          this.x = x;
+          this.y = y;
+          this.z = z;
+          return this;
+        })
+      },
+      rotation: {
+        x: 0,
+        y: 0,
+        z: 0,
+        copy: jest.fn(function (other) {
+          if (other) {
+            this.x = other.x || 0;
+            this.y = other.y || 0;
+            this.z = other.z || 0;
+          }
+          return this;
+        }),
+        set: jest.fn(function (x, y, z) {
+          this.x = x;
+          this.y = y;
+          this.z = z;
+          return this;
+        })
+      },
+      scale: {
+        x: 1,
+        y: 1,
+        z: 1,
+        setScalar: jest.fn(function (s) {
+          this.x = s;
+          this.y = s;
+          this.z = s;
+          return this;
+        })
+      },
+      name: '',
+      userData: {},
+      children: []
+    };
+    return group;
+  }),
+  SphereGeometry: jest.fn(() => ({
+    dispose: jest.fn()
   })),
-  SphereGeometry: jest.fn(),
-  CircleGeometry: jest.fn(),
-  CylinderGeometry: jest.fn(),
-  RingGeometry: jest.fn(),
-  PlaneGeometry: jest.fn(),
-  BoxGeometry: jest.fn(),
+  CircleGeometry: jest.fn(() => ({
+    dispose: jest.fn()
+  })),
+  CylinderGeometry: jest.fn(() => ({
+    dispose: jest.fn()
+  })),
+  RingGeometry: jest.fn(() => ({
+    dispose: jest.fn()
+  })),
+  PlaneGeometry: jest.fn(() => ({
+    dispose: jest.fn()
+  })),
+  BoxGeometry: jest.fn(() => ({
+    dispose: jest.fn()
+  })),
+  TorusGeometry: jest.fn(() => ({
+    dispose: jest.fn()
+  })),
+  OctahedronGeometry: jest.fn(() => ({
+    dispose: jest.fn()
+  })),
+  ExtrudeGeometry: jest.fn(() => ({
+    dispose: jest.fn()
+  })),
   MeshStandardMaterial: jest.fn(() => ({
     color: 0xffffff,
     roughness: 0.3,
-    metalness: 0.2
+    metalness: 0.2,
+    dispose: jest.fn()
   })),
   MeshBasicMaterial: jest.fn(() => ({
-    color: 0xffffff
+    color: 0xffffff,
+    dispose: jest.fn()
+  })),
+  ShaderMaterial: jest.fn(() => ({
+    uniforms: {},
+    dispose: jest.fn()
   })),
   CanvasTexture: jest.fn(),
   PointLight: jest.fn(() => ({
@@ -198,7 +278,24 @@ global.THREE = {
     min: { x: 0, y: 0, z: 0 },
     max: { x: 0, y: 0, z: 0 },
     expandByPoint: jest.fn()
-  }))
+  })),
+  Vector2: jest.fn(function (x = 0, y = 0) {
+    this.x = x;
+    this.y = y;
+    this.clone = jest.fn(() => new global.THREE.Vector2(this.x, this.y));
+    this.copy = jest.fn(function (other) {
+      this.x = other.x;
+      this.y = other.y;
+      return this;
+    });
+    return this;
+  }),
+  Color: jest.fn(function (color = 0xffffff) {
+    this.r = 1;
+    this.g = 1;
+    this.b = 1;
+    return this;
+  })
 };
 
 // Mock Cannon-es physics for testing
@@ -264,7 +361,7 @@ global.CANNON = {
     };
     return world;
   }),
-  Body: jest.fn(() => {
+  Body: jest.fn(function (options = {}) {
     const body = {
       position: {
         x: 0,
@@ -274,6 +371,17 @@ global.CANNON = {
           this.x = x;
           this.y = y;
           this.z = z;
+        }),
+        copy: jest.fn(function (other) {
+          if (other) {
+            this.x = other.x || 0;
+            this.y = other.y || 0;
+            this.z = other.z || 0;
+          }
+        }),
+        distanceTo: jest.fn(() => 5),
+        clone: jest.fn(function () {
+          return { x: this.x, y: this.y, z: this.z };
         })
       },
       velocity: {
@@ -284,9 +392,25 @@ global.CANNON = {
           this.x = x;
           this.y = y;
           this.z = z;
+        }),
+        copy: jest.fn(function (other) {
+          if (other) {
+            this.x = other.x || 0;
+            this.y = other.y || 0;
+            this.z = other.z || 0;
+          }
         })
       },
-      angularVelocity: { x: 0, y: 0, z: 0, set: jest.fn() },
+      angularVelocity: {
+        x: 0,
+        y: 0,
+        z: 0,
+        set: jest.fn(function (x, y, z) {
+          this.x = x;
+          this.y = y;
+          this.z = z;
+        })
+      },
       material: null,
       addEventListener: jest.fn(),
       quaternion: {
@@ -310,14 +434,32 @@ global.CANNON = {
           body.velocity.z += force.z || 0;
         }
       }),
-      linearDamping: 0.01
+      linearDamping: 0.01,
+      mass: options.mass !== undefined ? options.mass : 0,
+      isTrigger: options.isTrigger || false
     };
     return body;
   }),
   Material: jest.fn(),
   ContactMaterial: jest.fn(),
   Vec3: jest.fn(function (x = 0, y = 0, z = 0) {
-    return { x, y, z };
+    return {
+      x: x,
+      y: y,
+      z: z,
+      set: jest.fn(function (newX, newY, newZ) {
+        this.x = newX;
+        this.y = newY;
+        this.z = newZ;
+      }),
+      copy: jest.fn(function (other) {
+        if (other) {
+          this.x = other.x || 0;
+          this.y = other.y || 0;
+          this.z = other.z || 0;
+        }
+      })
+    };
   }),
   Sphere: jest.fn(),
   Box: jest.fn(),
@@ -328,6 +470,10 @@ global.CANNON = {
     world: null
   }))
 };
+
+// Add static properties to CANNON.Body
+global.CANNON.Body.STATIC = 1;
+global.CANNON.Body.DYNAMIC = 2;
 
 // Mock window.AudioContext
 global.window = global.window || {};

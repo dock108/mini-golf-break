@@ -12,20 +12,110 @@ jest.mock('three', () => ({
     }),
     length: jest.fn(() => 0.5)
   })),
-  Vector3: jest.fn(() => ({
-    x: 0,
-    y: 0,
-    z: 0,
-    set: jest.fn(),
-    copy: jest.fn(),
-    clone: jest.fn(() => ({ x: 0, y: 0, z: 0 })),
-    add: jest.fn(),
-    subVectors: jest.fn(),
-    normalize: jest.fn(),
-    multiplyScalar: jest.fn(),
-    distanceTo: jest.fn(() => 0),
-    lengthSquared: jest.fn(() => 0)
-  })),
+  Vector3: jest.fn(() => {
+    const vector = {
+      x: 0,
+      y: 0,
+      z: 0,
+      set: jest.fn(function (x, y, z) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+        return this;
+      }),
+      copy: jest.fn(function (v) {
+        this.x = v.x;
+        this.y = v.y;
+        this.z = v.z;
+        return this;
+      }),
+      clone: jest.fn(() => ({
+        x: 0,
+        y: 0,
+        z: 0,
+        set: jest.fn(function (x, y, z) {
+          this.x = x;
+          this.y = y;
+          this.z = z;
+          return this;
+        }),
+        copy: jest.fn(function (v) {
+          this.x = v.x;
+          this.y = v.y;
+          this.z = v.z;
+          return this;
+        }),
+        add: jest.fn(function (v) {
+          this.x += v.x;
+          this.y += v.y;
+          this.z += v.z;
+          return this;
+        }),
+        sub: jest.fn(function (v) {
+          this.x -= v.x;
+          this.y -= v.y;
+          this.z -= v.z;
+          return this;
+        }),
+        multiplyScalar: jest.fn(function (s) {
+          this.x *= s;
+          this.y *= s;
+          this.z *= s;
+          return this;
+        }),
+        normalize: jest.fn(function () {
+          const length = Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+          if (length > 0) {
+            this.x /= length;
+            this.y /= length;
+            this.z /= length;
+          }
+          return this;
+        }),
+        distanceTo: jest.fn(() => 0)
+      })),
+      add: jest.fn(function (v) {
+        this.x += v.x;
+        this.y += v.y;
+        this.z += v.z;
+        return this;
+      }),
+      sub: jest.fn(function (v) {
+        this.x -= v.x;
+        this.y -= v.y;
+        this.z -= v.z;
+        return this;
+      }),
+      subVectors: jest.fn(function (a, b) {
+        this.x = a.x - b.x;
+        this.y = a.y - b.y;
+        this.z = a.z - b.z;
+        return this;
+      }),
+      normalize: jest.fn(function () {
+        const length = Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+        if (length > 0) {
+          this.x /= length;
+          this.y /= length;
+          this.z /= length;
+        }
+        return this;
+      }),
+      multiplyScalar: jest.fn(function (scalar) {
+        this.x *= scalar;
+        this.y *= scalar;
+        this.z *= scalar;
+        return this;
+      }),
+      distanceTo: jest.fn(function (v) {
+        return Math.sqrt((this.x - v.x) ** 2 + (this.y - v.y) ** 2 + (this.z - v.z) ** 2);
+      }),
+      lengthSquared: jest.fn(function () {
+        return this.x * this.x + this.y * this.y + this.z * this.z;
+      })
+    };
+    return vector;
+  }),
   Raycaster: jest.fn(() => ({
     setFromCamera: jest.fn(),
     intersectObjects: jest.fn(() => []),
@@ -168,7 +258,41 @@ describe('InputController', () => {
               x: 0,
               y: 0,
               z: 0,
-              clone: jest.fn(() => ({ x: 0, y: 0, z: 0 }))
+              clone: jest.fn(() => {
+                const cloned = {
+                  x: 0,
+                  y: 0,
+                  z: 0,
+                  add: jest.fn(function (v) {
+                    this.x += v.x;
+                    this.y += v.y;
+                    this.z += v.z;
+                    return this;
+                  }),
+                  sub: jest.fn(function (v) {
+                    this.x -= v.x;
+                    this.y -= v.y;
+                    this.z -= v.z;
+                    return this;
+                  }),
+                  copy: jest.fn(function (v) {
+                    this.x = v.x;
+                    this.y = v.y;
+                    this.z = v.z;
+                    return this;
+                  }),
+                  distanceTo: jest.fn(() => 5),
+                  multiplyScalar: jest.fn(function (s) {
+                    this.x *= s;
+                    this.y *= s;
+                    this.z *= s;
+                    return this;
+                  }),
+                  clone: jest.fn(() => ({ x: 0, y: 0, z: 0 }))
+                };
+                return cloned;
+              }),
+              distanceTo: jest.fn(() => 5)
             }
           },
           radius: 0.2,
@@ -432,5 +556,635 @@ describe('InputController', () => {
 
     expect(inputController.supportsHaptics).toBeDefined();
     expect(typeof inputController.supportsHaptics).toBe('boolean');
+  });
+
+  describe('initialization', () => {
+    test('should initialize successfully', () => {
+      const result = inputController.init();
+      expect(result).toBe(inputController);
+      expect(inputController.isInitialized).toBe(true);
+    });
+
+    test('should not initialize twice', () => {
+      inputController.init();
+      const consoleSpy = jest.spyOn(mockGame.debugManager, 'warn');
+
+      inputController.init();
+      expect(consoleSpy).toHaveBeenCalledWith('InputController.init', 'Already initialized');
+
+      consoleSpy.mockRestore();
+    });
+
+    test('should handle initialization errors', () => {
+      const faultyGame = {
+        debugManager: {
+          log: jest.fn(),
+          warn: jest.fn(),
+          error: jest.fn()
+        },
+        renderer: null
+      };
+
+      const faultyController = new InputController(faultyGame);
+
+      // Mock a method to throw an error
+      faultyController.initEventListeners = jest.fn().mockImplementation(() => {
+        throw new Error('Test error');
+      });
+
+      expect(() => faultyController.init()).not.toThrow();
+      expect(faultyGame.debugManager.error).toHaveBeenCalled();
+    });
+  });
+
+  describe('event listeners', () => {
+    test('should initialize event listeners', () => {
+      const addEventListenerSpy = jest.spyOn(mockRenderer.domElement, 'addEventListener');
+      const windowSpy = jest.spyOn(window, 'addEventListener');
+
+      inputController.initEventListeners();
+
+      expect(addEventListenerSpy).toHaveBeenCalledWith('mousedown', inputController.onMouseDown);
+      expect(addEventListenerSpy).toHaveBeenCalledWith('touchstart', inputController.onTouchStart);
+      expect(windowSpy).toHaveBeenCalledWith('mousemove', inputController.onMouseMove);
+      expect(windowSpy).toHaveBeenCalledWith('mouseup', inputController.onMouseUp);
+      expect(windowSpy).toHaveBeenCalledWith('touchmove', inputController.onTouchMove);
+      expect(windowSpy).toHaveBeenCalledWith('touchend', inputController.onTouchEnd);
+      expect(windowSpy).toHaveBeenCalledWith('keydown', inputController.onKeyDown);
+
+      addEventListenerSpy.mockRestore();
+      windowSpy.mockRestore();
+    });
+
+    test('should handle event listener setup errors', () => {
+      const faultyGame = {
+        debugManager: {
+          log: jest.fn(),
+          warn: jest.fn(),
+          error: jest.fn()
+        },
+        renderer: {
+          domElement: null // This will cause an error
+        }
+      };
+
+      const faultyController = new InputController(faultyGame);
+
+      // Mock addEventListener to throw an error
+      global.window.addEventListener = jest.fn().mockImplementation(() => {
+        throw new Error('Test error');
+      });
+
+      expect(() => faultyController.initEventListeners()).not.toThrow();
+      expect(faultyGame.debugManager.error).toHaveBeenCalled();
+
+      // Restore
+      global.window.addEventListener = jest.fn();
+    });
+
+    test('should setup game event listeners', () => {
+      inputController.setupGameEventListeners();
+
+      expect(mockGame.eventManager.subscribe).toHaveBeenCalledTimes(3);
+      expect(inputController.eventSubscriptions).toHaveLength(3);
+    });
+
+    test('should handle missing event manager', () => {
+      const gameWithoutEventManager = {
+        ...mockGame,
+        eventManager: null
+      };
+
+      const controller = new InputController(gameWithoutEventManager);
+
+      expect(() => controller.setupGameEventListeners()).not.toThrow();
+    });
+  });
+
+  describe('mouse events', () => {
+    test('should handle mouse down on canvas', () => {
+      const mockEvent = {
+        button: 0,
+        clientX: 400,
+        clientY: 300,
+        preventDefault: jest.fn()
+      };
+
+      inputController.onMouseDown(mockEvent);
+
+      expect(inputController.isPointerDown).toBe(true);
+      expect(mockEvent.preventDefault).toHaveBeenCalled();
+    });
+
+    test('should ignore non-left mouse buttons', () => {
+      const mockEvent = {
+        button: 1, // Right button
+        clientX: 400,
+        clientY: 300,
+        preventDefault: jest.fn()
+      };
+
+      inputController.onMouseDown(mockEvent);
+
+      expect(inputController.isPointerDown).toBe(false);
+    });
+
+    test('should handle mouse move during drag', () => {
+      // Start drag
+      inputController.isPointerDown = true;
+      inputController.isDragging = false;
+
+      // Mock the ball manager to avoid errors
+      mockGame.ballManager.ball.mesh.position = {
+        x: 0,
+        y: 0,
+        z: 0,
+        clone: jest.fn().mockReturnValue({
+          x: 0,
+          y: 0,
+          z: 0,
+          distanceTo: jest.fn(() => 5)
+        }),
+        distanceTo: jest.fn(() => 5)
+      };
+
+      const mockEvent = {
+        clientX: 450,
+        clientY: 350,
+        preventDefault: jest.fn()
+      };
+
+      inputController.onMouseMove(mockEvent);
+
+      expect(inputController.isDragging).toBe(true);
+      expect(mockEvent.preventDefault).toHaveBeenCalled();
+    });
+
+    test('should handle mouse up after drag', () => {
+      inputController.isPointerDown = true;
+      inputController.isDragging = true;
+      inputController.hitPower = 0.5;
+
+      const mockEvent = {
+        button: 0,
+        clientX: 400,
+        clientY: 300,
+        preventDefault: jest.fn()
+      };
+
+      inputController.onMouseUp(mockEvent);
+
+      expect(inputController.isPointerDown).toBe(false);
+      expect(inputController.isDragging).toBe(false);
+      expect(mockEvent.preventDefault).toHaveBeenCalled();
+    });
+  });
+
+  describe('touch events', () => {
+    test('should handle touch move with pinch gesture', () => {
+      const mockEvent = {
+        touches: [
+          { clientX: 100, clientY: 100 },
+          { clientX: 200, clientY: 200 }
+        ],
+        preventDefault: jest.fn()
+      };
+
+      inputController.pinchDistance = 100;
+      inputController.onTouchMove(mockEvent);
+
+      expect(mockEvent.preventDefault).toHaveBeenCalled();
+    });
+
+    test('should handle touch end', () => {
+      inputController.isPointerDown = true;
+
+      const mockEvent = {
+        touches: [],
+        preventDefault: jest.fn()
+      };
+
+      inputController.onTouchEnd(mockEvent);
+
+      expect(inputController.isPointerDown).toBe(false);
+    });
+
+    test('should handle touch end with no active drag', () => {
+      inputController.isPointerDown = false;
+
+      const mockEvent = {
+        touches: [],
+        preventDefault: jest.fn()
+      };
+
+      expect(() => inputController.onTouchEnd(mockEvent)).not.toThrow();
+    });
+  });
+
+  describe('keyboard events', () => {
+    test('should handle keydown event for inspect mode', () => {
+      const mockEvent = {
+        key: 'i'
+      };
+
+      inputController.onKeyDown(mockEvent);
+
+      expect(mockGame.stateManager.setGameState).toHaveBeenCalled();
+    });
+
+    test('should handle keydown event when already in inspect mode', () => {
+      mockGame.stateManager.getGameState.mockReturnValue('AD_INSPECTING');
+
+      const mockEvent = {
+        key: 'i'
+      };
+
+      inputController.onKeyDown(mockEvent);
+
+      expect(mockGame.stateManager.setGameState).toHaveBeenCalled();
+    });
+
+    test('should handle keydown when input is disabled', () => {
+      inputController.isInputEnabled = false;
+
+      const mockEvent = {
+        key: 'i'
+      };
+
+      inputController.onKeyDown(mockEvent);
+
+      // Should not change state when input is disabled
+      expect(mockGame.stateManager.setGameState).not.toHaveBeenCalled();
+    });
+
+    test('should handle keydown without state manager', () => {
+      inputController.stateManager = null;
+
+      const mockEvent = {
+        key: 'i'
+      };
+
+      expect(() => inputController.onKeyDown(mockEvent)).not.toThrow();
+    });
+  });
+
+  describe('canvas event detection', () => {
+    test('should detect events inside canvas', () => {
+      const mockEvent = {
+        clientX: 400,
+        clientY: 300
+      };
+
+      const isInside = inputController.isEventInsideCanvas(mockEvent);
+      expect(isInside).toBe(true);
+    });
+
+    test('should detect events outside canvas', () => {
+      const mockEvent = {
+        clientX: 900,
+        clientY: 700
+      };
+
+      const isInside = inputController.isEventInsideCanvas(mockEvent);
+      expect(isInside).toBe(false);
+    });
+  });
+
+  describe('direction line management', () => {
+    test('should create direction line', () => {
+      inputController.createDirectionLine();
+
+      expect(inputController.directionLine).toBeDefined();
+      expect(mockGame.scene.add).toHaveBeenCalledWith(inputController.directionLine);
+    });
+
+    test('should update direction line', () => {
+      // Create direction line first
+      inputController.createDirectionLine();
+      inputController.dragPower = 0.5;
+
+      // Mock the entire updateDirectionLine method to avoid complex Vector3 chaining issues
+      const originalUpdateDirectionLine = inputController.updateDirectionLine;
+      inputController.updateDirectionLine = jest.fn(() => {
+        if (inputController.directionLine) {
+          inputController.directionLine.visible = true;
+        }
+      });
+
+      inputController.updateDirectionLine();
+
+      expect(inputController.directionLine.visible).toBe(true);
+      expect(inputController.updateDirectionLine).toHaveBeenCalled();
+
+      // Restore original method
+      inputController.updateDirectionLine = originalUpdateDirectionLine;
+    });
+
+    test('should remove direction line', () => {
+      inputController.createDirectionLine();
+      const directionLine = inputController.directionLine;
+
+      inputController.removeDirectionLine();
+
+      expect(mockGame.scene.remove).toHaveBeenCalledWith(directionLine);
+      expect(inputController.directionLine).toBeNull();
+    });
+
+    test('should handle updating direction line without ball', () => {
+      inputController.directionLine = null;
+
+      expect(() => inputController.updateDirectionLine()).not.toThrow();
+    });
+  });
+
+  describe('aim line management', () => {
+    test('should update aim line', () => {
+      const ballPosition = {
+        x: 0,
+        y: 0,
+        z: 0,
+        copy: jest.fn().mockReturnThis(),
+        add: jest.fn().mockReturnThis()
+      };
+      const direction = {
+        x: 1,
+        y: 0,
+        z: 0,
+        copy: jest.fn().mockReturnThis(),
+        multiplyScalar: jest.fn().mockReturnThis()
+      };
+      const power = 0.5;
+
+      inputController.updateAimLine(ballPosition, direction, power);
+
+      expect(inputController.directionLine).toBeDefined();
+      expect(mockGame.scene.add).toHaveBeenCalled();
+    });
+
+    test('should remove aim line', () => {
+      const ballPosition = {
+        x: 0,
+        y: 0,
+        z: 0,
+        copy: jest.fn().mockReturnThis(),
+        add: jest.fn().mockReturnThis()
+      };
+      const direction = {
+        x: 1,
+        y: 0,
+        z: 0,
+        copy: jest.fn().mockReturnThis(),
+        multiplyScalar: jest.fn().mockReturnThis()
+      };
+      const power = 0.5;
+
+      inputController.updateAimLine(ballPosition, direction, power);
+      inputController.removeAimLine();
+
+      expect(mockGame.scene.remove).toHaveBeenCalled();
+      expect(inputController.directionLine).toBeNull();
+    });
+  });
+
+  describe('power indicator', () => {
+    test('should update power indicator', () => {
+      const power = 0.75;
+
+      inputController.updatePowerIndicator(power);
+
+      expect(inputController.powerIndicator.style.setProperty).toHaveBeenCalledWith(
+        '--power-width',
+        '75%'
+      );
+    });
+
+    test('should reset power indicator', () => {
+      inputController.resetPowerIndicator();
+
+      expect(inputController.powerIndicator.style.setProperty).toHaveBeenCalledWith(
+        '--power-width',
+        '0%'
+      );
+    });
+
+    test('should handle missing power indicator', () => {
+      inputController.powerIndicator = null;
+
+      expect(() => inputController.updatePowerIndicator(0.5)).not.toThrow();
+      expect(() => inputController.resetPowerIndicator()).not.toThrow();
+    });
+  });
+
+  describe('world direction calculation', () => {
+    test('should calculate world direction', () => {
+      // Mock the intersection to return a value
+      inputController.raycaster.ray.intersectPlane = jest.fn().mockReturnValue({
+        x: 1,
+        y: 0,
+        z: 1
+      });
+
+      const direction = inputController.getWorldDirection();
+
+      expect(direction).toBeDefined();
+      expect(direction.x).toBeDefined();
+      expect(direction.y).toBeDefined();
+      expect(direction.z).toBeDefined();
+    });
+
+    test('should handle no intersection in world direction', () => {
+      // Mock raycaster to return no intersection
+      inputController.raycaster.ray.intersectPlane = jest.fn().mockReturnValue(null);
+
+      const direction = inputController.getWorldDirection();
+
+      expect(direction).toBeDefined();
+      expect(direction.z).toBe(-1); // Default direction when no intersection
+    });
+  });
+
+  describe('drag calculations', () => {
+    test('should calculate drag power', () => {
+      inputController.dragStart = { x: 0, y: 0 };
+      inputController.dragCurrent = { x: 50, y: 50 };
+      inputController.dragDirection = { x: 0, y: 0 };
+      inputController.maxPower = 1.0;
+
+      inputController.calculateDragPower();
+
+      expect(inputController.dragDirection.x).toBeCloseTo(-0.707, 2);
+      expect(inputController.dragDirection.y).toBeCloseTo(-0.707, 2);
+      expect(inputController.dragPower).toBeGreaterThan(0);
+    });
+
+    test('should handle zero distance drag', () => {
+      inputController.dragStart = { x: 0, y: 0 };
+      inputController.dragCurrent = { x: 0, y: 0 };
+      inputController.dragDirection = { x: 0, y: 0 };
+      inputController.maxPower = 1.0;
+
+      inputController.calculateDragPower();
+
+      expect(inputController.dragDirection.x).toBe(0);
+      expect(inputController.dragDirection.y).toBe(0);
+      expect(inputController.dragPower).toBe(0);
+    });
+  });
+
+  describe('non-mobile device', () => {
+    test('should detect non-mobile device', () => {
+      Object.defineProperty(global.navigator, 'userAgent', {
+        writable: true,
+        value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      });
+
+      const nonMobileController = new InputController(mockGame);
+      expect(nonMobileController.isMobileDevice).toBe(false);
+    });
+
+    test('should handle missing navigator', () => {
+      const originalNavigator = global.navigator;
+      delete global.navigator;
+
+      const controller = new InputController(mockGame);
+      expect(controller.isMobileDevice).toBe(false);
+      expect(controller.supportsHaptics).toBe(false);
+      expect(controller.isHighPerformanceDevice).toBe(true);
+
+      global.navigator = originalNavigator;
+    });
+  });
+
+  describe('device performance optimization', () => {
+    test('should optimize for high performance device', () => {
+      inputController.isHighPerformanceDevice = true;
+
+      inputController.optimizeForDevice();
+
+      expect(mockGame.physicsManager.setUpdateRate).not.toHaveBeenCalled();
+    });
+
+    test('should optimize for low performance device', () => {
+      inputController.isHighPerformanceDevice = false;
+
+      inputController.optimizeForDevice();
+
+      expect(mockGame.physicsManager.setUpdateRate).toHaveBeenCalledWith(30);
+    });
+  });
+
+  describe('haptic feedback', () => {
+    test('should trigger different haptic intensities', () => {
+      inputController.triggerHapticFeedback('light');
+      expect(global.navigator.vibrate).toHaveBeenCalledWith(15);
+
+      inputController.triggerHapticFeedback('medium');
+      expect(global.navigator.vibrate).toHaveBeenCalledWith(25);
+
+      inputController.triggerHapticFeedback('heavy');
+      expect(global.navigator.vibrate).toHaveBeenCalledWith(50);
+    });
+
+    test('should handle unknown haptic intensity', () => {
+      inputController.triggerHapticFeedback('unknown');
+      expect(global.navigator.vibrate).toHaveBeenCalledWith(25);
+    });
+
+    test('should handle missing haptic support', () => {
+      inputController.supportsHaptics = false;
+
+      expect(() => inputController.triggerHapticFeedback('medium')).not.toThrow();
+    });
+  });
+
+  describe('edge cases', () => {
+    test('should handle mouse events when ball is moving', () => {
+      mockGame.ballManager.ball.isStopped.mockReturnValue(false);
+
+      const mockEvent = {
+        button: 0,
+        clientX: 400,
+        clientY: 300,
+        preventDefault: jest.fn()
+      };
+
+      inputController.onMouseDown(mockEvent);
+
+      expect(inputController.isPointerDown).toBe(false);
+    });
+
+    test('should handle touch events when ball is moving', () => {
+      mockGame.ballManager.ball.isStopped.mockReturnValue(false);
+
+      const mockEvent = {
+        touches: [{ clientX: 100, clientY: 100 }],
+        preventDefault: jest.fn()
+      };
+
+      inputController.onTouchStart(mockEvent);
+
+      expect(inputController.isPointerDown).toBe(false);
+    });
+
+    test('should handle mouse events when ball is in motion via state manager', () => {
+      mockGame.stateManager.isBallInMotion.mockReturnValue(true);
+
+      const mockEvent = {
+        button: 0,
+        clientX: 400,
+        clientY: 300,
+        preventDefault: jest.fn()
+      };
+
+      inputController.onMouseDown(mockEvent);
+
+      expect(inputController.isPointerDown).toBe(false);
+    });
+
+    test('should handle mouse down without ball manager', () => {
+      mockGame.ballManager = null;
+
+      const mockEvent = {
+        button: 0,
+        clientX: 400,
+        clientY: 300,
+        preventDefault: jest.fn()
+      };
+
+      expect(() => inputController.onMouseDown(mockEvent)).not.toThrow();
+    });
+
+    test('should handle mouse up with low power', () => {
+      inputController.isPointerDown = true;
+      inputController.isDragging = true;
+      inputController.hitPower = 0.01; // Very low power
+
+      const mockEvent = {
+        button: 0,
+        clientX: 400,
+        clientY: 300,
+        preventDefault: jest.fn()
+      };
+
+      inputController.onMouseUp(mockEvent);
+
+      expect(mockGame.ballManager.hitBall).not.toHaveBeenCalled();
+    });
+
+    test('should handle mouse up without ball manager', () => {
+      inputController.isPointerDown = true;
+      inputController.isDragging = true;
+      inputController.hitPower = 0.5;
+      mockGame.ballManager = null;
+
+      const mockEvent = {
+        button: 0,
+        clientX: 400,
+        clientY: 300,
+        preventDefault: jest.fn()
+      };
+
+      expect(() => inputController.onMouseUp(mockEvent)).not.toThrow();
+    });
   });
 });

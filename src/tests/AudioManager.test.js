@@ -11,8 +11,14 @@ describe('AudioManager', () => {
   let audioManager;
   let mockAudioListener;
   let mockAudio;
+  let consoleWarnSpy;
+  let consoleLogSpy;
 
   beforeEach(() => {
+    // Spy on console methods
+    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+
     // Use the existing mocks from jest.setup.js rather than overriding them
     mockAudio = {
       setBuffer: jest.fn().mockReturnThis(),
@@ -48,6 +54,8 @@ describe('AudioManager', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    consoleWarnSpy.mockRestore();
+    consoleLogSpy.mockRestore();
   });
 
   describe('constructor', () => {
@@ -238,6 +246,187 @@ describe('AudioManager', () => {
 
       // Restore original state for other tests
       mockAudioListener.context.state = originalState;
+    });
+
+    test('should return suspended when audioListener is missing', () => {
+      audioManager.audioListener = null;
+      const state = audioManager.getContextState();
+      expect(state).toBe('suspended');
+    });
+
+    test('should log when resuming suspended context', () => {
+      audioManager.audioListener.context.state = 'suspended';
+      audioManager.resumeContext();
+      expect(consoleLogSpy).toHaveBeenCalledWith('[AudioManager] Would resume audio context');
+    });
+
+    test('should not resume context when already running', () => {
+      audioManager.audioListener.context.state = 'running';
+      audioManager.resumeContext();
+      expect(consoleLogSpy).not.toHaveBeenCalledWith('[AudioManager] Would resume audio context');
+    });
+  });
+
+  describe('playSound method', () => {
+    beforeEach(() => {
+      audioManager = new AudioManager(mockGame);
+      audioManager.playHitSound = jest.fn();
+      audioManager.playSuccessSound = jest.fn();
+    });
+
+    test('should play hit sound through playSound', () => {
+      audioManager.playSound('hit', 0.8);
+      expect(audioManager.playHitSound).toHaveBeenCalledWith(0.8);
+    });
+
+    test('should play success sound through playSound', () => {
+      audioManager.playSound('success', 0.6);
+      expect(audioManager.playSuccessSound).toHaveBeenCalledWith(0.6);
+    });
+
+    test('should warn for unknown sound', () => {
+      audioManager.playSound('unknown');
+      expect(consoleWarnSpy).toHaveBeenCalledWith("Sound 'unknown' not found");
+    });
+
+    test('should warn when sounds object is null', () => {
+      audioManager.sounds = null;
+      audioManager.playSound('hit');
+      expect(consoleWarnSpy).toHaveBeenCalledWith("Sound 'hit' not found");
+    });
+
+    test('should handle unimplemented sound types silently', () => {
+      // Add a new sound that exists but has no case
+      audioManager.sounds.roll = {};
+      audioManager.playSound('roll');
+      // Should not throw and not call any play methods
+      expect(audioManager.playHitSound).not.toHaveBeenCalled();
+      expect(audioManager.playSuccessSound).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('sound playback with Web Audio API', () => {
+    let mockOscillator;
+    let mockGain;
+    let mockContext;
+
+    beforeEach(() => {
+      mockOscillator = {
+        type: '',
+        frequency: {
+          setValueAtTime: jest.fn(),
+          linearRampToValueAtTime: jest.fn()
+        },
+        connect: jest.fn(),
+        start: jest.fn(),
+        stop: jest.fn()
+      };
+
+      mockGain = {
+        gain: {
+          setValueAtTime: jest.fn(),
+          linearRampToValueAtTime: jest.fn()
+        },
+        connect: jest.fn()
+      };
+
+      mockContext = {
+        createOscillator: jest.fn(() => mockOscillator),
+        createGain: jest.fn(() => mockGain),
+        currentTime: 0,
+        destination: {}
+      };
+
+      audioManager = new AudioManager(mockGame);
+      // Add context to sounds
+      audioManager.sounds.hit.context = mockContext;
+      audioManager.sounds.success.context = mockContext;
+    });
+
+    test('should create oscillator for hit sound', () => {
+      jest.useFakeTimers();
+
+      audioManager.playHitSound(0.5);
+
+      expect(mockContext.createOscillator).toHaveBeenCalled();
+      expect(mockContext.createGain).toHaveBeenCalled();
+      expect(mockOscillator.type).toBe('sine');
+      expect(mockOscillator.frequency.setValueAtTime).toHaveBeenCalledWith(220, 0);
+      expect(mockOscillator.connect).toHaveBeenCalledWith(mockGain);
+      expect(mockGain.connect).toHaveBeenCalledWith(mockContext.destination);
+      expect(mockOscillator.start).toHaveBeenCalled();
+      expect(mockOscillator.stop).toHaveBeenCalledWith(0.3);
+
+      // Check gain values
+      expect(mockGain.gain.setValueAtTime).toHaveBeenCalledWith(0, 0);
+      expect(mockGain.gain.linearRampToValueAtTime).toHaveBeenCalledWith(0.15, 0.01); // 0.3 * 0.5
+      expect(mockGain.gain.linearRampToValueAtTime).toHaveBeenCalledWith(0, 0.3);
+
+      // Check isPlaying reset
+      expect(audioManager.sounds.hit.isPlaying).toBe(true);
+      jest.advanceTimersByTime(300);
+      expect(audioManager.sounds.hit.isPlaying).toBe(false);
+
+      jest.useRealTimers();
+    });
+
+    test('should create oscillator for success sound', () => {
+      jest.useFakeTimers();
+
+      audioManager.playSuccessSound(0.75);
+
+      expect(mockContext.createOscillator).toHaveBeenCalled();
+      expect(mockContext.createGain).toHaveBeenCalled();
+      expect(mockOscillator.type).toBe('sine');
+      expect(mockOscillator.frequency.setValueAtTime).toHaveBeenCalledWith(440, 0);
+      expect(mockOscillator.frequency.linearRampToValueAtTime).toHaveBeenCalledWith(880, 0.3);
+      expect(mockOscillator.connect).toHaveBeenCalledWith(mockGain);
+      expect(mockGain.connect).toHaveBeenCalledWith(mockContext.destination);
+      expect(mockOscillator.start).toHaveBeenCalled();
+      expect(mockOscillator.stop).toHaveBeenCalledWith(0.5);
+
+      // Check gain values
+      expect(mockGain.gain.setValueAtTime).toHaveBeenCalledWith(0, 0);
+      expect(mockGain.gain.linearRampToValueAtTime).toHaveBeenCalledWith(0.30000000000000004, 0.1); // 0.4 * 0.75
+      expect(mockGain.gain.linearRampToValueAtTime).toHaveBeenCalledWith(0, 0.5);
+
+      // Check isPlaying reset
+      expect(audioManager.sounds.success.isPlaying).toBe(true);
+      jest.advanceTimersByTime(500);
+      expect(audioManager.sounds.success.isPlaying).toBe(false);
+
+      jest.useRealTimers();
+    });
+  });
+
+  describe('cleanup with disconnect', () => {
+    beforeEach(() => {
+      audioManager = new AudioManager(mockGame);
+    });
+
+    test('should call disconnect when available', () => {
+      const mockDisconnect = jest.fn();
+      audioManager.sounds.hit.disconnect = mockDisconnect;
+      audioManager.sounds.hit.isPlaying = true;
+
+      audioManager.cleanup();
+
+      expect(mockDisconnect).toHaveBeenCalled();
+    });
+
+    test('should handle disconnect not being a function', () => {
+      audioManager.sounds.hit.disconnect = 'not-a-function';
+      audioManager.sounds.hit.isPlaying = true;
+
+      expect(() => {
+        audioManager.cleanup();
+      }).not.toThrow();
+    });
+
+    test('should remove audio listener from camera', () => {
+      audioManager.cleanup();
+
+      expect(mockCamera.remove).toHaveBeenCalledWith(audioManager.audioListener);
     });
   });
 });
