@@ -327,10 +327,10 @@ export class TeleporterPad extends Obstacle {
   createTeleportEffect(position) {
     if (!this.game) return;
 
-    const particleCount = 50;
+    const particleCount = this.particleCount || 50;
     const particles = [];
 
-    for (let i = 0; i < this.particleCount; i++) {
+    for (let i = 0; i < particleCount; i++) {
       const particleGeometry = new THREE.SphereGeometry(0.05, 4, 4);
       const particleMaterial = new THREE.MeshBasicMaterial({
         color: this.particleColor,

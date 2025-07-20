@@ -74,66 +74,86 @@ jest.mock('cannon-es', () => {
     NaiveBroadphase: jest.fn(() => ({})),
     Material: jest.fn(() => ({})),
     ContactMaterial: jest.fn(() => ({})),
-    Body: jest.fn(() => ({
-      position: { x: 0, y: 0, z: 0 },
-      velocity: {
-        x: 0,
-        y: 0,
-        z: 0,
-        set: jest.fn(),
-        copy: jest.fn(),
-        scale: jest.fn(),
-        normalize: jest.fn()
-      },
-      angularVelocity: {
-        x: 0,
-        y: 0,
-        z: 0,
-        set: jest.fn(),
-        copy: jest.fn()
-      },
-      force: {
-        x: 0,
-        y: 0,
-        z: 0,
-        set: jest.fn()
-      },
-      torque: {
-        x: 0,
-        y: 0,
-        z: 0,
-        set: jest.fn()
-      },
-      material: null,
-      mass: 1,
-      type: 0,
-      shapes: [],
-      id: Math.random(),
-      sleepState: 0,
-      allowSleep: true,
-      sleepSpeedLimit: 0.15,
-      sleepTimeLimit: 0.2,
-      linearDamping: 0.01,
-      angularDamping: 0.01,
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
-      wakeUp: jest.fn(),
-      sleep: jest.fn(),
-      quaternion: {
-        setFromAxisAngle: jest.fn(),
-        setFromEuler: jest.fn(),
-        x: 0,
-        y: 0,
-        z: 0,
-        w: 1,
-        set: jest.fn(),
-        copy: jest.fn(),
-        normalize: jest.fn()
-      },
-      addShape: jest.fn(),
-      removeShape: jest.fn(),
-      userData: {}
-    })),
+    Body: Object.assign(
+      jest.fn((options = {}) => ({
+        position: {
+          x: 0,
+          y: 0,
+          z: 0,
+          copy: jest.fn(function (other) {
+            if (other) {
+              this.x = other.x || 0;
+              this.y = other.y || 0;
+              this.z = other.z || 0;
+            }
+          }),
+          set: jest.fn(function (x, y, z) {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+          })
+        },
+        velocity: {
+          x: 0,
+          y: 0,
+          z: 0,
+          set: jest.fn(),
+          copy: jest.fn(),
+          scale: jest.fn(),
+          normalize: jest.fn()
+        },
+        angularVelocity: {
+          x: 0,
+          y: 0,
+          z: 0,
+          set: jest.fn(),
+          copy: jest.fn()
+        },
+        force: {
+          x: 0,
+          y: 0,
+          z: 0,
+          set: jest.fn()
+        },
+        torque: {
+          x: 0,
+          y: 0,
+          z: 0,
+          set: jest.fn()
+        },
+        material: null,
+        mass: options.mass !== undefined ? options.mass : 0,
+        isTrigger: options.isTrigger || false,
+        type: 0,
+        shapes: [],
+        id: Math.random(),
+        sleepState: 0,
+        allowSleep: true,
+        sleepSpeedLimit: 0.15,
+        sleepTimeLimit: 0.2,
+        linearDamping: 0.01,
+        angularDamping: 0.01,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        wakeUp: jest.fn(),
+        sleep: jest.fn(),
+        quaternion: {
+          setFromAxisAngle: jest.fn(),
+          setFromEuler: jest.fn(),
+          x: 0,
+          y: 0,
+          z: 0,
+          w: 1,
+          set: jest.fn(),
+          copy: jest.fn(),
+          normalize: jest.fn()
+        },
+        addShape: jest.fn(),
+        removeShape: jest.fn(),
+        userData: {}
+      })),
+      { STATIC: 1, DYNAMIC: 2 }
+    ),
     Vec3: jest.fn((x, y, z) => ({ x, y, z })),
     Sphere: jest.fn(radius => ({ radius })),
     Box: jest.fn(() => ({})),
@@ -256,16 +276,70 @@ jest.mock(
       Mesh: jest.fn(function (geometry, material) {
         this.geometry = geometry;
         this.material = material;
-        this.position = { x: 0, y: 0, z: 0, set: jest.fn(), copy: jest.fn() };
+        this.position = {
+          x: 0,
+          y: 0,
+          z: 0,
+          set: jest.fn(function (x, y, z) {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+          }),
+          copy: jest.fn(function (other) {
+            if (other) {
+              this.x = other.x || 0;
+              this.y = other.y || 0;
+              this.z = other.z || 0;
+            }
+          }),
+          add: jest.fn(function (other) {
+            if (other) {
+              this.x += other.x || 0;
+              this.y += other.y || 0;
+              this.z += other.z || 0;
+            }
+            return this;
+          })
+        };
         this.rotation = { x: 0, y: 0, z: 0, set: jest.fn() };
         this.scale = { x: 1, y: 1, z: 1, set: jest.fn() };
         this.castShadow = false;
         this.receiveShadow = false;
         this.name = '';
         this.userData = {};
+        this.type = 'Mesh';
         this.add = jest.fn();
         this.remove = jest.fn();
         this.children = [];
+        // Add velocity property for particles
+        this.velocity = {
+          x: 0,
+          y: 0,
+          z: 0,
+          clone: jest.fn(function () {
+            return {
+              x: this.x,
+              y: this.y,
+              z: this.z,
+              multiplyScalar: jest.fn(function (scalar) {
+                return {
+                  x: this.x * scalar,
+                  y: this.y * scalar,
+                  z: this.z * scalar
+                };
+              })
+            };
+          }),
+          multiplyScalar: jest.fn(function (scalar) {
+            this.x *= scalar;
+            this.y *= scalar;
+            this.z *= scalar;
+            return this;
+          })
+        };
+        // Add life and decay properties for particles
+        this.life = 1.0;
+        this.decay = 0.02;
         return this;
       })
     };

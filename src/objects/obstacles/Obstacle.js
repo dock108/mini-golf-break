@@ -43,7 +43,7 @@ export class Obstacle {
     this.group.rotation.set(this.rotation.x, this.rotation.y, this.rotation.z);
 
     // State
-    this.active = true;
+    this.active = this.isActive;
     this.disposed = false;
 
     // Effects
