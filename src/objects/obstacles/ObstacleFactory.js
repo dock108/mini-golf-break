@@ -17,7 +17,7 @@ export class ObstacleFactory {
 
     for (const config of obstacleConfigs) {
       try {
-        const obstacle = this.createObstacle(config);
+        const obstacle = this.createObstacle(config.type, config);
         if (obstacle) {
           obstacles.push(obstacle);
         }
@@ -26,7 +26,6 @@ export class ObstacleFactory {
       }
     }
 
-    this.obstacles = obstacles;
     return obstacles;
   }
 
@@ -46,11 +45,18 @@ export class ObstacleFactory {
       // Create obstacle instance
       const obstacle = obstacleRegistry.create(fullConfig);
 
+      if (!obstacle) {
+        console.error('Registry failed to create obstacle of type:', type);
+        return null;
+      }
+
       // Initialize with game reference
-      obstacle.init(this.game);
+      if (obstacle.init) {
+        obstacle.init(this.game);
+      }
 
       // Add to scene
-      if (obstacle.getGroup()) {
+      if (obstacle.getGroup && obstacle.getGroup()) {
         this.game.scene.add(obstacle.getGroup());
       }
 
@@ -128,35 +134,14 @@ export class ObstacleFactory {
    * Get obstacles by type
    */
   getObstaclesByType(type) {
-    return this.obstacles.filter(obstacle => obstacle.type === type);
-  }
-
-  /**
-   * Remove an obstacle
-   */
-  removeObstacle(obstacle) {
-    const index = this.obstacles.indexOf(obstacle);
-    if (index !== -1) {
-      this.obstacles.splice(index, 1);
-
-      // Remove from scene
-      if (obstacle.getGroup() && this.game.scene) {
-        this.game.scene.remove(obstacle.getGroup());
-      }
-
-      // Dispose
-      obstacle.dispose();
-
-      // Remove from registry
-      obstacleRegistry.removeInstance(obstacle.id);
-    }
+    return Array.from(this.obstacles.values()).filter(obstacle => obstacle.type === type);
   }
 
   /**
    * Clear all obstacles
    */
   clearObstacles() {
-    for (const obstacle of this.obstacles) {
+    for (const obstacle of this.obstacles.values()) {
       // Remove from scene
       if (obstacle.getGroup() && this.game.scene) {
         this.game.scene.remove(obstacle.getGroup());
@@ -166,8 +151,7 @@ export class ObstacleFactory {
       obstacle.dispose();
     }
 
-    this.obstacles = [];
-    obstacleRegistry.clearInstances();
+    this.obstacles.clear();
   }
 
   /**

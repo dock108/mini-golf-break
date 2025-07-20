@@ -18,7 +18,8 @@ export class SpeedBoostStrip extends Obstacle {
       config.direction?.y || 0,
       config.direction?.z || 1
     ).normalize();
-    this.boostForce = config.force || 10;
+    this.boostForce = config.force || config.boostMagnitude || 10;
+    this.boostMagnitude = this.boostForce; // Alias for test compatibility
     this.boostType = config.boostType || 'additive'; // 'additive' or 'override'
 
     // Visual properties

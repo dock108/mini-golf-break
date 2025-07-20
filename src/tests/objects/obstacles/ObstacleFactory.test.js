@@ -1,7 +1,9 @@
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import * as THREE from 'three';
 import { ObstacleFactory } from '../../../objects/obstacles/ObstacleFactory';
-import { ObstacleRegistry } from '../../../objects/obstacles/ObstacleRegistry';
+import { obstacleRegistry } from '../../../objects/obstacles/ObstacleRegistry';
+// Import the index to trigger auto-registration
+import '../../../objects/obstacles/index.js';
 import { TeleporterPad } from '../../../objects/obstacles/TeleporterPad';
 import { SpeedBoostStrip } from '../../../objects/obstacles/SpeedBoostStrip';
 
@@ -41,10 +43,8 @@ describe('ObstacleFactory', () => {
       camera: new THREE.PerspectiveCamera()
     };
 
-    // Get registry and register test obstacles
-    registry = ObstacleRegistry.getInstance();
-    registry.register('teleporter', TeleporterPad);
-    registry.register('speedboost', SpeedBoostStrip);
+    // Get registry (obstacles should be auto-registered via index import)
+    registry = obstacleRegistry;
 
     factory = new ObstacleFactory(mockGame);
   });
