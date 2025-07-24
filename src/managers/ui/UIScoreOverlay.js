@@ -55,19 +55,16 @@ export class UIScoreOverlay {
     // 1. Create hole info element
     this.holeInfoElement = document.createElement('div');
     this.holeInfoElement.classList.add(this.INFO_BOX_CLASS);
-    this.holeInfoElement.style.marginBottom = '2px'; // Adjust spacing
     this.scoreContainer.appendChild(this.holeInfoElement);
 
     // 2. Create strokes element
     this.strokesElement = document.createElement('div');
     this.strokesElement.classList.add(this.INFO_BOX_CLASS);
-    this.strokesElement.style.marginBottom = '2px'; // Adjust spacing
     this.scoreContainer.appendChild(this.strokesElement);
 
     // 3. Create score element (Total Strokes)
     this.scoreElement = document.createElement('div');
     this.scoreElement.classList.add(this.INFO_BOX_CLASS);
-    this.scoreElement.style.marginBottom = '0px'; // No margin for the last item
     this.scoreContainer.appendChild(this.scoreElement);
 
     this.updateScore();

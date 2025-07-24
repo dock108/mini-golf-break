@@ -101,3 +101,4 @@ docs/.docusaurus/
 *.swp
 *.swo
 *~
+TASK_LIST.ignore.md

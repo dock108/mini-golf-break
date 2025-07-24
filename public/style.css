@@ -266,8 +266,8 @@ body {
 /* Top-right score container */
 .top-right-container {
     position: absolute;
-    top: 20px;
-    right: 20px;
+    top: calc(20px + env(safe-area-inset-top));
+    right: calc(20px + env(safe-area-inset-right));
     display: flex;
     flex-direction: column;
     align-items: flex-end;
@@ -278,12 +278,32 @@ body {
 .info-box {
     background-color: rgba(0, 0, 0, 0.7);
     color: white;
-    padding: 8px 15px;
-    margin-bottom: 5px;
+    padding: 6px 12px;
+    margin-bottom: 3px;
     border-radius: 5px;
     font-weight: bold;
-    min-width: 150px;
+    min-width: 120px;
     text-align: right;
+    font-size: 14px;
+}
+
+/* Remove margin from last info box */
+.info-box:last-child {
+    margin-bottom: 0;
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 768px) {
+    .top-right-container {
+        top: calc(10px + env(safe-area-inset-top));
+        right: calc(10px + env(safe-area-inset-right));
+    }
+    
+    .info-box {
+        padding: 5px 10px;
+        min-width: 100px;
+        font-size: 13px;
+    }
 }
 
 .logo-container {
