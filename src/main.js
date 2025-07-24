@@ -1,5 +1,6 @@
 import { Game } from './scenes/Game';
 import '../public/style.css';
+import { SplashScreen } from '@capacitor/splash-screen';
 
 class App {
   constructor() {
@@ -84,8 +85,16 @@ class App {
 }
 
 // Start the application when the window loads
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
   window.App = new App();
   // Also expose game for easier testing access
   window.game = window.App.game;
+
+  // Hide splash screen after app loads
+  try {
+    await SplashScreen.hide();
+  } catch (error) {
+    // Splash screen plugin may not be available in web browser
+    console.log('SplashScreen.hide() not available:', error);
+  }
 });

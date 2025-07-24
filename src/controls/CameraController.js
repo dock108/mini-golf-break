@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { TouchCameraController } from './TouchCameraController';
 import { EventTypes } from '../events/EventTypes';
 import { debug } from '../utils/debug';
 
@@ -25,6 +26,7 @@ export class CameraController {
       5000 // Far Clipping Plane (Increased significantly from 1000)
     );
     this.controls = null;
+    this.touchController = null;
 
     // Game references
     this.course = null;
@@ -32,6 +34,9 @@ export class CameraController {
 
     // Debug mode
     this.debugMode = false;
+
+    // Touch device detection
+    this.isTouchDevice = this.detectTouchDevice();
 
     // Initialization state tracking
     this.isInitialized = false;
@@ -92,6 +97,13 @@ export class CameraController {
         console.log('[CameraController.init] Setting up controls...');
         this.setupControls();
         console.log('[CameraController.init] Controls setup finished.');
+
+        // Setup touch controls for mobile devices
+        if (this.isTouchDevice) {
+          console.log('[CameraController.init] Setting up touch controls...');
+          this.setupTouchControls();
+          console.log('[CameraController.init] Touch controls setup finished.');
+        }
       } else {
         console.warn(
           '[CameraController.init] Initialized without renderer, orbit controls will be disabled'
@@ -656,6 +668,12 @@ export class CameraController {
         this.eventSubscriptions = [];
       }
 
+      // Dispose of touch controller
+      if (this.touchController) {
+        this.touchController.dispose();
+        this.touchController = null;
+      }
+
       // Dispose of orbit controls if they exist
       if (this.controls) {
         this.controls.dispose();
@@ -732,12 +750,14 @@ export class CameraController {
       this.controls.dampingFactor = 0.1;
       this.controls.rotateSpeed = 0.7;
       this.controls.zoomSpeed = 1.2;
-      this.controls.minDistance = 2;
-      this.controls.maxDistance = 30;
+      this.controls.minDistance = 3;
+      this.controls.maxDistance = 40;
       this.controls.maxPolarAngle = Math.PI / 2; // Limit vertical rotation
 
-      // Enable target movement with middle mouse
+      // Enable all controls by default
       this.controls.enablePan = true;
+      this.controls.enableZoom = true;
+      this.controls.enableRotate = true;
       this.controls.panSpeed = 0.8;
       this.controls.screenSpacePanning = true;
 
@@ -746,6 +766,11 @@ export class CameraController {
         this._userAdjustedCamera = true;
         this._lastManualControlTime = Date.now();
         console.log('[CameraController] User manually adjusted camera');
+      });
+
+      // Listen for camera reset events
+      this.renderer.domElement.addEventListener('camera-reset-view', event => {
+        this.resetCameraView(event.detail.smooth);
       });
 
       if (this.game.debugManager) {
@@ -938,5 +963,49 @@ export class CameraController {
 
     this.camera.updateProjectionMatrix();
     debug.log(`[CameraController] Quality level set: ${isHighPerformance ? 'High' : 'Low'}`);
+  }
+
+  /**
+   * Detect if device supports touch
+   */
+  detectTouchDevice() {
+    return (
+      'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0
+    );
+  }
+
+  /**
+   * Setup touch-specific controls
+   */
+  setupTouchControls() {
+    if (!this.controls || !this.renderer) {
+      return;
+    }
+
+    this.touchController = new TouchCameraController(
+      this.camera,
+      this.renderer.domElement,
+      this.controls
+    );
+
+    this.touchController.enable();
+
+    // Optimize orbit controls for touch
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.05;
+    this.controls.rotateSpeed = 0.5;
+    this.controls.zoomSpeed = 0.8;
+    this.controls.panSpeed = 0.5;
+
+    debug.log('[CameraController] Touch controls initialized');
+  }
+
+  /**
+   * Reset camera to default view
+   */
+  resetCameraView(smooth = true) {
+    this._userAdjustedCamera = false;
+    this.positionCameraForHole();
+    debug.log('[CameraController] Camera view reset');
   }
 }

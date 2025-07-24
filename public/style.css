@@ -3,6 +3,11 @@ body {
     overflow: hidden;
     background: #000;
     font-family: Arial, sans-serif;
+    /* Prevent iOS bounce and zoom */
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 #game-container {

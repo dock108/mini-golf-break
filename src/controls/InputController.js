@@ -534,6 +534,11 @@ export class InputController {
   }
 
   onTouchStart(event) {
+    // Ignore multi-touch events completely - let TouchCameraController handle them
+    if (event.touches.length > 1) {
+      return;
+    }
+
     // Check if input is allowed and if the ball is stopped
     const ball = this.game.ballManager?.ball;
     if (!this.isInputEnabled || (ball && !ball.isStopped())) {
@@ -541,18 +546,6 @@ export class InputController {
         `[InputController.onTouchStart] Input ignored: InputEnabled=${this.isInputEnabled}, Ball Stopped=${ball ? ball.isStopped() : 'N/A'}`
       );
       return; // Ignore touch if input disabled or ball is moving
-    }
-
-    // Handle multi-touch detection
-    this.isMultiTouch = event.touches.length > 1;
-
-    if (event.touches.length === 2) {
-      // Calculate initial pinch distance
-      const touch1 = event.touches[0];
-      const touch2 = event.touches[1];
-      const dx = touch1.clientX - touch2.clientX;
-      const dy = touch1.clientY - touch2.clientY;
-      this.pinchDistance = Math.sqrt(dx * dx + dy * dy);
     }
 
     // Only handle single touch events for aiming/shooting
@@ -574,32 +567,16 @@ export class InputController {
       // Call the existing onMouseDown logic
       this.onMouseDown(simulatedMouseEvent);
     }
-    // Ignore multi-touch events for shooting mechanics
   }
 
   onTouchMove(event) {
-    // Handle two-finger pinch zoom
-    if (event.touches.length === 2) {
-      const touch1 = event.touches[0];
-      const touch2 = event.touches[1];
-
-      // Calculate current distance between touches
-      const dx = touch1.clientX - touch2.clientX;
-      const dy = touch1.clientY - touch2.clientY;
-      const currentDistance = Math.sqrt(dx * dx + dy * dy);
-
-      // If we have a previous distance, calculate zoom
-      if (this.pinchDistance) {
-        const zoomDelta = this.pinchDistance / currentDistance;
-        this.handlePinchZoom(zoomDelta);
-      }
-
-      // Store current distance for next frame
-      this.pinchDistance = currentDistance;
-      event.preventDefault();
+    // Ignore multi-touch events completely - let TouchCameraController handle them
+    if (event.touches.length > 1) {
+      return;
     }
+
     // Handle single touch movements if a drag is active
-    else if (this.isPointerDown && event.touches.length === 1) {
+    if (this.isPointerDown && event.touches.length === 1) {
       const touch = event.touches[0];
 
       // Simulate a mouse move event
@@ -611,22 +588,13 @@ export class InputController {
 
       // Call the existing onMouseMove logic
       this.onMouseMove(simulatedMouseEvent);
-
-      // Edge detection is handled in onMouseMove, no need to duplicate it here
     }
   }
 
   onTouchEnd(event) {
-    // Reset pinch distance when touches end
-    if (event.touches.length < 2) {
-      this.pinchDistance = 0;
-    }
-
-    // Check if we were actually dragging (pointer was down)
-    // touchend is fired even if the touch didn't start on the canvas
+    // Only handle if we were actually dragging (pointer was down)
     if (this.isPointerDown) {
       // Simulate a left mouse button up event
-      // We don't strictly need coordinates for mouse up logic
       const simulatedMouseEvent = {
         button: 0, // Simulate left mouse button release
         preventDefault: () => event.preventDefault() // Pass preventDefault
@@ -635,8 +603,6 @@ export class InputController {
       // Call the existing onMouseUp logic
       this.onMouseUp(simulatedMouseEvent);
     }
-    // Note: No check for event.touches.length here, as touchend signifies the end of a touch point.
-    // The state (isPointerDown) determines if it corresponds to our drag action.
   }
 
   calculateDragPower() {
