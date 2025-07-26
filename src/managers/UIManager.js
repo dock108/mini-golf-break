@@ -1,6 +1,7 @@
 import { EventTypes } from '../events/EventTypes';
 import { UIScoreOverlay } from './ui/UIScoreOverlay';
 import { UIDebugOverlay } from './ui/UIDebugOverlay';
+import { UICameraControls } from './ui/UICameraControls';
 import { debug } from '../utils/debug';
 
 /**
@@ -22,6 +23,7 @@ export class UIManager {
     // UI Submodules
     this.scoreOverlay = null;
     this.debugOverlay = null;
+    this.cameraControls = null;
 
     // Message Display (still managed here for simplicity)
     this.isShowingMessage = false;
@@ -51,6 +53,9 @@ export class UIManager {
 
       this.debugOverlay = new UIDebugOverlay(this.game, this.uiContainer);
       this.debugOverlay.init();
+
+      this.cameraControls = new UICameraControls(this.game, this.uiContainer);
+      this.cameraControls.init();
       debug.log('[UIManager.init] Submodules initialized.');
 
       debug.log('[UIManager.init] Creating remaining UI elements (Message, Power)...');
@@ -76,24 +81,59 @@ export class UIManager {
     // Clean up any existing UI elements first (including old container)
     this.cleanup();
 
-    // First check for an existing UI container with either ID
+    // Prefer existing #ui-overlay (which has proper pointer-events CSS), fallback to #ui-container
     this.uiContainer =
-      document.getElementById('ui-container') || document.getElementById('ui-overlay');
+      document.getElementById('ui-overlay') || document.getElementById('ui-container');
 
     if (!this.uiContainer) {
-      debug.log('[UIManager.createMainContainer] No UI container found. Creating new container.');
+      debug.log('[UIManager.createMainContainer] No UI container found. Creating new ui-overlay.');
       this.uiContainer = document.createElement('div');
-      this.uiContainer.id = 'ui-container';
-      this.uiContainer.classList.add('ui-container');
+      this.uiContainer.id = 'ui-overlay';
+      // Apply basic positioning, pointer-events handled by CSS classes
+      this.uiContainer.style.position = 'absolute';
+      this.uiContainer.style.top = '0';
+      this.uiContainer.style.left = '0';
+      this.uiContainer.style.width = '100%';
+      this.uiContainer.style.height = '100%';
+      this.uiContainer.style.zIndex = '1000';
+      // Pointer-events handled by CSS rule for #ui-overlay
       document.body.appendChild(this.uiContainer);
-      debug.log('[UIManager.createMainContainer] Created #ui-container and added to body.');
+      debug.log('[UIManager.createMainContainer] Created #ui-overlay and added to body.');
     } else {
       debug.log(
         `[UIManager.createMainContainer] Found existing UI container: #${this.uiContainer.id}`
       );
-      // Ensure it's empty to avoid duplication
-      while (this.uiContainer.firstChild) {
-        this.uiContainer.removeChild(this.uiContainer.firstChild);
+
+      // Ensure the container has proper pointer-events behavior using CSS classes
+      if (this.uiContainer.id === 'ui-overlay') {
+        // Remove any inline styles that might conflict, let CSS classes handle it
+        this.uiContainer.style.pointerEvents = '';
+        debug.log(
+          '[UIManager.createMainContainer] Using CSS classes for #ui-overlay pointer-events'
+        );
+      }
+
+      // Don't clear existing children if it's the ui-overlay - it may have power indicator, etc.
+      // Only clear if it's a new ui-container
+      if (this.uiContainer.id === 'ui-container') {
+        while (this.uiContainer.firstChild) {
+          this.uiContainer.removeChild(this.uiContainer.firstChild);
+        }
+      }
+
+      // Ensure existing HTML elements have proper pointer-events classes
+      if (this.uiContainer.id === 'ui-overlay') {
+        const powerIndicator = this.uiContainer.querySelector('#power-indicator');
+        if (powerIndicator) {
+          powerIndicator.classList.add('display-ui');
+          debug.log('[UIManager] Added display-ui class to existing #power-indicator');
+        }
+
+        const readyIndicator = this.uiContainer.querySelector('#ready-indicator');
+        if (readyIndicator) {
+          readyIndicator.classList.add('display-ui');
+          debug.log('[UIManager] Added display-ui class to existing #ready-indicator');
+        }
       }
     }
   }
@@ -105,7 +145,7 @@ export class UIManager {
     // Create message container (center)
     this.messageElement = document.createElement('div');
     this.messageElement.id = 'message-container';
-    this.messageElement.classList.add('message-container');
+    this.messageElement.classList.add('message-container', 'display-ui'); // Use CSS class for pointer-events
     this.uiContainer.appendChild(this.messageElement);
   }
 
@@ -115,7 +155,7 @@ export class UIManager {
   createPowerIndicatorUI() {
     // Create power indicator
     this.powerIndicator = document.createElement('div');
-    this.powerIndicator.classList.add('power-indicator');
+    this.powerIndicator.classList.add('power-indicator', 'display-ui'); // Use CSS class for pointer-events
     const powerFill = document.createElement('div');
     powerFill.classList.add('power-indicator-fill');
     this.powerIndicator.appendChild(powerFill);
@@ -303,34 +343,31 @@ export class UIManager {
     // Store renderer reference
     this.renderer = renderer;
 
-    // Prefer a specific container if it exists
-    let container = document.getElementById('game-container');
-    if (!container) {
-      // Fallback to creating a default container if none exists
-      debug.log('[UIManager.attachRenderer] #game-container not found, creating one.');
-      container = document.createElement('div');
-      container.id = 'game-container';
-      container.style.position = 'absolute';
-      container.style.top = '0';
-      container.style.left = '0';
-      container.style.width = '100%';
-      container.style.height = '100%';
-      container.style.overflow = 'hidden';
-      document.body.insertBefore(container, document.body.firstChild);
+    // Attach canvas directly to body to avoid z-index stacking context issues
+    const canvas = renderer.domElement;
+
+    // Ensure canvas isn't already attached elsewhere
+    if (canvas.parentNode && canvas.parentNode !== document.body) {
+      canvas.parentNode.removeChild(canvas);
     }
 
-    // Ensure renderer DOM element isn't already attached elsewhere
-    if (renderer.domElement.parentNode && renderer.domElement.parentNode !== container) {
-      renderer.domElement.parentNode.removeChild(renderer.domElement);
-    }
-
-    // Append if not already a child
-    if (renderer.domElement.parentNode !== container) {
-      container.appendChild(renderer.domElement);
-      debug.log('[UIManager.attachRenderer] Renderer attached to container.');
+    // Append canvas directly to body if not already attached
+    if (canvas.parentNode !== document.body) {
+      document.body.appendChild(canvas);
+      debug.log('[UIManager.attachRenderer] Canvas attached directly to body.');
     } else {
-      debug.log('[UIManager.attachRenderer] Renderer already attached to container.');
+      debug.log('[UIManager.attachRenderer] Canvas already attached to body.');
     }
+
+    // Ensure canvas can receive touch events and has proper positioning/z-index
+    canvas.style.position = 'absolute';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.width = '100vw';
+    canvas.style.height = '100vh';
+    canvas.style.zIndex = '100'; // Below ui-overlay (1000) but above background
+    canvas.style.touchAction = 'auto';
+    canvas.style.pointerEvents = 'auto';
   }
 
   /**
@@ -421,6 +458,7 @@ export class UIManager {
     // Cleanup submodules
     this.scoreOverlay?.cleanup();
     this.debugOverlay?.cleanup();
+    this.cameraControls?.dispose();
 
     // Cleanup elements managed directly by UIManager
     this.messageElement?.remove();
@@ -431,6 +469,7 @@ export class UIManager {
     this.powerIndicator = null;
     this.scoreOverlay = null;
     this.debugOverlay = null;
+    this.cameraControls = null;
     this.uiContainer = null;
 
     // Clear message timeout

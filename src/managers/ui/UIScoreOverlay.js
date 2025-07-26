@@ -45,7 +45,7 @@ export class UIScoreOverlay {
     );
     if (!topRightContainer) {
       topRightContainer = document.createElement('div');
-      topRightContainer.classList.add(this.TOP_RIGHT_CONTAINER_CLASS);
+      topRightContainer.classList.add(this.TOP_RIGHT_CONTAINER_CLASS, 'display-ui'); // Use CSS class
       this.parentContainer.appendChild(topRightContainer);
     }
 

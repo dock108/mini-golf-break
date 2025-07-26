@@ -103,6 +103,14 @@ export class InputController {
       // Get the DOM element to attach events to
       const domElement = this.renderer ? this.renderer.domElement : window;
 
+      console.log(
+        '🔥 INPUT CONTROLLER INIT - domElement:',
+        domElement?.tagName || 'WINDOW',
+        'renderer exists:',
+        !!this.renderer
+      );
+      console.log('🔥 INPUT CONTROLLER INIT - domElement id:', domElement?.id || 'no-id');
+
       // Bind methods to ensure 'this' context is preserved
       this.onMouseDown = this.onMouseDown.bind(this);
       this.onMouseMove = this.onMouseMove.bind(this);
@@ -121,6 +129,11 @@ export class InputController {
       domElement.addEventListener('touchstart', this.onTouchStart);
       window.addEventListener('touchmove', this.onTouchMove);
       window.addEventListener('touchend', this.onTouchEnd);
+
+      console.log(
+        '🔥 INPUT CONTROLLER - Touch listeners added to:',
+        domElement?.tagName || 'WINDOW'
+      );
 
       // Add keydown listener
       window.addEventListener('keydown', this.onKeyDown);
@@ -534,8 +547,17 @@ export class InputController {
   }
 
   onTouchStart(event) {
-    // Ignore multi-touch events completely - let TouchCameraController handle them
+    console.log(
+      `[InputController.onTouchStart] Touch event received, touches: ${event.touches.length}, target: ${event.target.tagName}`
+    );
+
+    // Handle multi-touch events for camera control
     if (event.touches.length > 1) {
+      console.log('[InputController.onTouchStart] Delegating multi-touch to camera controller');
+      // Delegate to TouchCameraController if available
+      if (this.game.cameraController?.touchController) {
+        this.game.cameraController.touchController.handleTouchStart(event);
+      }
       return;
     }
 
@@ -547,6 +569,8 @@ export class InputController {
       );
       return; // Ignore touch if input disabled or ball is moving
     }
+
+    console.log('[InputController.onTouchStart] Processing single touch for game interaction');
 
     // Only handle single touch events for aiming/shooting
     if (event.touches.length === 1) {
@@ -570,8 +594,13 @@ export class InputController {
   }
 
   onTouchMove(event) {
-    // Ignore multi-touch events completely - let TouchCameraController handle them
+    // Handle multi-touch events for camera control
     if (event.touches.length > 1) {
+      console.log('[InputController.onTouchMove] Delegating multi-touch to camera controller');
+      // Delegate to TouchCameraController if available
+      if (this.game.cameraController?.touchController) {
+        this.game.cameraController.touchController.handleTouchMove(event);
+      }
       return;
     }
 
@@ -592,7 +621,24 @@ export class InputController {
   }
 
   onTouchEnd(event) {
-    // Only handle if we were actually dragging (pointer was down)
+    console.log(
+      `[InputController.onTouchEnd] Touch end received, remaining touches: ${event.touches.length}, changed: ${event.changedTouches.length}, isPointerDown: ${this.isPointerDown}`
+    );
+
+    // Handle multi-touch camera control - delegate if there are still touches remaining
+    // or if this was part of a multi-touch gesture
+    if (event.touches.length > 0 || event.changedTouches.length > 1) {
+      console.log('[InputController.onTouchEnd] Delegating multi-touch end to camera controller');
+      // Delegate to TouchCameraController if available
+      if (this.game.cameraController?.touchController) {
+        this.game.cameraController.touchController.handleTouchEnd(event);
+      }
+      return;
+    }
+
+    console.log('[InputController.onTouchEnd] Processing single touch end for game interaction');
+
+    // Only handle single touch end if we were actually dragging (pointer was down)
     if (this.isPointerDown) {
       // Simulate a left mouse button up event
       const simulatedMouseEvent = {
