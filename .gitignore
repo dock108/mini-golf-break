@@ -21,6 +21,7 @@ build/
 .idea/
 *.sublime-project
 *.sublime-workspace
+TASK_LIST.ignore.md
 
 # OS files
 .DS_Store
@@ -101,4 +102,3 @@ docs/.docusaurus/
 *.swp
 *.swo
 *~
-TASK_LIST.ignore.md

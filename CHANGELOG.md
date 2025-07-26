@@ -113,7 +113,7 @@ All notable changes to the Mini Golf Break project will be documented in this fi
 
 ### Documentation
 - (Retained from original 04-06 entry) Updated README, Project Checklist, and Dev Guide for physics debugging.
-- **Documentation Pass (Phase 4):** Updated `DEVELOPMENT_GUIDE.md` with current architecture, system interactions, game flow, manager responsibilities, and `NineHoleCourse` status.
+- **Documentation Pass (Phase 4):** Updated `docs/development-guide.md` with current architecture, system interactions, game flow, manager responsibilities, and `NineHoleCourse` status.
 
 ## [0.9.3] - Camera System Overhaul
 
