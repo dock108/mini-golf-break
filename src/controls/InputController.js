@@ -103,6 +103,14 @@ export class InputController {
       // Get the DOM element to attach events to
       const domElement = this.renderer ? this.renderer.domElement : window;
 
+      console.log(
+        '🔥 INPUT CONTROLLER INIT - domElement:',
+        domElement?.tagName || 'WINDOW',
+        'renderer exists:',
+        !!this.renderer
+      );
+      console.log('🔥 INPUT CONTROLLER INIT - domElement id:', domElement?.id || 'no-id');
+
       // Bind methods to ensure 'this' context is preserved
       this.onMouseDown = this.onMouseDown.bind(this);
       this.onMouseMove = this.onMouseMove.bind(this);
@@ -121,6 +129,11 @@ export class InputController {
       domElement.addEventListener('touchstart', this.onTouchStart);
       window.addEventListener('touchmove', this.onTouchMove);
       window.addEventListener('touchend', this.onTouchEnd);
+
+      console.log(
+        '🔥 INPUT CONTROLLER - Touch listeners added to:',
+        domElement?.tagName || 'WINDOW'
+      );
 
       // Add keydown listener
       window.addEventListener('keydown', this.onKeyDown);
@@ -534,6 +547,20 @@ export class InputController {
   }
 
   onTouchStart(event) {
+    console.log(
+      `[InputController.onTouchStart] Touch event received, touches: ${event.touches.length}, target: ${event.target.tagName}`
+    );
+
+    // Handle multi-touch events for camera control
+    if (event.touches.length > 1) {
+      console.log('[InputController.onTouchStart] Delegating multi-touch to camera controller');
+      // Delegate to TouchCameraController if available
+      if (this.game.cameraController?.touchController) {
+        this.game.cameraController.touchController.handleTouchStart(event);
+      }
+      return;
+    }
+
     // Check if input is allowed and if the ball is stopped
     const ball = this.game.ballManager?.ball;
     if (!this.isInputEnabled || (ball && !ball.isStopped())) {
@@ -543,17 +570,7 @@ export class InputController {
       return; // Ignore touch if input disabled or ball is moving
     }
 
-    // Handle multi-touch detection
-    this.isMultiTouch = event.touches.length > 1;
-
-    if (event.touches.length === 2) {
-      // Calculate initial pinch distance
-      const touch1 = event.touches[0];
-      const touch2 = event.touches[1];
-      const dx = touch1.clientX - touch2.clientX;
-      const dy = touch1.clientY - touch2.clientY;
-      this.pinchDistance = Math.sqrt(dx * dx + dy * dy);
-    }
+    console.log('[InputController.onTouchStart] Processing single touch for game interaction');
 
     // Only handle single touch events for aiming/shooting
     if (event.touches.length === 1) {
@@ -574,11 +591,20 @@ export class InputController {
       // Call the existing onMouseDown logic
       this.onMouseDown(simulatedMouseEvent);
     }
-    // Ignore multi-touch events for shooting mechanics
   }
 
   onTouchMove(event) {
-    // Only handle single touch movements if a drag is active
+    // Handle multi-touch events for camera control
+    if (event.touches.length > 1) {
+      console.log('[InputController.onTouchMove] Delegating multi-touch to camera controller');
+      // Delegate to TouchCameraController if available
+      if (this.game.cameraController?.touchController) {
+        this.game.cameraController.touchController.handleTouchMove(event);
+      }
+      return;
+    }
+
+    // Handle single touch movements if a drag is active
     if (this.isPointerDown && event.touches.length === 1) {
       const touch = event.touches[0];
 
@@ -591,17 +617,30 @@ export class InputController {
 
       // Call the existing onMouseMove logic
       this.onMouseMove(simulatedMouseEvent);
-
-      // Edge detection is handled in onMouseMove, no need to duplicate it here
     }
   }
 
   onTouchEnd(event) {
-    // Check if we were actually dragging (pointer was down)
-    // touchend is fired even if the touch didn't start on the canvas
+    console.log(
+      `[InputController.onTouchEnd] Touch end received, remaining touches: ${event.touches.length}, changed: ${event.changedTouches.length}, isPointerDown: ${this.isPointerDown}`
+    );
+
+    // Handle multi-touch camera control - delegate if there are still touches remaining
+    // or if this was part of a multi-touch gesture
+    if (event.touches.length > 0 || event.changedTouches.length > 1) {
+      console.log('[InputController.onTouchEnd] Delegating multi-touch end to camera controller');
+      // Delegate to TouchCameraController if available
+      if (this.game.cameraController?.touchController) {
+        this.game.cameraController.touchController.handleTouchEnd(event);
+      }
+      return;
+    }
+
+    console.log('[InputController.onTouchEnd] Processing single touch end for game interaction');
+
+    // Only handle single touch end if we were actually dragging (pointer was down)
     if (this.isPointerDown) {
       // Simulate a left mouse button up event
-      // We don't strictly need coordinates for mouse up logic
       const simulatedMouseEvent = {
         button: 0, // Simulate left mouse button release
         preventDefault: () => event.preventDefault() // Pass preventDefault
@@ -610,8 +649,6 @@ export class InputController {
       // Call the existing onMouseUp logic
       this.onMouseUp(simulatedMouseEvent);
     }
-    // Note: No check for event.touches.length here, as touchend signifies the end of a touch point.
-    // The state (isPointerDown) determines if it corresponds to our drag action.
   }
 
   calculateDragPower() {
@@ -1033,9 +1070,8 @@ export class InputController {
 
       if (currentState === GameState.AD_INSPECTING) {
         console.log('[InputController] Exiting AD_INSPECTING state.');
-        // Restore controls setting from before aiming started (usually false)
-        // Or simply set to false if aiming should always disable controls.
-        this.game.cameraController.controls.enabled = false;
+        // Enable orbit controls for free camera movement during AIMING state
+        this.game.cameraController.controls.enabled = true;
         // Determine appropriate state to return to (AIMING if ball stopped, otherwise maybe let it be)
         // For now, assume we can always go back to AIMING when toggling off.
         this.stateManager.setGameState(GameState.AIMING);

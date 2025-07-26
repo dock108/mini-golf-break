@@ -2,5 +2,21 @@
   "appId": "com.minigolfbreak.app",
   "appName": "MiniGolfBreak",
   "webDir": "dist",
-  "bundledWebRuntime": false
+  "bundledWebRuntime": false,
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "launchAutoHide": true,
+      "backgroundColor": "#000000",
+      "showSpinner": false,
+      "splashFullScreen": false,
+      "splashImmersive": false,
+      "iosSpinnerStyle": "small",
+      "spinnerColor": "#999999"
+    }
+  },
+  "ios": {
+    "contentInset": "automatic",
+    "backgroundColor": "#000000"
+  }
 }

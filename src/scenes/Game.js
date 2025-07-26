@@ -26,6 +26,7 @@ import { HoleCompletionManager } from '../managers/HoleCompletionManager';
 import { GameLoopManager } from '../managers/GameLoopManager';
 import { EventManager } from '../managers/EventManager';
 import { PerformanceManager } from '../managers/PerformanceManager';
+import { iOSOptimizations } from '../utils/iOSOptimizations';
 
 /**
  * Game - Main class that orchestrates the mini-golf game
@@ -85,6 +86,9 @@ export class Game {
    */
   async init() {
     try {
+      // Initialize iOS optimizations early
+      await iOSOptimizations.init();
+
       // Setup renderer first
       this.renderer = new THREE.WebGLRenderer({ antialias: true });
       this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -115,6 +119,9 @@ export class Game {
       // Initialize camera controller after renderer is created
       this.cameraController.setRenderer(this.renderer);
       this.cameraController.init();
+
+      // Apply iOS performance optimizations
+      await iOSOptimizations.applyPerformanceOptimizations(this.cameraController, this.renderer);
 
       // Third tier - Game systems that may depend on UI and rendering
       this.visualEffectsManager.init();

@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { TouchCameraController } from './TouchCameraController';
+import { CameraStateManager, CameraModes } from './CameraStateManager';
 import { EventTypes } from '../events/EventTypes';
 import { debug } from '../utils/debug';
 
@@ -25,6 +27,8 @@ export class CameraController {
       5000 // Far Clipping Plane (Increased significantly from 1000)
     );
     this.controls = null;
+    this.touchController = null;
+    this.stateManager = null;
 
     // Game references
     this.course = null;
@@ -32,6 +36,9 @@ export class CameraController {
 
     // Debug mode
     this.debugMode = false;
+
+    // Touch device detection
+    this.isTouchDevice = this.detectTouchDevice();
 
     // Initialization state tracking
     this.isInitialized = false;
@@ -92,6 +99,18 @@ export class CameraController {
         console.log('[CameraController.init] Setting up controls...');
         this.setupControls();
         console.log('[CameraController.init] Controls setup finished.');
+
+        // Setup camera state manager
+        console.log('[CameraController.init] Setting up camera state manager...');
+        this.setupStateManager();
+        console.log('[CameraController.init] Camera state manager setup finished.');
+
+        // Setup touch controls for mobile devices
+        if (this.isTouchDevice) {
+          console.log('[CameraController.init] Setting up touch controls...');
+          this.setupTouchControls();
+          console.log('[CameraController.init] Touch controls setup finished.');
+        }
       } else {
         console.warn(
           '[CameraController.init] Initialized without renderer, orbit controls will be disabled'
@@ -202,17 +221,151 @@ export class CameraController {
   }
 
   /**
-   * Handle ball hit event - reset camera adjustment flag when ball is hit
+   * Handle ball hit event - trigger cinematic ball following
    * @param {GameEvent} event - The ball hit event
    */
-  handleBallHit(_event) {
+  handleBallHit(event) {
     // Reset user adjustment flag when ball is hit, so camera follows the shot
     this._userAdjustedCamera = false;
+
+    // Get ball hit data for dynamic camera positioning
+    const direction = event.get('direction');
+    const power = event.get('power');
+
+    // Trigger cinematic ball follow mode
+    this.startCinematicBallFollow(direction, power);
+
     if (this.game.debugManager) {
       this.game.debugManager.log(
         'CameraController.handleBallHit',
-        'Ball hit, resetting camera adjustment flag'
+        `Ball hit with power ${power}, starting cinematic follow`
       );
+    }
+  }
+
+  /**
+   * Start cinematic ball following with dynamic positioning based on shot
+   * @param {THREE.Vector3} direction - Shot direction vector
+   * @param {number} power - Shot power (0-1)
+   */
+  startCinematicBallFollow(direction, power) {
+    if (!this.stateManager) {
+      return; // Fallback to existing behavior
+    }
+
+    // Calculate dynamic camera position based on shot
+    const ball = this.game.ballManager ? this.game.ballManager.ball : null;
+    if (!ball || !ball.mesh) {
+      return;
+    }
+
+    const ballPosition = ball.mesh.position.clone();
+
+    // Calculate ideal camera position behind the ball
+    const shotDirection = direction ? direction.clone().normalize() : new THREE.Vector3(0, 0, 1);
+
+    // Position camera behind ball with height based on power
+    const baseDistance = 6 + power * 8; // 6-14 units behind ball
+    const baseHeight = 4 + power * 6; // 4-10 units above ground
+
+    const cameraOffset = shotDirection.clone().negate().multiplyScalar(baseDistance);
+    cameraOffset.y = baseHeight;
+
+    const cameraPosition = ballPosition.clone().add(cameraOffset);
+    const lookAtTarget = ballPosition.clone();
+    lookAtTarget.y += 0.5; // Look slightly above ball center
+
+    // Update ball follow camera state with dynamic positioning
+    this.updateCameraModeState(CameraModes.BALL_FOLLOW, {
+      position: cameraPosition,
+      target: lookAtTarget,
+      fov: 65 - power * 10 // Tighter FOV for powerful shots
+    });
+
+    // Transition to ball follow mode
+    this.setCameraMode(CameraModes.BALL_FOLLOW, false, {
+      duration: 0.8 // Quick transition to catch the shot
+    });
+
+    // Set up ball stop detection
+    this.startBallStopDetection();
+  }
+
+  /**
+   * Monitor ball movement and return to overhead when stopped
+   */
+  startBallStopDetection() {
+    if (this.ballStopDetection) {
+      clearInterval(this.ballStopDetection);
+    }
+
+    let consecutiveStopFrames = 0;
+    const requiredStopFrames = 60; // ~1 second at 60fps
+
+    this.ballStopDetection = setInterval(() => {
+      const ball = this.game.ballManager ? this.game.ballManager.ball : null;
+      if (!ball || !ball.body) {
+        this.stopBallStopDetection();
+        return;
+      }
+
+      const velocity = ball.body.velocity;
+      const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+
+      if (speed < 0.1) {
+        // Ball is essentially stopped
+        consecutiveStopFrames++;
+        if (consecutiveStopFrames >= requiredStopFrames) {
+          this.returnToOverheadView();
+          this.stopBallStopDetection();
+        }
+      } else {
+        consecutiveStopFrames = 0; // Reset counter if ball is still moving
+      }
+    }, 16); // ~60fps checking
+  }
+
+  /**
+   * Return to overhead view after ball stops
+   */
+  returnToOverheadView() {
+    if (this.stateManager && this.stateManager.getCurrentMode() === CameraModes.BALL_FOLLOW) {
+      // Update overhead view to center on current ball position
+      const ball = this.game.ballManager ? this.game.ballManager.ball : null;
+      if (ball && ball.mesh && this.course) {
+        const ballPosition = ball.mesh.position.clone();
+        const holePosition = this.course.getHolePosition();
+
+        if (holePosition) {
+          // Calculate optimal overhead position
+          const midpoint = new THREE.Vector3()
+            .addVectors(ballPosition, holePosition)
+            .multiplyScalar(0.5);
+
+          const distance = ballPosition.distanceTo(holePosition);
+          const height = Math.max(15, distance * 0.8);
+
+          this.updateCameraModeState(CameraModes.OVERHEAD, {
+            position: new THREE.Vector3(midpoint.x, height, midpoint.z + distance * 0.3),
+            target: midpoint.clone().add(new THREE.Vector3(0, -2, 0))
+          });
+        }
+      }
+
+      // Transition back to overhead
+      this.setCameraMode(CameraModes.OVERHEAD, false, {
+        duration: 1.2 // Slower transition back
+      });
+    }
+  }
+
+  /**
+   * Stop ball stop detection
+   */
+  stopBallStopDetection() {
+    if (this.ballStopDetection) {
+      clearInterval(this.ballStopDetection);
+      this.ballStopDetection = null;
     }
   }
 
@@ -276,13 +429,25 @@ export class CameraController {
    * @param {number} deltaTime - Time since last update in seconds
    */
   update(deltaTime) {
+    // Update state manager first (handles transitions)
+    if (this.stateManager) {
+      this.stateManager.update(deltaTime);
+    }
+
     // Update controls if they exist
     if (this.controls) {
       this.controls.update();
     }
 
     // Update camera to follow the ball if it exists and is moving
-    this.updateCameraFollowBall(deltaTime);
+    // (but only if not in transition or manual mode)
+    if (
+      !this.stateManager ||
+      (!this.stateManager.isInTransition() &&
+        this.stateManager.getCurrentMode() !== CameraModes.MANUAL)
+    ) {
+      this.updateCameraFollowBall(deltaTime);
+    }
   }
 
   /**
@@ -401,8 +566,15 @@ export class CameraController {
     }
 
     const ballPosition = ball.mesh.position.clone(); // Ball position is already WORLD
+    const currentMode = this.stateManager ? this.stateManager.getCurrentMode() : null;
 
-    // During transition, always follow the ball regardless of user adjustment
+    // Enhanced ball following for BALL_FOLLOW mode
+    if (currentMode === CameraModes.BALL_FOLLOW && ball.body) {
+      this.updateDynamicBallFollow(ballPosition, ball.body, deltaTime);
+      return;
+    }
+
+    // During legacy transition mode (backwards compatibility)
     if (this.isTransitioning) {
       // Position camera slightly above and behind ball with high angle
       // Calculate direction based on ball's velocity if available
@@ -596,6 +768,74 @@ export class CameraController {
   }
 
   /**
+   * Enhanced dynamic ball following for cinematic camera mode
+   * @param {THREE.Vector3} ballPosition - Current ball position
+   * @param {CANNON.Body} ballBody - Ball physics body
+   * @param {number} deltaTime - Time delta
+   */
+  updateDynamicBallFollow(ballPosition, ballBody, deltaTime) {
+    const velocity = ballBody.velocity;
+    const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+
+    // Calculate ideal camera position based on ball movement
+    let targetCameraPosition;
+    let targetLookAt;
+
+    if (speed > 0.5) {
+      // Ball is moving - position camera behind movement direction
+      const movementDirection = new THREE.Vector3(velocity.x, 0, velocity.z).normalize();
+
+      // Dynamic distance and height based on speed
+      const dynamicDistance = Math.min(12, 6 + speed * 2);
+      const dynamicHeight = Math.min(10, 4 + speed * 1.5);
+
+      // Position camera behind the movement
+      const behindOffset = movementDirection.clone().negate().multiplyScalar(dynamicDistance);
+      behindOffset.y = dynamicHeight;
+
+      targetCameraPosition = ballPosition.clone().add(behindOffset);
+
+      // Look ahead of the ball in movement direction
+      const lookAheadDistance = Math.min(3, speed * 0.5);
+      targetLookAt = ballPosition
+        .clone()
+        .add(movementDirection.clone().multiplyScalar(lookAheadDistance));
+      targetLookAt.y += 0.5;
+    } else {
+      // Ball is slow/stopped - maintain current relative position but closer
+      const currentOffset = new THREE.Vector3()
+        .subVectors(this.camera.position, ballPosition)
+        .normalize()
+        .multiplyScalar(8);
+      currentOffset.y = Math.max(currentOffset.y, 5);
+
+      targetCameraPosition = ballPosition.clone().add(currentOffset);
+      targetLookAt = ballPosition.clone();
+      targetLookAt.y += 0.2;
+    }
+
+    // Smooth camera movement with adaptive lerp factor
+    const lerpFactor = speed > 1.0 ? 0.08 : 0.15; // Slower tracking for fast ball
+    this.camera.position.lerp(targetCameraPosition, lerpFactor);
+
+    // Smooth look-at with slight delay for cinematic feel
+    if (this.controls) {
+      this.controls.target.lerp(targetLookAt, lerpFactor * 0.8);
+      this.controls.update();
+    } else {
+      this.camera.lookAt(targetLookAt);
+    }
+
+    // Update the state manager with current camera position for consistency
+    if (this.stateManager) {
+      this.updateCameraModeState(CameraModes.BALL_FOLLOW, {
+        position: this.camera.position.clone(),
+        target: targetLookAt
+      });
+    }
+  }
+
+  /**
    * Position camera behind ball pointing toward hole
    */
   positionCameraBehindBall() {
@@ -654,6 +894,21 @@ export class CameraController {
       if (this.eventSubscriptions) {
         this.eventSubscriptions.forEach(unsubscribe => unsubscribe());
         this.eventSubscriptions = [];
+      }
+
+      // Dispose of touch controller
+      if (this.touchController) {
+        this.touchController.dispose();
+        this.touchController = null;
+      }
+
+      // Stop ball stop detection
+      this.stopBallStopDetection();
+
+      // Dispose of camera state manager
+      if (this.stateManager) {
+        this.stateManager.dispose();
+        this.stateManager = null;
       }
 
       // Dispose of orbit controls if they exist
@@ -732,12 +987,14 @@ export class CameraController {
       this.controls.dampingFactor = 0.1;
       this.controls.rotateSpeed = 0.7;
       this.controls.zoomSpeed = 1.2;
-      this.controls.minDistance = 2;
-      this.controls.maxDistance = 30;
+      this.controls.minDistance = 3;
+      this.controls.maxDistance = 40;
       this.controls.maxPolarAngle = Math.PI / 2; // Limit vertical rotation
 
-      // Enable target movement with middle mouse
+      // Enable all controls by default
       this.controls.enablePan = true;
+      this.controls.enableZoom = true;
+      this.controls.enableRotate = true;
       this.controls.panSpeed = 0.8;
       this.controls.screenSpacePanning = true;
 
@@ -746,6 +1003,11 @@ export class CameraController {
         this._userAdjustedCamera = true;
         this._lastManualControlTime = Date.now();
         console.log('[CameraController] User manually adjusted camera');
+      });
+
+      // Listen for camera reset events
+      this.renderer.domElement.addEventListener('camera-reset-view', event => {
+        this.resetCameraView(event.detail.smooth);
       });
 
       if (this.game.debugManager) {
@@ -938,5 +1200,141 @@ export class CameraController {
 
     this.camera.updateProjectionMatrix();
     debug.log(`[CameraController] Quality level set: ${isHighPerformance ? 'High' : 'Low'}`);
+  }
+
+  /**
+   * Detect if device supports touch
+   */
+  detectTouchDevice() {
+    return (
+      'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0
+    );
+  }
+
+  /**
+   * Setup touch-specific controls
+   */
+  setupTouchControls() {
+    if (!this.controls || !this.renderer) {
+      return;
+    }
+
+    this.touchController = new TouchCameraController(
+      this.camera,
+      this.renderer.domElement,
+      this.controls
+    );
+
+    this.touchController.enable();
+
+    // Optimize orbit controls for touch
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.05;
+    this.controls.rotateSpeed = 0.5;
+    this.controls.zoomSpeed = 0.8;
+    this.controls.panSpeed = 0.5;
+
+    debug.log('[CameraController] Touch controls initialized');
+  }
+
+  /**
+   * Setup camera state manager
+   */
+  setupStateManager() {
+    this.stateManager = new CameraStateManager(this.camera, this.controls);
+
+    // Initialize with overhead mode
+    this.stateManager.setCameraMode(CameraModes.OVERHEAD, true);
+
+    debug.log('[CameraController] Camera state manager initialized');
+  }
+
+  /**
+   * Set camera mode with optional transition
+   * @param {string} mode - Target camera mode from CameraModes
+   * @param {boolean} immediate - Skip transition animation
+   * @param {Object} options - Additional transition options
+   */
+  setCameraMode(mode, immediate = false, options = {}) {
+    if (!this.stateManager) {
+      debug.warn('[CameraController] State manager not initialized');
+      return false;
+    }
+
+    return this.stateManager.setCameraMode(mode, immediate, options);
+  }
+
+  /**
+   * Get current camera mode
+   */
+  getCurrentCameraMode() {
+    return this.stateManager ? this.stateManager.getCurrentMode() : CameraModes.OVERHEAD;
+  }
+
+  /**
+   * Check if camera is transitioning between modes
+   */
+  isCameraTransitioning() {
+    return this.stateManager ? this.stateManager.isInTransition() : false;
+  }
+
+  /**
+   * Configure camera transition settings
+   */
+  setCameraTransitionSettings(settings) {
+    if (this.stateManager) {
+      this.stateManager.setTransitionSettings(settings);
+    }
+  }
+
+  /**
+   * Update camera state for specific mode (useful for dynamic positioning)
+   */
+  updateCameraModeState(mode, stateUpdate) {
+    if (this.stateManager) {
+      this.stateManager.updateCameraState(mode, stateUpdate);
+    }
+  }
+
+  /**
+   * Get available camera modes
+   */
+  getAvailableCameraModes() {
+    return this.stateManager ? this.stateManager.getAvailableModes() : [CameraModes.OVERHEAD];
+  }
+
+  /**
+   * Toggle between overhead and ball follow modes
+   */
+  toggleCameraMode() {
+    if (!this.stateManager) {
+      return false;
+    }
+
+    const currentMode = this.stateManager.getCurrentMode();
+
+    if (currentMode === CameraModes.OVERHEAD) {
+      return this.setCameraMode(CameraModes.BALL_FOLLOW);
+    } else if (currentMode === CameraModes.BALL_FOLLOW) {
+      return this.setCameraMode(CameraModes.OVERHEAD);
+    } else {
+      // If in manual or other mode, go to overhead
+      return this.setCameraMode(CameraModes.OVERHEAD);
+    }
+  }
+
+  /**
+   * Reset camera to default view
+   */
+  resetCameraView(smooth = true) {
+    this._userAdjustedCamera = false;
+
+    if (this.stateManager) {
+      this.stateManager.setCameraMode(CameraModes.OVERHEAD, !smooth);
+    } else {
+      this.positionCameraForHole();
+    }
+
+    debug.log('[CameraController] Camera view reset');
   }
 }
